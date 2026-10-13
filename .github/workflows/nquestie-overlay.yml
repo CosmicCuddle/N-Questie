@@ -32,3 +32,28 @@ jobs:
           grep -Fq 'Compat\NQuestieCustomQuestData.lua' Questie-335.toc
           grep -Fq 'Compat\NQuestieCustomQuestLoader.lua' Questie-335.toc
           grep -Fq 'nQuestieDataRevision' Modules/QuestieInit.lua
+      - name: Assemble PR-only WoW 3.3.5a addon package
+        if: github.event_name == 'pull_request'
+        run: |
+          mkdir -p qa-package/Questie-335
+          cp Questie.lua Questie-335.toc embeds.xml qa-package/Questie-335/
+          cp -R Compat Database Icons Libs Localization Modules qa-package/Questie-335/
+          {
+            echo "N-Questie custom quest prototype — PR TEST ONLY"
+            echo "Not an official release; do not redistribute as a stable Questie build."
+            echo "GitHub source commit: $(git rev-parse HEAD)"
+            echo "Back up the installed Questie addon and both SavedVariables before installation."
+            echo "Install exactly one folder: Interface/AddOns/Questie-335/"
+          } > qa-package/Questie-335/QA_BUILD_NOTICE.txt
+          test -s qa-package/Questie-335/Questie-335.toc
+          test -s qa-package/Questie-335/Compat/NQuestieCustomQuestLoader.lua
+          test -s qa-package/Questie-335/Compat/NQuestieCustomQuestData.lua
+          echo "QA build only. Run in-game tests before merging or releasing." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload temporary N-Questie PR test build
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: N-Questie-335-PR-TestBuild
+          path: qa-package/
+          if-no-files-found: error
+          retention-days: 14
