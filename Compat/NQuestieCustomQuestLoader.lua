@@ -45,10 +45,14 @@ end
 local function validQuest(id, q)
     return isId(id) and type(q) == "table" and
         type(q.name) == "string" and q.name ~= "" and
-        isId(q.requiredLevel + 1) and isId(q.questLevel) and
-        type(q.zoneOrSort) == "number" and
-        type(q.requiredRaces) == "number" and
-        type(q.questFlags) == "number" and
+        type(q.requiredLevel) == "number" and q.requiredLevel >= 0 and
+        q.requiredLevel == math.floor(q.requiredLevel) and
+        isId(q.questLevel) and
+        type(q.zoneOrSort) == "number" and q.zoneOrSort == math.floor(q.zoneOrSort) and
+        type(q.requiredRaces) == "number" and q.requiredRaces >= 0 and
+        q.requiredRaces == math.floor(q.requiredRaces) and
+        type(q.questFlags) == "number" and q.questFlags >= 0 and
+        q.questFlags == math.floor(q.questFlags) and
         validIdList(q.startedByNpcs) and #q.startedByNpcs > 0 and
         validIdList(q.finishedByNpcs) and #q.finishedByNpcs > 0 and
         validIdList(q.killNpcs) and
