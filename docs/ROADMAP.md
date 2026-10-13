@@ -1,0 +1,54 @@
+# N-Questie — Development Roadmap
+
+**Updated:** 13 October 2026  
+**Baseline:** forked `divial28/Questie-335`, branch `335`, upstream addon v9.5.1.  
+**Status:** foundation/documentation; no Naxxramas custom quest functionality implemented yet.
+
+## Phase 0 — Foundation and safety
+
+- [x] Establish `CosmicCuddle/N-Questie` from the selected 3.3.5a source fork; retain branch `335`.
+- [x] Confirm addon loader, database sources, correction layer and SavedVariables names in source.
+- [x] Document safe backups, release boundaries, proposed import data contract and maintainer handover.
+- [ ] Finish attribution/licence review for any redistributable custom Questie package; retain original credits.
+- [ ] Verify baseline addon behaviour and current warnings in-game without modifying saved settings or quests.
+- [ ] Determine whether baseline fork CI is applicable/passable or needs scoped 3.3.5a checks.
+
+## Phase 1 — Reliable custom quest starter/ender map icons
+
+- [ ] Obtain one specific **real server quest ID** with missing marker(s); record location and expected NPC/object IDs.
+- [ ] Inspect **read-only** `world` quest starter/ender and spawn data; detect server-specific NPC/object or quest ID differences.
+- [ ] Implement a small `N-Questie`-specific correction/overlay, with clear separation from generated WotLK databases.
+- [ ] Verify correction loading order, compiled-DB invalidation/rebuild behavior, map conversion and marker filters.
+- [ ] Add tests for custom IDs, malformed data rejection, duplicate-safe merges and optional hide/availability rules.
+- [ ] Test one quest icon on the world map and minimap; preserve vanilla quest behavior.
+
+**Acceptance:** A confirmed, available custom quest displays its correct start and end markers at real NPC/gameobject spawn locations; unrelated native quests still display as before. Markers must not appear on unrelated maps.
+
+## Phase 2 — Simple future quest additions
+
+- [ ] Create a versioned, human-readable custom quest manifest supported by a validation/generation script (format to be selected after the first proven quest).
+- [ ] Provide **read-only export queries** or HeidiSQL steps matching the deployed AzerothCore world DB schema.
+- [ ] Validate referential integrity across quest IDs, starters, enders and spawn source records, including zones/maps.
+- [ ] Support add/update/remove from a single manifest; generated Lua deterministic and reviewable.
+- [ ] Require explicit record provenance and prevent silent overwrites of unrelated base quests.
+
+**Acceptance:** Add one additional server quest through the documented manifest with no manual edits to large upstream generated database files.
+
+## Phase 3 — Objectives, custom rules and accuracy
+
+- [ ] Support NPC kill objectives, gameobject interactions, item drops, location-based objectives when confirmed by source.
+- [ ] Account for quest prerequisites, custom faction/race/class requirements and Individual Progression availability; never claim that client markers reflect server-authoritative unlock state until verified.
+- [ ] Handle multiple spawns/maps and time/phasing carefully; choose truthful pin visibility rules.
+- [ ] Review WoW 3.3.5a map/mini-map compatibility, icon scaling, tooltips and performance.
+
+## Phase 4 — Packaging, regression, release
+
+- [ ] Compare fork against upstream maintenance changes before broad rebases.
+- [ ] Run Lua 5.1 checks and scoped database-lookup/marker tests, followed by WoW 3.3.5a manual QA.
+- [ ] Preserve addon folder/TOC and SavedVariables continuity, including the ability to roll back.
+- [ ] Produce a clear tagged **N-Questie** release only with explicit maintainer approval.
+- [ ] Consider N-Addon-Collection import as a separate reviewed process after its standalone release.
+
+## Out of scope until specifically requested
+
+No auto-complete quests, server quest edits, account/character DB edits, progress unlock commands, live SQL sync from WoW, automatic client-server API, or silent mass replacement of vanilla quest icons.
