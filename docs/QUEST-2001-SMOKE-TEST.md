@@ -1,0 +1,40 @@
+# First curated N-Questie quest: Ravenclaw Cleanup (2001)
+
+**Status:** Implemented only on the draft N-Questie feature branch. **Not in-game tested, not merged, not released.** Server SQL was inspected locally and read-only. The server export itself is not committed.
+
+## Exact source-derived quest facts
+
+| Field | Selected acore_world export |
+| --- | --- |
+| Quest | 2001 — Ravenclaw Cleanup |
+| Required / quest level | 12 / 16 |
+| Zone | Silverpine Forest, area ID 130 |
+| Allowable race mask | 690 (the original server field) |
+| Server quest flag | 8 |
+| Previous required quest | 437 |
+| Starter / ender | Shadow Priest Allister, creature entry 2121 |
+| Kill objective 1 | Ravenclaw Servant, creature entry 1868, eight kills |
+| Kill objective 2 | Ravenclaw Champion, creature entry 1869, eight kills |
+
+The inherited Questie WotLK NPC database already contains entries for NPCs **2121, 1868 and 1869**, including coordinates on zone 130. No new map coordinates have been invented. **Those Questie coordinates have not yet been compared against each individual active server spawn/phase**, so marker accuracy requires in-game QA.
+
+## Implementation scope
+
+- Custom quest metadata is kept in \`Compat/NQuestieCustomQuestData.lua\`, separated from the large upstream WotLK quest table.
+- A generic callback in \`Compat/NQuestieCustomQuestLoader.lua\` registers a quest correction and adds missing quest relations to NPC 2121 **without deleting NPC 2121's existing quest start/turn-in list**.
+- NPC kill targets use the existing Questie NPC spawn entries. The client quest log, not this static table, determines how many kills have been completed.
+- \`Modules/QuestieInit.lua\` tracks \`nQuestieDataRevision\` and recompiles Questie's saved binary DB whenever the curated records change.
+- \`Questie-335.toc\` continues to define the installed WoW addon identity and both Questie SavedVariables. The display name is N-Questie and version \`9.5.1.1\` in this **test branch only**, distinguishing it from upstream v9.5.1.
+
+## Safe manual test (pending)
+
+1. **Close WoW** and back up the existing Questie-335 addon folder and the relevant account/character Questie SavedVariables. Do not delete or overwrite them.
+2. Install **one copy** of the draft test addon (once a validated QA build exists); do not install two Questies simultaneously.
+3. Choose a Horde character that can accept quest 2001 and has completed prerequisite **quest 437**. **Do not edit the character's server progression** to make the test pass.
+4. Open Silverpine Forest map and minimap before accepting the quest; look for a quest-start marker near Shadow Priest Allister.
+5. Accept the quest if actually offered. Confirm kill-objective markers appear in the Ravenclaw Servant and Ravenclaw Champion areas.
+6. After actual objective completion, check the turn-in marker at Shadow Priest Allister. Do not assume static markers prove quest eligibility.
+7. Check a few ordinary Silverpine quests for unchanged icons. Reload UI and verify N-Questie settings and progress are intact.
+8. Log any discrepancies, map clipping, warnings, wrong faction eligibility, stale cache or missing icons. Restore the backed-up addon directory if necessary.
+
+**Do not mark this test PASS from source analysis alone.** Scripted restrictions and nonstandard spawn/phasing may require further fixes.
