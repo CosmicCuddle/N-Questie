@@ -24,6 +24,8 @@ jobs:
           luac5.1 -p Modules/QuestieInit.lua
       - name: Run custom-quest overlay regression
         run: lua5.1 tests/test_nquestie_overlay.lua
+      - name: Test selected quest SQL export parser
+        run: python3 tools/test_export_world_quests.py
       - name: Verify 3.3.5a TOC integration
         run: |
           grep -Fq '## Interface: 30300' Questie-335.toc
