@@ -2,7 +2,7 @@
 
 **Updated:** 13 October 2026  
 **Baseline:** forked `divial28/Questie-335`, branch `335`, upstream addon v9.5.1.  
-**Status:** foundation/documentation; no Naxxramas custom quest functionality implemented yet.
+**Status:** first curated quest overlay implemented on an **unmerged QA branch**; not yet confirmed in-game or released.
 
 ## Phase 0 — Foundation and safety
 
@@ -15,9 +15,11 @@
 
 ## Phase 1 — Reliable custom quest starter/ender map icons
 
-- [ ] Obtain one specific **real server quest ID** with missing marker(s); record location and expected NPC/object IDs.
+- [x] Identify quest 2001 — Ravenclaw Cleanup as missing from Questie's raw WotLK quest table; its NPC giver, ender and kill target IDs were obtained from the private read-only world export.
+- [ ] Confirm quest 2001 is available to a suitable character in-game; its missing marker must be reproduced before claiming a fix.
 - [ ] Inspect **read-only** `world` quest starter/ender and spawn data; detect server-specific NPC/object or quest ID differences.
-- [ ] Implement a small `N-Questie`-specific correction/overlay, with clear separation from generated WotLK databases.
+- [x] Implement first **unmerged** N-Questie-specific quest/NPC correction overlay, separate from generated WotLK tables, with cache revision invalidation.
+- [ ] Validate in actual WoW 3.3.5a and refine unsupported cases.
 - [ ] Verify correction loading order, compiled-DB invalidation/rebuild behavior, map conversion and marker filters.
 - [ ] Add tests for custom IDs, malformed data rejection, duplicate-safe merges and optional hide/availability rules.
 - [ ] Test one quest icon on the world map and minimap; preserve vanilla quest behavior.
@@ -27,7 +29,8 @@
 ## Phase 2 — Simple future quest additions
 
 - [ ] Create a versioned, human-readable custom quest manifest supported by a validation/generation script (format to be selected after the first proven quest).
-- [ ] Provide **read-only export queries** or HeidiSQL steps matching the deployed AzerothCore world DB schema.
+- [x] Add initial Python read-only HeidiSQL SQL/ZIP extractor for **selected quest IDs** and JSON review output; deliberately reject unsupported NPC/objective situations.
+- [ ] Convert reviewed JSON into curated Lua automatically (currently one small manually-reviewed Lua record).
 - [ ] Validate referential integrity across quest IDs, starters, enders and spawn source records, including zones/maps.
 - [ ] Support add/update/remove from a single manifest; generated Lua deterministic and reviewable.
 - [ ] Require explicit record provenance and prevent silent overwrites of unrelated base quests.
