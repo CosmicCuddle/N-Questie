@@ -557,6 +557,23 @@ local function run()
     end
 
     ---------------------------------------------------------------------------
+    -- M1 objective rules on the real effective records for quest 1203.
+    -- The server-shaped row is synthetic, built from the public facts in
+    -- docs/REVIEW-2026-10-14.md (one Moonsteel Broadsword, item 3853).
+    ---------------------------------------------------------------------------
+    do
+        local Rules = dofile("tools/validation/ObjectiveRules.lua")
+        local row = Rules.FromQuestTemplateRow({ ID = 1203, RequiredItemId1 = 3853, RequiredItemCount1 = 1 })
+        local stock = { [QK.objectives] = snapshots.orig1203Objectives }
+        local stockClass = Rules.Worst(Rules.Compare(row, stock))
+        local effectiveClass = Rules.Worst(Rules.Compare(row, QuestieDB.questData[1203]))
+        print("[validate-335] M1 rules on quest 1203: stock Questie = " .. stockClass .. ", effective N-Questie = " .. effectiveClass)
+        check(stockClass == "CONFIRMED_MISMATCH", "M1: stock Questie 1203 must classify as CONFIRMED_MISMATCH (got " .. stockClass .. ")")
+        check(effectiveClass == "EXPECTED_REPRESENTATION_DIFF",
+              "M1: corrected 1203 must classify as EXPECTED_REPRESENTATION_DIFF only (got " .. effectiveClass .. ")")
+    end
+
+    ---------------------------------------------------------------------------
     -- Reviewed level corrections (PR #7 Dustwallow, PR #8 early zones),
     -- each with its own expected values. Unchanged fields must stay equal.
     ---------------------------------------------------------------------------
