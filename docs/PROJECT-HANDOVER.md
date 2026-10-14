@@ -1,5 +1,13 @@
 # N-Questie — Development Handover
 
+## Latest combined integration checkpoint — 14 October 2026
+
+**READ FIRST:** [INTEGRATION-28-QUEST-VALIDATION-2026-10-14.md](INTEGRATION-28-QUEST-VALIDATION-2026-10-14.md) documents [draft PR #16](https://github.com/CosmicCuddle/N-Questie/pull/16), a **new testing-only branch** from PR #13 that includes independent public M0 validator (#11), workflow (#10), CI-only revision guard (#12/#14), and inherited unit-test shim (#4) without modifying any contributor's original PR branches.
+
+**Verified on GitHub:** M0 [run 38571850030](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850030) **passed 230 checks** on all **28** corrected quest levels, checked **82,431** compiled quest values with **0 mismatches**, and rejected five synthetic faults. The revision guard passed seven self-tests [run 38571850279](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850279). Busted and LuaCheck passed in the inherited CI run after PR #4's fix was copied into the integration branch; other inherited CI jobs and newest docs-commit run need final confirmation. None of these constitute in-game QA or merge approval.
+
+**Still unresolved:** PR #2/#3 documentation ancestry gap, IP/condition and locale testing, approved game-client backup/QA, maintainer review. The private offline `acore_world.zip` and full audit workbook remain private; no installed addon, SavedVariables, live realm data, PR bases, releases or collection changes.
+
 ## Latest safety review — 14 October 2026 (revision guard and Hillsbrad candidates)
 
 **Revision safeguard:** Grok's draft [PR #12](https://github.com/CosmicCuddle/N-Questie/pull/12) contains a CI-only revision-bump guard. The lead workstream activated its proposed GitHub Actions workflow **in a separate draft [PR #14](https://github.com/CosmicCuddle/N-Questie/pull/14)**, without modifying #12's head or runtime cache implementation. **[GitHub revision guard run 38569424455](https://github.com/CosmicCuddle/N-Questie/actions/runs/38569424455) PASSED** including seven synthetic tests. Existing inherited CI on that branch still needs PR #4; no PR merged or released. This guard will only protect other development branches *once coordinated and integrated*; its isolated green run does not retroactively cover #13.
