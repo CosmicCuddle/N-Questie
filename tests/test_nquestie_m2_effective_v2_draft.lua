@@ -114,44 +114,44 @@ P2 = copy(P); P2.nQuestieDataRevision = 4
 ok(not D.CheckPairing(P, P2, OPT), "pairing: different revision rejected")
 local stock = copy(P); stock.dataKind = "stock"
 ok(not D.CheckPairing(stock, copy(stock), OPT), "pairing: stock export never paired as effective")
-local S = { exporter = "nq-acore-exporter", exporterVersion = "3.0.0", sourceLabel = "acore-world",
-    sourceFingerprint = "sha256:" .. string.rep("f", 64), exportedAt = "2026-10-14T12:00:00Z", selection = "explicit", questCount = 1 }
-ok(D.CheckServerProvenance(S, OPT), "server provenance validated on its own (no commit)")
-local S2 = copy(S); S2.sourceCommit = P.sourceCommit
-r, e = D.CheckServerProvenance(S2, OPT)
-ok(not r and has(e, "must not carry a git commit"), "server provenance never compared with a Questie commit")
-S2 = copy(S); S2.sourceFingerprint = "abc"
-ok(not D.CheckServerProvenance(S2, OPT), "server fingerprint format enforced")
--- R10 versioning
-ok(D.ValidateAnyVersion(dofile("tests/fixtures/m2_effective/effective_selected_quests.lua"), OPT), "R10 v1 still valid via dispatch")
-local v3 = copy(base); v3.schemaVersion = 3
-r, e = D.ValidateAnyVersion(v3, OPT)
-ok(not r and has(e, "unknown version"), "R10 unknown version rejected")
-local nv = copy(base); nv.schemaVersion = nil
-ok(not D.ValidateAnyVersion(nv, OPT), "R10 missing version rejected")
-ok(not V1.Validate(base), "R10 frozen v1 validator rejects v2 documents")
-local mig, merr = D.MigrateV1(dofile("tests/fixtures/m2_effective/effective_selected_quests.lua"), OPT)
-if mig then
-    ok(D.Validate(mig, OPT), "R10 migrated v1 document validates as v2")
-    ok(mig.quests[1].objectives[1].kind == "item" and mig.quests[1].objectives[1].id == 3853, "R10 migration keeps 1203 item 3853")
-else
-    ok(merr and #merr > 0, "R10 migration refuses what v1 cannot tell (" .. tostring(merr and merr[1]) .. ")")
+local srv = dofile("tests/fixtures/m2_input/private_adapter_v3_synthetic.lua")
+ok(D.CheckServerDocument(srv, OPT), "server document validated in full by the M2.1 validator")
+for _, f in ipairs({ "exporter", "exporterVersion", "sourceLabel", "sourceFingerprint", "exportedAt", "selection", "questCount" }) do
+    local bad = copy(srv); bad.provenance[f] = nil
+    r, e = D.CheckServerDocument(bad, OPT)
+    ok(not r and has(e, "provenance." .. f), "incomplete server provenance rejected: " .. f)
 end
-local simple = { schema = "nq-m2-effective", schemaVersion = 1, provenance = copy(base.provenance), quests = { {
-    ID = 1203, requiredLevel = 30, questLevel = 35, sourceItemId = 0, requiredSourceItems = {},
-    objectives = { creatures = {}, objects = {}, items = { 3853 }, killCredit = {}, spells = {} },
-    hasTriggerEnd = false, hasExtraObjectives = false, extraObjectiveItems = {} } } }
-simple.provenance.questCount = 1
-local m2 = D.MigrateV1(simple, OPT)
-ok(m2 and D.Validate(m2, OPT) and m2.quests[1].objectives[1].id == 3853, "R10 v1 -> v2 migration lossless for 1203")
-local withExtra = copy(simple); withExtra.quests[1].hasExtraObjectives = true
-local m3, e3 = D.MigrateV1(withExtra, OPT)
-ok(not m3 and has(e3, "not guessed"), "R10 migration refuses to guess extras")
-local d1, de = D.DowngradeToV1(base, OPT)
-ok(d1 == nil and has(de, "refused"), "R10 downgrade v2 -> v1 refused")
--- data-only parse of the fixture text
-local f = io.open("tests/fixtures/m2_effective_v2_draft/v2_categories.lua"); local src = f:read("*a"); f:close()
-ok(V1.ParseString(src) ~= nil, "fixture parses with the frozen data-only parser")
+local badv = copy(srv); badv.provenance.exporterVersion = "three"
+ok(not D.CheckServerDocument(badv, OPT), "invalid exporterVersion rejected")
+local badt = copy(srv); badt.provenance.exportedAt = "2026-13-40T99:00:00Z"
+ok(not D.CheckServerDocument(badt, OPT), "invalid exportedAt rejected")
+local badq = copy(srv); badq.provenance.questCount = 99
+ok(not D.CheckServerDocument(badq, OPT), "questCount mismatch rejected")
+local withCommit = copy(srv); withCommit.provenance.sourceCommit = P.sourceCommit
+r, e = D.CheckServerDocument(withCommit, OPT)
+ok(not r and has(e, "unknown field"), "server provenance cannot carry a git commit (never compared with Questie)")
+ok(D.CheckServerProvenance == nil, "no provenance-only server entry point exists")
+
+-- Migration never invents order facts (lead review #39 point 3)
+local function v1doc(objs)
+    local d = { schema = "nq-m2-effective", schemaVersion = 1, provenance = copy(base.provenance), quests = { {
+        ID = 900001, requiredLevel = 10, questLevel = 12, sourceItemId = 0, requiredSourceItems = {},
+        objectives = objs, hasTriggerEnd = false, hasExtraObjectives = false, extraObjectiveItems = {} } } }
+    d.provenance.questCount = 1
+    return d
+end
+local one = v1doc({ creatures = {}, objects = {}, items = {}, killCredit = { { ids = { 5 }, rootId = 5 } }, spells = {} })
+r, e = D.MigrateV1(one, OPT)
+ok(not r and has(e, "cannot be proven"), "migration refuses single-killCredit quest (flag unknown in v1)")
+local two = v1doc({ creatures = {}, objects = {}, items = {}, killCredit = { { ids = { 5 }, rootId = 5 }, { ids = { 6 }, rootId = 6 } }, spells = {} })
+r, e = D.MigrateV1(two, OPT)
+ok(not r and has(e, "cannot be proven"), "migration refuses two-killCredit-only quest (order may be reversed)")
+local mixed = v1doc({ creatures = { 7 }, objects = {}, items = {}, killCredit = { { ids = { 5 }, rootId = 5 } }, spells = {} })
+ok(not D.MigrateV1(mixed, OPT), "migration refuses killCredit beside other objectives")
+local nokc = D.MigrateV1(v1doc({ creatures = { 7, 8 }, objects = {}, items = { 3 }, killCredit = {}, spells = {} }), OPT)
+ok(nokc and nokc.quests[1].killCreditFirst == false and D.Validate(nokc, OPT), "no-killCredit quest migrates; false is provable")
+r, e = mutate(function(d) q(d, 1203).killCreditFirst = true; q(d, 1203).m1Status = "UNSUPPORTED_BY_RULES"; q(d, 1203).m1Reasons = { "KILLCREDIT_FIRST_REORDER" } end)
+ok(not r and has(e, "requires a killCredit objective"), "killCreditFirst true without killCredit rejected")
 
 if fails > 0 then print("FAILED: M2 v2 DRAFT (" .. fails .. " of " .. n .. ")") os.exit(1) end
 print("PASS: M2 v2 DRAFT prototype (" .. n .. " checks)")

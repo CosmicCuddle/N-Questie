@@ -52,18 +52,18 @@ Overlaps and the update procedure: `docs/NQ-VALIDATION-M2.2-COVERAGE.md`.
 
 **Correction to the earlier draft.** The earlier draft reported 22 "faction-only" reputation objectives and only 31 entries with an objective index. Both were artifacts of the M0 harness's comparison normaliser, which treats 0 as absent. The raw compiled values are `{faction, 0}` and `objectiveIndex = 0`. The v2 design now requires both values and keeps 0 as 0. The draft validator and fixtures were changed to match.
 
-## 4. Duplicate cases: evidence-based assessment
+## 4. Duplicate cases: public-source hypotheses (unverified)
 
-Sources: compiled data, inherited corrections, `git log`/`git blame` of the Questie corrections. No dedupe and no correction made.
+Sources: compiled data, inherited corrections, `git log`/`git blame` of the Questie corrections. **These are hypotheses from public Questie data only.** They are not confirmation of private-server objective correctness and not confirmed server bugs. Private server and in-game quest-log evidence is still outstanding. No dedupe and no correction made; 12683's two lines must not be deduplicated and its mapped creature ID is not proof of a kill-credit objective.
 
 | Quest | Compiled entries | Origin (git evidence) | Assessment |
 |---|---|---|---|
-| 11142 Survey Alcaz Island | objects {500007}, {500007}; extra: spawn-only event (zone 15), talk with `monster` 23704 | Raw DB has **no** objectives. `tbcQuestFixes.lua` added them in 4c36a5d88 (2022-10-27, "Fix missing objectives for 'Survey Alcaz Island'"). 500007 is a Questie-made object "Alcaz Survey Credit" (`tbcObjectFixes.lua`) | **Deliberate upstream mapping** of two quest-log lines to one placeholder credit object. Two lines appear intended; the in-game line count and texts **need an in-game check** before any M1 interpretation. Not a data error to remove. |
-| 12683 Burning to Help | creatures {28003}, {28003} | Raw DB: {28771 "Sputum Samples Collected"}, {28003}. `wotlkQuestFixes.lua` changed line 1 to 28003 in 9f5ee0d67 (2022-10-05, "Fix objective locations for 'Burning to Help'") | **Legitimate two-line quest** (samples, then kills). Line 1 deliberately points at the hydra (28003) **for map locations**: samples come from the hydras. The ID is a location hint, not the server's credit ID. M1 must not read it as a kill-credit claim. Needs review in M2.3, not a correction. |
-| 64128 Eastern Plaguelands (boosted Tauren Druid) | creatures {9564 "Speak to Tal, the Wind Rider Master"}, {9564 "Visit Zeppelin Master Frezza"} | Added by `tbcQuestFixes.lua` a192ef70d (2021-05-24, boosted-character version). 9564 is Frezza; Tal is NPC 2995. Quest is in `QuestieQuestBlacklist.lua` ("Boosted character quest"), so hidden in game | **Upstream data anomaly candidate**: line 1 names Tal but targets Frezza's ID (likely a copy). Low impact because the quest is blacklisted. **Needs an in-game check** only if it is ever unhidden. |
-| 11706, 12252, 12481, 13042, 25199 | same creature, distinct texts | upstream DB | **Legitimate multi-line**: separate quest-log lines on one target (e.g. 25199 salute, roar, cheer, dance) |
+| 11142 Survey Alcaz Island | objects {500007}, {500007}; extra: spawn-only event (zone 15), talk with `monster` 23704 | Raw DB has **no** objectives. `tbcQuestFixes.lua` added them in 4c36a5d88 (2022-10-27, "Fix missing objectives for 'Survey Alcaz Island'"). 500007 is a Questie-made object "Alcaz Survey Credit" (`tbcObjectFixes.lua`) | **Hypothesis:** deliberate upstream mapping of two quest-log lines to one placeholder credit object. Two lines appear intended; the in-game line count and texts **need an in-game check** before any M1 interpretation. Not a data error to remove. |
+| 12683 Burning to Help | creatures {28003}, {28003} | Raw DB: {28771 "Sputum Samples Collected"}, {28003}. `wotlkQuestFixes.lua` changed line 1 to 28003 in 9f5ee0d67 (2022-10-05, "Fix objective locations for 'Burning to Help'") | **Hypothesis:** two-line quest (samples, then kills). Line 1 deliberately points at the hydra (28003) **for map locations**: samples come from the hydras. The ID is a location hint, not the server's credit ID. M1 must not read it as a kill-credit claim. Needs review in M2.3, not a correction. |
+| 64128 Eastern Plaguelands (boosted Tauren Druid) | creatures {9564 "Speak to Tal, the Wind Rider Master"}, {9564 "Visit Zeppelin Master Frezza"} | Added by `tbcQuestFixes.lua` a192ef70d (2021-05-24, boosted-character version). 9564 is Frezza; Tal is NPC 2995. Quest is in `QuestieQuestBlacklist.lua` ("Boosted character quest"), so hidden in game | **Hypothesis:** upstream data anomaly candidate: line 1 names Tal but targets Frezza's ID (likely a copy). Low impact because the quest is blacklisted. **Needs an in-game check** only if it is ever unhidden. |
+| 11706, 12252, 12481, 13042, 25199 | same creature, distinct texts | upstream DB | **Hypothesis:** separate quest-log lines on one target (e.g. 25199 salute, roar, cheer, dance) |
 
-Conclusion: duplicates are meaningful (positions in the quest log). v2 keeps every entry with an occurrence number. None is an "either/or" alternative.
+Design consequence (independent of which hypothesis is right): duplicates occupy quest-log positions, so v2 keeps every entry with an occurrence number and never treats one as an "either/or" alternative.
 
 ## 5. v2 record design
 
@@ -111,7 +111,7 @@ Conclusion: duplicates are meaningful (positions in the quest log). v2 keeps eve
 | D1 | display scope explicit | `displayScope = "structural-only"`; `hasText`, `spawnZones` presence | marker required; `text` and coordinate fields rejected; presence recorded |
 | P1 | provenance pairing | §9 | pairing and server-provenance tests |
 
-Draft evidence: `tests/test_nquestie_m2_effective_v2_draft.lua`, 57 checks over 10 hand-written records mirroring public shapes (1203, 1367, 735, 25199, 11142, 8470, 9666, 1369, 10503, 11652).
+Draft evidence: `tests/test_nquestie_m2_effective_v2_draft.lua`, 63 checks over 10 hand-written records mirroring public shapes (1203, 1367, 735, 25199, 11142, 8470, 9666, 1369, 10503, 11652).
 
 **Required before any production v2 exporter (lead review point 6):** a compiled-record round trip over all 9,159 quests, and specifically the 758 v1-unsupported IDs, proving that no objective kind, duplicate occurrence, reference order, reputation value or killCredit position is discarded; plus v2 → v1 equality for the 8,401 v1-representable quests. The projection below is not a measurement.
 
@@ -137,7 +137,7 @@ Draft evidence: `tests/test_nquestie_m2_effective_v2_draft.lua`, 57 checks over 
 | v1 unchanged | `EffectiveSchema.lua` untouched; v1 files valid forever |
 | Unknown versions | rejected (missing version too); the frozen v1 validator rejects v2 documents |
 | Dispatch | `schemaVersion` 1 → v1 validator, 2 → v2 validator, anything else rejected |
-| v1 → v2 | lossless for what v1 holds; refused where v1 lacks facts (extraObjectives without icon/index; killCredit beside other objectives, whose position v1 cannot state) |
+| v1 → v2 | "v1-held-fields-only". Refused for any quest with extraObjectives (no icon/index in v1) and for **any quest with a killCredit entry**: v1 never stored `killCreditObjectiveFirst`, so neither the flag nor, with two or more entries, their order can be proven, whatever exporter version wrote the file. For quests without killCredit, v2 defines `killCreditFirst = false` (the field means "the flag affects order", which needs a killCredit objective), so the migrated value is provable rather than assumed. Tested: single-killCredit, two-killCredit-only and mixed cases refused; no-killCredit case accepted. |
 | v2 → v1 | never by discarding; refused |
 
 ## 9. Provenance compatibility rules
@@ -145,11 +145,11 @@ Draft evidence: `tests/test_nquestie_m2_effective_v2_draft.lua`, 57 checks over 
 | Pair | Rule |
 |---|---|
 | Effective export ↔ its coverage manifest | must share `sourceCommit`, `sourceTree`, `nQuestieDataRevision`, `correctionCount`, `correctionFingerprint`, `correctionModules`, `tocInterface`, `flavour`, `harness`, `harnessVersion`; both clean (`sourceDirty = false`); effective `dataKind = "effective"`. Any difference: the batch stops. |
-| Server input (`nq-m2-input`) | validated separately: exporter, version, `sourceLabel`, `sourceFingerprint` (sha256), `exportedAt`, `selection = "explicit"`, `questCount`. It has **no git commit** and is never compared with a Questie commit. |
+| Server input (`nq-m2-input`) | validated in full by the frozen M2.1 validator before anything else (every provenance field: exporter, exporterVersion, sourceLabel, sourceFingerprint sha256, exportedAt with date check, selection = "explicit", questCount = records; plus every record). The draft exposes only `CheckServerDocument(doc)`; there is no provenance-only helper, so incomplete provenance cannot reach pairing or comparison. It has **no git commit** and is never compared with a Questie commit. |
 | Reports | keep all records in full: server provenance, effective provenance, coverage-manifest provenance |
 | Mixing | a batch takes exactly one server file, one effective file and one coverage manifest; files from different checkouts are rejected, never merged |
 
-Draft functions: `CheckPairing` and `CheckServerProvenance` in the draft validator (tested).
+Draft functions: `CheckPairing` and `CheckServerDocument` in the draft validator (tested, including each missing or invalid provenance field).
 
 ## 10. M2.3 status model (final proposal)
 

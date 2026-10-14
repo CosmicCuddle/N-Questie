@@ -258,3 +258,17 @@ Links: `https://github.com/CosmicCuddle/N-Questie/actions/runs/<id>`. The #38 M2
 2. Approve the v2 design and the M2.3 two-axis status model.
 3. In-game: 11142 line count; 64128 only if unhidden. 12683: M1 to treat line 1's ID as a location hint (review in M2.3).
 4. Production v2 exporter and the M2.3 engine: separate approvals; not started.
+
+### 11.5 Review follow-up on #39 (lead comments, 14 October 2026)
+
+| Point | Change |
+|---|---|
+| 1. Roadmap §4 | rewritten to the two-axis model, three required inputs (server, effective, paired coverage manifest), version dispatch, pairing and membership checks, whole-batch rejection; marked design only |
+| 2. Server provenance | `CheckServerProvenance` replaced by `CheckServerDocument`, which runs the full frozen M2.1 validator; tests for each missing/invalid provenance field; no git comparison |
+| 3. Migration order | any quest with killCredit is refused for v1 → v2 migration; `killCreditFirst` defined as "flag affects order", so false is provable only without killCredit; new negative tests |
+| 4. Duplicates | 11142 / 12683 / 64128 and the multi-line cases relabelled as public-source hypotheses, not confirmations; 12683 not deduplicated, its creature ID not treated as kill credit |
+| Bookkeeping | `CI_EVIDENCE_2` placeholder replaced (60dd09dc7) |
+
+**CI scope statement.** All CI results in this handover are synthetic or public-data results from GitHub Actions and the box. They are **not** validation of the lead developer's private 1203 M2.1 file, which still needs genuine Lua 5.1 validation in a trusted environment.
+
+CI on the final #39 head: CI_EVIDENCE_3

@@ -88,6 +88,15 @@ local function checkQuest(q, w, err)
     for _, b in ipairs({ "killCreditFirst", "hasTriggerEnd" }) do
         if type(q[b]) ~= "boolean" then err(w .. "." .. b .. ": boolean required") end
     end
+    -- killCreditFirst = Questie's flag AS IT AFFECTS ORDER: true only when the
+    -- quest is flagged AND has at least one killCredit objective.
+    if q.killCreditFirst == true then
+        local hasKc = false
+        for _, o in ipairs(type(q.objectives) == "table" and q.objectives or {}) do
+            if type(o) == "table" and o.kind == "killCredit" then hasKc = true end
+        end
+        if not hasKc then err(w .. ".killCreditFirst: true requires a killCredit objective") end
+    end
 
     local objs = q.objectives
     if not isList(objs) then err(w .. ".objectives: list required") objs = {} end
@@ -259,6 +268,9 @@ function M.ValidateAnyVersion(doc, opts)
     return false, { "schemaVersion: unknown version " .. tostring(v) .. " (known: 1, 2-draft)" }
 end
 
+-- v1 -> v2 migration ("v1-held-fields-only"). It never makes a claim v1
+-- cannot support: killCreditFirst is emitted as false only for quests with no
+-- killCredit entry, where v2 defines the field as false (see Validate).
 -- v1 -> v2 migration. Lossless for what v1 holds. Facts v1 never recorded are
 -- NOT guessed: killCreditFirst is unknown in v1, and v1 extraObjectives only
 -- list item references without icon/index, so a v1 record that has extra
@@ -273,9 +285,12 @@ function M.MigrateV1(doc, opts)
     for _, q in ipairs(doc.quests) do
         if q.hasExtraObjectives then
             refused[#refused + 1] = "quest " .. q.ID .. ": v1 extraObjectives lack icon/index; re-export as v2 (not guessed)"
-        elseif #q.objectives.killCredit > 0 and (#q.objectives.creatures + #q.objectives.objects + #q.objectives.items
-            + #q.objectives.spells) > 0 then
-            refused[#refused + 1] = "quest " .. q.ID .. ": killCredit position relative to other objectives unknown in v1; re-export as v2"
+        elseif #q.objectives.killCredit > 0 then
+            -- v1 never stored QuestieCorrections.killCreditObjectiveFirst. For a
+            -- quest with any killCredit entry the v2 killCreditFirst value (and
+            -- with two or more entries, their order) cannot be proven from v1,
+            -- whatever exporter version wrote the file. Never inferred.
+            refused[#refused + 1] = "quest " .. q.ID .. ": v1 does not record killCreditObjectiveFirst; killCredit order cannot be proven; re-export as v2"
         else
             local objs = {}
             local function add(kind, id, extra)
@@ -342,24 +357,20 @@ function M.CheckPairing(effectiveProv, coverageProv, opts)
     return true
 end
 
--- Server provenance: own checks only (nq-m2-input v1 rules), plus a guard that
--- nobody tries to match it to a git commit.
-function M.CheckServerProvenance(serverProv, opts)
+-- Server document: validated in FULL by the frozen M2.1 validator
+-- (InputSchema.Validate: every provenance field, every record) before any
+-- provenance is used. There is deliberately no provenance-only entry point,
+-- so incomplete server provenance can never reach pairing or comparison.
+-- The server sha256 fingerprint is never compared with a git commit/tree.
+function M.CheckServerDocument(serverDoc, opts)
     guard(opts)
     local Input = dofile("tools/validation/InputSchema.lua")
-    local errs = {}
-    if type(serverProv) ~= "table" then return false, { "server provenance missing" } end
-    for k in pairs(serverProv) do
-        if not Input.PROVENANCE_FIELDS[k] then errs[#errs + 1] = "server provenance." .. tostring(k) .. ": unknown field" end
+    local ok, errs = Input.Validate(serverDoc)
+    if not ok then
+        local out = { "server document rejected by the M2.1 validator (nothing compared)" }
+        for _, e in ipairs(errs) do out[#out + 1] = e end
+        return false, out
     end
-    if serverProv.sourceCommit ~= nil or serverProv.sourceTree ~= nil then
-        errs[#errs + 1] = "server provenance must not carry a git commit/tree (it is a private archive, identified by sourceFingerprint)"
-    end
-    if type(serverProv.sourceFingerprint) ~= "string" or not serverProv.sourceFingerprint:match("^sha256:" .. string.rep("[0-9a-f]", 64) .. "$") then
-        errs[#errs + 1] = "server provenance.sourceFingerprint: sha256:<64 hex> required"
-    end
-    if serverProv.selection ~= "explicit" then errs[#errs + 1] = "server provenance.selection: must be \"explicit\"" end
-    if #errs > 0 then return false, errs end
     return true
 end
 
