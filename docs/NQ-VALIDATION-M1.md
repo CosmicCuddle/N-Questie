@@ -219,3 +219,27 @@ Quest 1203 against stock Questie is still CONFIRMED_MISMATCH (single unmatched i
 | tests/test_validate_335_fixtures.sh | PASS, 4 negative fixtures |
 | Other tests/test_nquestie_*.lua | PASS |
 | luacheck | 0 warnings / 0 errors |
+
+### 10.6 Additional verified checks (2026-10-14, branch head 3c742eae7)
+
+| Check | Result |
+|---|---|
+| tests/test_validate_335_fixtures.sh | All 4 negative fixtures ran and were rejected as intended (see below) |
+| Full busted (`busted -p ".test.lua" .`) on 3c742eae7 alone | 31 successes, 0 failures, 9 errors (QuestieCompat nil, needs PR #4) |
+| Full busted with PR #4 (c2bc4a76) merged, local throwaway branch, deleted, not pushed | 49 successes, 0 failures, 0 errors |
+| tests/test_nquestie_*.lua (5 files), with PR #4 merged | All PASS |
+| tests/test_nquestie_objective_rules.lua, with PR #4 merged | PASS, 29 fixtures, all rules exercised |
+| busted tools/validation, with PR #4 merged | 31 successes, 0 failures |
+| tools/test_audit_world_quest_levels.py | 12 tests, OK |
+| tools/test_export_world_quests.py | 4 tests, OK |
+| tools/test_generate_custom_quests.py | 9 tests, OK |
+| tools/test_reviewed_early_quest_sources.py | 3 tests, OK |
+
+Negative fixtures:
+
+| Fixture | Rejection message |
+|---|---|
+| corrupted_correction.lua | 1203 item objective is 3853 |
+| early_level_wrong_value.lua | PR #8 quest 169 requiredLevel 15 |
+| missing_quest.lua | quest 2001 missing after corrections |
+| unexpected_field_change.lua | not allow-listed |
