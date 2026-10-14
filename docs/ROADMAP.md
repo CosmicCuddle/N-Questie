@@ -182,3 +182,4 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 
 - 2026-10-14: M2.1 input schema on feat/nq-validation-m2.1-input-schema-2026-10-14 (draft, based on PR #20). Schema nq-m2-input v1, data-only Lua parser, path gate, synthetic fixtures including quest 1203. M2.2 effective-export design only in docs/NQ-VALIDATION-M2.2-DESIGN.md.
 - 2026-10-14: M2.1 path safety on PR #21. Inputs are fully resolved with realpath -e and rejected if they cannot be resolved; the resolved target governs. 29 symlink and path tests. Final CI YAML proposed in docs/proposed-workflows/nquestie-m2-input-schema.yml. The M2.2 implementation sequence is in the design doc.
+- 2026-10-14: private/ tracking guard (tests/check_no_tracked_private.sh) runs in CI via the M2.1 path test on the ci/nq-private-untracked-guard branch; a dedicated workflow step is proposed in docs/proposed-workflows/nquestie-private-untracked-guard.diff.
