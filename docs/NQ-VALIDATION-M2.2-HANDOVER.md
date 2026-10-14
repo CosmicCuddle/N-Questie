@@ -192,7 +192,14 @@ All existing M2 tests unchanged and passing (46 / 36 / 22 / 25); the exporter's 
 
 ### 10.4 CI evidence
 
-CI_EVIDENCE
+All five existing workflows passed (push and pull_request) on both new PRs. They run M0, M1, overlay, revision guard and `ci.yml`; the new M2.2 checks are **not** executed in GitHub until the proposed workflow is activated (see the CI coordination doc).
+
+| PR | Head | M0 validate-335 | M1 objective-rules | CI (lint, unit, DB) |
+|---|---|---|---|---|
+| #33 | 67188b641 | [38603007522](https://github.com/CosmicCuddle/N-Questie/actions/runs/38603007522) | [38603008052](https://github.com/CosmicCuddle/N-Questie/actions/runs/38603008052) | [38603007565](https://github.com/CosmicCuddle/N-Questie/actions/runs/38603007565) |
+| #34 | 05645e9f0 | [38603941237](https://github.com/CosmicCuddle/N-Questie/actions/runs/38603941237) | [38603941295](https://github.com/CosmicCuddle/N-Questie/actions/runs/38603941295) | [38605235149](https://github.com/CosmicCuddle/N-Questie/actions/runs/38605235149) |
+
+Local (box, head 05645e9f0): full M2 suite PASS (all standalone suites, busted, export integration 25, coverage integration 20); pilot 1203 and pilot list PASS.
 
 ### 10.5 Limitations
 
