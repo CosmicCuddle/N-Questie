@@ -312,3 +312,17 @@ Heads and CI for this round are recorded in the PR descriptions and the final re
   harness 1.3.0).
 - Integration plan: docs/NQ-INTEGRATION-PLAN.md, with the test-inventory
   script tools/validation/integration/test_inventory.sh.
+
+## 15. Review round 4 (14 October 2026, night)
+
+- Correction to round 3: SafeWrite has no fsync(2). The M2.3 bundle
+  guarantee is atomic visibility and no-clobber only (implemented and
+  tested); power-loss durability is not provided and is an open item for a
+  future approved implementation. The draft test step is now `closeTemp`.
+- `PublishBundle` fails closed: full revalidation of bundle, report and
+  aggregate plus a tamper digest from `BuildBundle`; 17 tamper cases write
+  nothing. Contract draft: 185 checks.
+- Trial integration c54dbf2ea (local, never pushed): stack + #46 + #45 + #47
+  + #40, two union conflicts at #46, all counts preserved. Details, the
+  pre-integration tag proposal and the old-PR table are in
+  docs/NQ-INTEGRATION-PLAN.md.

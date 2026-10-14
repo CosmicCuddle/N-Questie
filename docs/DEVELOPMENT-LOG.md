@@ -250,3 +250,11 @@ union conflicts (DEVELOPMENT-LOG, M22Libraries); the inventory check passed
   inner schemas, closed keys, codes, the m1Supported rule and reconciliation,
   and recomputes a tamper digest recorded by BuildBundle. 17 tamper cases,
   nothing written on rejection. Contract draft: 185 checks.
+
+## 14 Oct 2026, night: round 4 trial integration
+
+Trial c54dbf2ea (local only): stack + #46 + #45 + #47 + #40 by merge. Two
+union conflicts at #46 (DEVELOPMENT-LOG, M22Libraries). Inventory, static
+assertion counts (38 files, 566 calls) and executed counts all preserved.
+Added tools/validation/integration/assertion_counts.sh. Plan updated with the
+pre-integration-335 tag proposal (not created) and the old-PR table.
