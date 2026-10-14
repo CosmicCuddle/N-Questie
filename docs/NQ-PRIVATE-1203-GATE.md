@@ -46,12 +46,20 @@ NOT VERIFIED: private archive fingerprint, current-world freshness, IP/condition
 
 If it instead prints `FAIL:`, **stop**. First verify privately that you selected the intended one-quest export and used a supported absolute path. Do not change the source archive or relax the parser to obtain a pass. The legacy `lua5.1 cli/validate-m2-input.lua "<private path>"` provides fuller private local diagnostics, but its output can contain detailed field information and must not be pasted to GitHub.
 
-5. Before any later real comparison, perform the separate offline archive fingerprint and freshness gate in `docs/NQ-PRIVATE-1203-PILOT-AND-INGAME-QA.md` (§9 on PR #40). Keep SHA-256, archive path, full output and selected SQL rows private. Human approval is still required before implementing or running production M2.3.
+5. **Optional original-archive fingerprint check (still read-only):** once you have independently identified the **exact original archive bytes** used by the exporter, store that archive outside the checkout in a current-user-owned `0700` immediate parent folder, as a current-user-owned regular file with `0600` permissions. Run:
+
+```bash
+lua5.1 cli/check-private-1203.lua "/absolute/private/path/quest-1203.lua" --archive "/absolute/private/path/acore_world.zip"
+```
+
+The command calculates the archive file's SHA-256 directly from its bytes and compares it privately with `sourceFingerprint` in the selected Lua document. It prints **PASS: supplied offline archive SHA-256 matches the declared source fingerprint (byte comparison only)** only if the two match. On mismatch or unsafe source paths/permissions it prints a generic `FAIL`, with no path or hash disclosure. It never modifies the archive or selected export.
+
+**Important:** a matching SHA-256 does **not** prove the private exporter truly used that archive. Verify the source/exporter run independently. It also does **not** prove that the live world database has not changed. Separately perform the freshness and source-selection checks in `docs/NQ-PRIVATE-1203-PILOT-AND-INGAME-QA.md` (§9 on PR #40). Keep archive hashes, source metadata and selected SQL rows private. Human approval is still required before running production M2.3.
 
 No backup of a running installation is needed for **this read-only command**, because nothing is modified. Back up the addon and relevant SavedVariables **before any future approved in-game QA installation**.
 
 ## Public CI coverage
 
-The test fixture `tests/fixtures/m2_input/quest1203_single_synthetic.lua` is **invented/public**, not a server export. `tests/test_nquestie_private_1203_gate.sh` checks the synthetic positive case, wrong quest/item/count/extra-target cases, schema and provenance rejection, rejected executable Lua, safe absolute paths and privacy-minimised output. It is wired to `tests/run_m2_suite.sh` and `tools/validation/M21Private1203Gate.test.lua`.
+The test fixture `tests/fixtures/m2_input/quest1203_single_synthetic.lua` and the checksum test archive's bytes are **invented/public**, not server data or a real ZIP export. `tests/test_nquestie_private_1203_gate.sh` checks the synthetic positive case, wrong quest/item/count/extra-target cases, schema and provenance rejection, rejected executable Lua, safe absolute paths and privacy-minimised output. It is wired to `tests/run_m2_suite.sh` and `tools/validation/M21Private1203Gate.test.lua`.
 
 The minimal inherited Busted container lacks Bash/GNU tools, so its wrapper reports `pending` there; the full Bash-capable M2 framework CI **must run and pass** the test. No CI result can validate the private server input.
