@@ -41,6 +41,10 @@ line=$(grep -n "PASS: 232 checks" "$T/clean" | cut -d: -f1); cov=$(grep -n "COVE
 grep -q "not an export" "$T/clean" && ok "labelled not an export" || bad "label"
 grep -Eq "^total quests +9159$" "$T/clean" && ok "total 9159" || bad "total"
 grep -Eq "^unclassified +0$" "$T/clean" && ok "0 unclassified" || bad "unclassified"
+# Measured on the public DB (update procedure: docs/NQ-VALIDATION-M2.2-COVERAGE.md section 6)
+grep -Eq "^v1 representable +8401$" "$T/clean" && grep -Eq "^v1 unsupported \(unique\) +758$" "$T/clean" \
+    && ok "measured 8401 representable / 758 unsupported" || bad "representable/unsupported counts changed"
+grep -Eq "^  KILLCREDIT_FIRST_REORDER +16 / +16 " "$T/clean" && ok "16 killCreditObjectiveFirst reorder quests" || bad "order count"
 grep -q "^reconciled:" "$T/clean" && ok "reconciled" || bad "reconciled"
 [ "$(stat -c %a "$T/priv/manifest.lua")" = 600 ] && ok "manifest mode 0600" || bad "manifest mode"
 [ "$(stat -c %a "$T/priv/aggregate.txt")" = 600 ] && ok "aggregate mode 0600" || bad "aggregate mode"
@@ -59,6 +63,7 @@ assert(#d.quests == d.aggregate.total and rep == d.aggregate.representable and u
 assert(d.provenance and #d.provenance.sourceCommit == 40, "provenance")
 local by = {}
 for _, q in ipairs(d.quests) do by[q.ID] = table.concat(q.reasons, "+") end
+assert(by[10503] == "KILLCREDIT_FIRST_REORDER" and by[11652] == "EXTRA_CREATURE_REF+KILLCREDIT_FIRST_REORDER", "order reasons")
 assert(by[1203] == "" and by[11142] == "DUPLICATE_OBJECT+EXTRA_CREATURE_REF" and by[1367] == "EXTRA_CREATURE_REF+REPUTATION_OBJECTIVE", "known quests")
 local a = io.open(os.getenv("NQ_A")):read("*a"); assert(not a:find("ID = ", 1, true), "aggregate has per-quest data")
 ' && ok "manifest parses, reconciles, keeps all reasons, carries no records" || bad "manifest content"
@@ -67,6 +72,10 @@ local a = io.open(os.getenv("NQ_A")):read("*a"); assert(not a:find("ID = ", 1, t
 env $E28 NQ_EXPORT_EFFECTIVE_OUT="$T/priv/e.lua" NQ_EXPORT_QUESTS="1203,11142" "$LUA" cli/validate-335.lua >"$T/log" 2>&1; c=$?
 [ $c -ne 0 ] && strip <"$T/log" | grep -q "quest 11142: refused, reasons: DUPLICATE_OBJECT,EXTRA_CREATURE_REF" && [ ! -e "$T/priv/e.lua" ] \
     && ok "export refuses 11142 with both reasons; nothing written" || bad "export refusal of 11142 (exit $c)"
+
+env $E28 NQ_EXPORT_EFFECTIVE_OUT="$T/priv/o.lua" NQ_EXPORT_QUESTS="10503" "$LUA" cli/validate-335.lua >"$T/log" 2>&1; c=$?
+[ $c -ne 0 ] && strip <"$T/log" | grep -q "quest 10503: refused, reasons: KILLCREDIT_FIRST_REORDER" && [ ! -e "$T/priv/o.lua" ] \
+    && ok "export refuses 10503 (killCreditObjectiveFirst); nothing written" || bad "export refusal of 10503 (exit $c)"
 
 echo "coverage integration: $passes passed, $fails failed"
 [ $fails -eq 0 ]
