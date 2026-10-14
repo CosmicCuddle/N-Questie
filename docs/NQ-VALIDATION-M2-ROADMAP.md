@@ -1,6 +1,6 @@
 # N-Questie Validation M2: Technical Roadmap
 
-Status: Proposed. M2.1 done (PR #21/#22); M2.2 Step 1 in draft (PR #24); everything else not started
+Status: M2.1 done (PR #21/#22). M2.2 Steps 1–6 in draft (PRs #24, #26–#29). M2.3 onwards not started
 Date: 2026-10-14
 Framework owner (code, tests, reporting tools, docs): validation workstream
 Data owner (private exports, real comparisons, corrections): lead developer
@@ -34,25 +34,25 @@ Goal: write `nq-m2-effective` v1 records for explicitly selected quest IDs, take
 ### Steps
 
 - [x] **Step 1: Schema and validator** (PR #24, draft). `EffectiveSchema.lua`, 71 standalone checks, busted spec.
-- [ ] **Step 2: Pure snapshot function** (`tools/validation/EffectiveExport.lua`)
+- [x] **Step 2: Pure snapshot function** (PR #27) (`tools/validation/EffectiveExport.lua`)
   - Input: a loaded QuestieDB and a list of quest IDs. Output: a snapshot table. No I/O.
   - Reads compiled records (questKeys 4, 5, 9, 10, 11, 21, 27) into the v1 record shape. It does not read the raw DB file.
   - A requested ID with no compiled record rejects the whole export.
-- [ ] **Step 3: Harness hook** (`cli/validate-335.lua --export-effective PATH --quests FILE`)
+- [x] **Step 3: Harness hook** (PR #28; options are environment variables because `arg[1]` is the faction) (`cli/validate-335.lua --export-effective PATH --quests FILE`)
   - Runs after all existing checks and only if they all pass. It must not change the existing check count (232).
   - Quest IDs come only from an explicit list (a file or the IDs in an `nq-m2-input` document). There is no "export everything" default.
   - Provenance comes from git (`rev-parse HEAD`, `HEAD^{tree}`, `status --porcelain` must be empty), the TOC (30300), `nQuestieDataRevision`, the correction module list and a sha256 over those files, and the M0 check count.
-- [ ] **Step 4: Safe writing** (option C + D from the M2.2 design §6b)
+- [x] **Step 4: Safe writing** (PR #27; no-clobber via link(2)) (option C + D from the M2.2 design §6b)
   - The output folder resolves (via `realpath -e`) outside the checkout or under `private/`, is owned by the current user and has mode 0700 or stricter.
   - Write to a `mktemp` file in that folder, re-verify after writing, then rename atomically.
   - No overwrite without `--force`. File mode 0600.
   - Validate the written file with `EffectiveSchema.LoadFile` before reporting success; on failure, delete the temp file and exit non-zero.
-- [ ] **Step 5: Round-trip and negative tests**
+- [x] **Step 5: Round-trip and negative tests** (PRs #27–#29)
   - A synthetic fake DB: 1203 exports 33110 without corrections and 3853 with them.
   - An M0 failure writes no file. A missing ID rejects. A dirty tree rejects.
   - The export passes `EffectiveSchema` and M1 `Compare` with expected classes.
   - The real harness on CI exports 1203 to a temp folder (public Questie data only) and asserts item 3853.
-- [ ] **Step 6: CI and docs**
+- [x] **Step 6: CI and docs** (PR #29; workflow proposed, not active)
   - Proposed workflow step under `docs/proposed-workflows/` (no `.github` edit without workflow scope).
   - Update the handover, ROADMAP and the M2.2 design doc.
 
@@ -66,6 +66,10 @@ Goal: write `nq-m2-effective` v1 records for explicitly selected quest IDs, take
 | 1203 effective = 3853, stock = 33110 | Fixture and real-harness test |
 | No overwrite; temp + rename; 0600; folder checks | Write-safety tests incl. symlink cases |
 | Output validates as `nq-m2-effective` v1 | Round-trip test |
+
+### Open item from Steps 2–6
+
+v1 cannot represent 752 of 9,159 quests (reputation, extraObjectives monster/object refs, duplicate ids). The export refuses them. A v2 or out-of-scope decision is needed before M2.3 coverage work. See `docs/NQ-VALIDATION-M2.2-HANDOVER.md` §4.
 
 ## 4. M2.3 Report-only batch comparison engine
 
@@ -105,6 +109,14 @@ lua5.1 cli/validate-m2-batch.lua \
 ```
 
 Exit code: 0 for a report written, 1 for input rejected, 2 for a write refused.
+
+### Provenance in reports
+
+Every report keeps **both** provenance records in full: the server `nq-m2-input` provenance (exporter, version, source label, fingerprint, time) and the `nq-m2-effective` provenance (commit, tree, revision, correction fingerprint and modules, M0 count, time). The summary keeps the commit, revision, correction count and both export times. It does not keep the source fingerprint, so the private archive can't be identified. A report with either record missing is not written.
+
+### Unexportable quests
+
+Quests that the M2.2 export refuses (see the open item above) are not silently dropped. Until a v2 decision is made, the batch runner requires the effective file to cover every server quest. The selection must leave such quests out, and the report lists them as "not exportable in v1" with the reason.
 
 ### Report format (private)
 

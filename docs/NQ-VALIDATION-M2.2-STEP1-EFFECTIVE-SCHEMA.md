@@ -106,6 +106,10 @@ Ids within one list must be unique. Order is kept because M1 reports ordering no
 | `tests/test_nquestie_m2_effective_schema.lua` | 71 checks: valid effective and stock fixtures, kind/count expectations, 5 stock-provenance rules, 48 rejection cases, non-mutation, M1 compatibility, shared parser, path rules via temp files |
 | `tools/validation/EffectiveSchema.test.lua` | Busted; runs in the existing M1 workflow |
 
-## 9. Out of scope
+## 9. Representability in real data (found in Step 2)
+
+A scan of all 9,159 compiled 3.3.5a quests found 752 that v1 cannot represent: reputation objectives (181 quests), extraObjectives references to monsters (466) or objects (335), and the same id twice in one objective list (10). The exporter refuses them; v1 is unchanged. See `docs/NQ-VALIDATION-M2.2-HANDOVER.md` §4 for the options.
+
+## 10. Out of scope
 
 The export itself, changes to the M0 harness, M2.3 batch runner, any real data.
