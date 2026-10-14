@@ -4,7 +4,7 @@ Status: **proposal for maintainer approval**. Not implemented. Approving this do
 
 ## 1. Scope
 
-In: one server file (`nq-m2-input` v1), one effective export (v1 or v2), one paired coverage manifest; selection protocol; two-axis statuses; M1 called unchanged; private report; counts-only aggregate; optional private rejection diagnostic.
+In: one server file (`nq-m2-input` v1), one effective export (v1 or v2), one paired coverage manifest; selection protocol; two-axis statuses; M1 called unchanged; private report and counts-only aggregate published together as one bundle file; on rejection only fixed codes on stderr (no rejection file).
 
 Out: corrections of any kind, markers, text, network access, writing into the repository, any public output of real data.
 
@@ -15,6 +15,15 @@ The frozen M2.1 server record carries `hasConditions`, `ipGated`, `scriptedCredi
 - maps a recorded `false` with a stated source to `complete` for that evidence item only if the private exporter documents how it was determined;
 - maps `unknown`, absent or undocumented values to `unknown`;
 - therefore returns `NEEDS_MANUAL_REVIEW` for most real quests until the server export carries that evidence. No completeness is invented.
+
+## 2a. Safety contracts (review of 14 October 2026)
+
+| # | Contract | Draft evidence |
+|---|---|---|
+| A | CONFIRMED_MATCH / CONFIRMED_MISMATCH (and every outcome except M1_UNSUPPORTED_BY_RULES) need `m1Supported == true` exactly; M1_UNSUPPORTED_BY_RULES needs `false` and no findings; any other value makes the row invalid | negative tests for nil, false, "unknown", "true", 1, table, for both CONFIRMED outcomes |
+| B | report and aggregate are published as one bundle file in one no-clobber install; no rejection or partial file ever | simulated failure at each boundary and crash before/after link |
+| C | a v1 batch whose preflight request is empty is rejected with `REJECTED_V1_SELECTION_EMPTY_AFTER_PREFLIGHT`; such selections need a full v2 export; v1 unchanged | matrix S18 (unsupported-only), S19 (absent-only), S20 (same selection with v2) |
+| D | rejection output is only `nq-m2-3: <CODE>` lines on stderr with codes from a closed list; no paths, IDs, records or fingerprints | every code accepted; IDs, paths, sha256, hex runs, unknown codes, extra lines rejected |
 
 ## 3. Files
 
@@ -30,9 +39,9 @@ No workflow file edits; tests are wired through `run_m2_suite.sh` and the busted
 
 ## 4. Steps
 
-1. Promote the draft validators and selection protocol (no behaviour change; existing 110 checks kept).
+1. Promote the draft validators, selection protocol, stderr contract and bundle publication (no behaviour change; existing 165 checks kept).
 2. Engine core: validation order (§2 of the design), pairing, preflight split, membership, per-quest M1 call, outcome assignment with `OutcomeAllowed` as an internal assertion.
-3. Output: deep-compare inputs before and after; build report and aggregate; validate both; write both or nothing.
+3. Output: deep-compare inputs before and after; build report and aggregate; `BuildBundle` (both validated and reconciled); `PublishBundle` through SafeWrite (temp + fsync + `link(2)` no-clobber). Two separate file writes are never used.
 4. CLI and its tests.
 5. First private pilot (lead only): quest 1203 alone, after the lead's genuine Lua 5.1 validation of the real file. Only a pass/fail line and counts are shared.
 
@@ -42,8 +51,8 @@ No workflow file edits; tests are wired through `run_m2_suite.sh` and the busted
 |---|---|
 | Executed matrix S01-S17, P01 | engine gives the same statuses / rejection codes as the draft protocol |
 | Design assertions D01-D03 become executable | input changed → `REJECTED_INPUT_CHANGED`; unsafe or existing output → `REJECTED_UNSAFE_OUTPUT`; M1 results equal direct calls |
-| Rejection | every rejection leaves the output directory without report or aggregate |
-| Report/aggregate | outputs pass `ValidateReport` and `ValidateAggregate`; aggregate contains only vocabulary keys |
+| Rejection | every rejection leaves the output directory unchanged (no file at all) and stderr passes `CheckStderr` |
+| Report/aggregate | one bundle; its report and aggregate pass `ValidateReport` and `ValidateAggregate`; aggregate contains only vocabulary keys; real-filesystem publish tests for no-clobber and crash points (D02) |
 | 1203 synthetic | v1 effective vs synthetic server 1203 → EXPORTED / EXPECTED_REPRESENTATION_DIFF, never CONFIRMED |
 | Unknown evidence | any unknown item → never CONFIRMED_* |
 | Full-ID coverage | synthetic server file listing all 9,159 IDs with public-derived values against a v2 test export → exactly one row each; 758 rows `m1Supported = false` |
