@@ -1,5 +1,21 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Maintainer's in-game installation checks: PASS (Step 1)
+
+The maintainer installed the temporary N-Questie QA addon and reported **five explicit PASS results**:
+
+- Character-selection AddOns list identifies N-Questie.
+- Addon loads without Lua errors.
+- Existing world-map Questie quest icons appear normally.
+- Existing minimap quest-objective icons appear normally.
+- Existing Questie settings and user preferences persist.
+
+**Result:** This verifies baseline installation and visual/regression smoke behavior on the maintainer's client. It **does not** verify custom quest 2001 starter, kill/quest objective, or turn-in icons. No new SQL data was required, and no live database changes were made by development.
+
+**CI:** Dedicated N-Questie overlay GitHub Actions workflow passed ([run 38461711184](https://github.com/CosmicCuddle/N-Questie/actions/runs/38461711184)); broader inherited GitHub CI failed ([run 38461710869](https://github.com/CosmicCuddle/N-Questie/actions/runs/38461710869)) on upstream Busted test setup. Both must be resolved/reviewed before merge.
+
+**Next:** Ask which legitimate character can accept custom quest 2001 (quest 437 prerequisite); if unavailable, select an accessible real server quest. Carry forward the install QA PASS and record each additional tested marker separately. No merge, release or N-Addon-Collection change without explicit approval.
+
 ## 13 October 2026 — Initial N-Questie overlay implementation (unreleased)
 
 **Approval:** The maintainer explicitly authorized publishing the limited server quest IDs, names, NPCs, objectives and map coordinates required by N-Questie. The **full `acore_world.zip` remains private**.
