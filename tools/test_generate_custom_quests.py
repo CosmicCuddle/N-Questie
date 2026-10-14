@@ -116,7 +116,8 @@ class GeneratorTests(unittest.TestCase):
             # Simulates a mistaken partial export containing only the new/current quest.
             review.write_text(json.dumps(reviewed(quest())), encoding="utf-8")
             partial_args = [argument for argument in args]
-            partial_args.remove("2002")
+            removed_at = partial_args.index("2002")
+            del partial_args[removed_at - 1:removed_at + 1]
             partial_args[partial_args.index("--revision") + 1] = "3"
             with self.assertRaises(SystemExit):
                 generator.main(partial_args + ["--overwrite"])
