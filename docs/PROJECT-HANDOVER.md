@@ -1,5 +1,13 @@
 # N-Questie — Development Handover
 
+## Latest private objective intake checkpoint — 14 October 2026
+
+**New lead workstream:** [draft PR #19](https://github.com/CosmicCuddle/N-Questie/pull/19) adds [M2-PRIVATE-OBJECTIVE-INTAKE-HANDOVER.md](M2-PRIVATE-OBJECTIVE-INTAKE-HANDOVER.md) **documentation only** on top of the 28-quest/CI integration branch #16. A standalone, local-only Python 3 extractor was built and passed **12 synthetic tests**, plus a private read-only pilot with quest **1203** (required item 3853 ×1) and **2001** (targets 1868 ×8, 1869 ×8 and selected creature KillCredit rows). Generated private data and exporter source **remain outside public GitHub**. The script always writes `killCreditComplete=false` and three explicit `"unknown"` flags for conditions/IP/scripted credit, with private SHA256/date provenance; it cannot assert character eligibility or confirmed NPC credit completeness.
+
+**Grok review:** [draft PR #18](https://github.com/CosmicCuddle/N-Questie/pull/18) addresses M1 kill-credit coverage and ambiguous multi-target correspondence; M1-specific GitHub tests passed, inherited full suite is still ungreen on that separate branch without #4, and Grok explicitly has outstanding local QA checks. Lead supplied the interface/privacy boundaries in a PR #18 coordination comment. **Do not start bulk M2 or claim Grok's three remaining QA checks completed until confirmed.**
+
+**Next:** Agree final Grok-owned M2.1 strict input schema and M2.2 compiled effective-record export; then adapt the private exporter **locally** and test a single quest before evaluating 24 item/151 NPC candidate differences. No server/client/character changes, merges, releases or private-data publication authorised.
+
 ## Latest combined integration checkpoint — 14 October 2026
 
 **READ FIRST:** [INTEGRATION-28-QUEST-VALIDATION-2026-10-14.md](INTEGRATION-28-QUEST-VALIDATION-2026-10-14.md) documents [draft PR #16](https://github.com/CosmicCuddle/N-Questie/pull/16), a **new testing-only branch** from PR #13 that includes independent public M0 validator (#11), workflow (#10), CI-only revision guard (#12/#14), and inherited unit-test shim (#4) without modifying any contributor's original PR branches.
