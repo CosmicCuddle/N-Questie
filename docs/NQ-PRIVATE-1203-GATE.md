@@ -20,7 +20,7 @@ It does **not** execute the supplied Lua data, connect to MySQL/AzerothCore or w
 ## Safe usage from MobaXterm (connected to a trusted Linux development checkout)
 
 1. Confirm that you are in the N-Questie **development checkout**, not the installed WoW addon folder or running worldserver directory. Do not run `git pull` on the live game/server for this check.
-2. Keep the actual private `nq-m2-input` file **outside the public Git checkout**, with its parent directory `0700` and file `0600`. Do not upload, attach or paste it into a public GitHub PR.
+2. Keep the actual private `nq-m2-input` file **outside the public Git checkout**, with its **immediate parent directory owned by your current Linux user and mode `0700`**, and the **regular input file owned by that user and mode `0600`**. The read-only gate now **enforces** both requirements; an unsuitable file or folder exits with `FAIL` without reading the contents. Do not upload, attach or paste it into a public GitHub PR.
 3. Run the following preflight; a blank `git status` is expected if this is the intended clean checkout:
 
 ```bash
