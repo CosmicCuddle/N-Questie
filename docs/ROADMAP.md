@@ -2,7 +2,7 @@
 
 **Updated:** 13 October 2026  
 **Baseline:** forked `divial28/Questie-335`, branch `335`, upstream addon v9.5.1.  
-**Status:** first curated quest overlay implemented on an **unmerged QA branch**; not yet confirmed in-game or released.
+**Status:** first curated overlay implemented on an **unmerged QA branch**; quest 2001's visual starter → objectives → completed turn-in → marker removal lifecycle **verified in game on 14 October 2026**. No release or merge authorized.
 
 ## Phase 0 — Foundation and safety
 
