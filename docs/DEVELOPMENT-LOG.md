@@ -1,5 +1,13 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — M2.2 order check, quest ID set, CI integration, final v2 design (draft PRs #36–#39)
+
+- **Change:** v1 refuses the 16 `killCreditObjectiveFirst` quests (new shared reason `KILLCREDIT_FIRST_REORDER`); the compiled quest ID set is explained and pinned; #35's M2 workflow is merged into an integration branch; v2 design finalised with a draft validator. No runtime addon, SQL or SavedVariables change; no workflow edits by us.
+- **Evidence:** coverage 8,401 representable / 758 unsupported / 0 unclassified; ID sets 9,086 → 9,158 → 9,159 (+2001, N-Questie overlay); M0 232 checks, 28 corrections, 82,431 fields, 5 negatives unchanged.
+- **Correction:** the earlier "22 faction-only reputation objectives" were `{faction, 0}`; a comparison normaliser had hidden the 0.
+- **Rollback:** close the draft PRs.
+- **Next:** lead's Lua 5.1 validation of the real input; design approval; then separate approvals for the v2 exporter and M2.3.
+
 ## 14 October 2026 — M2.2 Option A follow-up: coverage, pilot, v2 design (draft PRs #33, #34)
 
 - **Decision applied:** Option A. v1 frozen; unsupported quests out of scope for the initial pilot; exporter fail-closed.

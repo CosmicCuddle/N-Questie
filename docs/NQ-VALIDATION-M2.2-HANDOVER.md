@@ -79,6 +79,8 @@ Provenance in the test run: m0Checks 232, correctionCount 28, revision 5, source
 
 ## 4. Finding for review: v1 cannot represent 752 of 9,159 quests
 
+> Historical snapshot (before the #36 kill-credit order check). Current measured figures: 8,401 representable, 758 unsupported of 9,159 (`NQ-VALIDATION-M2.2-COVERAGE.md` §3).
+
 A full scan of the compiled database (all 9,159 quests, using `EffectiveExport.Record`):
 
 | Reason | Count |
@@ -143,7 +145,7 @@ See the PR checks. Actions links are recorded in the PR #29 description and in t
 
 ## 8. Known limitations
 
-- 752 quests are not representable in v1 (§4).
+- 758 quests are not representable in v1 (752 before #36; §4 is a historical snapshot).
 - The export needs a clean checkout and Linux with GNU coreutils and git.
 - Writer races are documented, not eliminated (safe-writer doc §2).
 - A full M0 run takes 20–90 s; the integration test runs it about 7 times (around 2–3 minutes).
@@ -176,9 +178,9 @@ Each PR's base is the PR above it; no rebases, force-pushes or base changes. #30
 | Stage | Result | Where |
 |---|---|---|
 | CI review | #30/#31 run Step 1 schema, luac and GNU realpath checks only; 0 of the 129 export/writer/provenance/integration checks ran in GitHub | `NQ-VALIDATION-M2.2-CI-COORDINATION.md` |
-| Coverage | 9,159 total; 8,407 representable; 752 unsupported; 0 unclassified; overlaps reconciled | `NQ-VALIDATION-M2.2-COVERAGE.md` |
+| Coverage | 9,159 total; 8,401 representable; 758 unsupported (8,407/752 before #36); 0 unclassified; overlaps reconciled | `NQ-VALIDATION-M2.2-COVERAGE.md` |
 | Pilot | 1203 and the 16-quest list pass all gates locally; nothing published | `NQ-VALIDATION-M2.2-PILOT.md` |
-| v2 design | shape, R1–R10, versioning, M2.3 statuses, test plan, projection (752 of 752 representable; M1 SUPPORTED unchanged at 8,407) | `NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md` |
+| v2 design | shape, R1–R10, versioning, M2.3 statuses, test plan, projection (758 of 758 representable; M1 SUPPORTED unchanged at 8,407) | `NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md` |
 
 ### 10.3 Tests added
 
@@ -203,7 +205,7 @@ Local (box, head 05645e9f0): full M2 suite PASS (all standalone suites, busted, 
 
 ### 10.5 Limitations
 
-- Option A excludes 752 quests (8.2%) until v2.
+- Option A excludes 758 quests (8.3%) until v2.
 - v1 records lists per kind, not cross-kind position; quest 10503 (`killCreditObjectiveFirst`) is v1-representable but its "killCredit shown first" fact is not in v1.
 - The coverage tool counts compiled quests (9,159); the M0 log counts 9,158 `questData` records before compilation. The one-quest difference is unexplained (review item).
 - The new GitHub checks only run once the proposed workflow is activated; until then busted wrappers report pending in `ci.yml`.
@@ -217,3 +219,58 @@ Local (box, head 05645e9f0): full M2 suite PASS (all standalone suites, busted, 
 4. **The lead developer's real M2.1 input still needs genuine Lua 5.1 validation (`cli/validate-m2-input.lua`) in a trusted Linux environment.**
 5. Explain 9,158 vs 9,159.
 6. Then, with approval: v2 exporter, then M2.3.
+
+## 11. Second follow-up (14 October 2026): order, ID set, CI integration, final v2 design
+
+### 11.1 PR stack and dependency order
+
+| Order | PR | Branch | Content |
+|---|---|---|---|
+| … | #24 → #26 → #27 → #28 → #29 → #33 → #34 | as above | M2.2 Steps 1–6, coverage, pilot, v2 draft |
+| 7 | #36 | feat/nq-validation-m2.2-order-killcredit-first-2026-10-14 | `KILLCREDIT_FIRST_REORDER` (exporter + coverage), order tests, measured coverage 8,401 / 758 |
+| 8 | #37 | feat/nq-validation-m2.2-quest-id-set-2026-10-14 | 9,158 vs 9,159 explained (quest 2001), compiled ID set pinned |
+| 9 | #38 | feat/nq-validation-m2.2-ci-integration-2026-10-14 | #37 + `--no-ff` merge of #35's head 811b2b796 (lead's active M2 workflow); proposed copy removed |
+| 10 | this PR | feat/nq-validation-m2-v2-design-final-2026-10-14 | final v2 design, duplicate assessment, provenance pairing, split M1 statuses, draft validator (57 checks) |
+
+#35 is the lead's PR and was not edited. Its workflow is canonical.
+
+### 11.2 Per-stage handover
+
+| Stage | Result | Where |
+|---|---|---|
+| Order (#36) | Questie maps quest-log line N to ObjectiveData[N]; 16 quests in `killCreditObjectiveFirst` all change order; v1 now refuses them. 6 newly unsupported: 10503, 12100, 12546, 12561, 13382, 13404. No other cross-type order loss. | coverage doc §6 |
+| ID set (#37) | raw 9,086 → inherited corrections 9,158 (+72; 90 existing IDs reset and refilled, IDs kept) → N-Questie +2001 = 9,159 = compiled set. No removals. Pinned by count and sha256. | `NQ-VALIDATION-M2.2-QUEST-ID-SET.md` |
+| CI (#38) | six workflows on one commit (see §11.3) | PR #38 |
+| Design (this PR) | review points 1–6 addressed; normaliser artifact corrected (reputation value 0, objectiveIndex 0) | `NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md` |
+
+### 11.3 CI evidence
+
+All six workflows passed on the same commit (push and pull_request).
+
+| PR | Commit | Runs (push / pull_request) |
+|---|---|---|
+| #38 | d58a4b89d | M2 framework 38608529464 / 38608546193; M0 38608529458 / 38608546132; M1 38608529490 / 38608546181; overlay 38608529370 / 38608546190; CI 38608529438 / 38608546135; revision guard 38608546242 |
+| #39 | 1d94a50aa | M2 framework 38608874203 / 38608884344; M0 38608873961 / 38608884405; M1 38608873997 / 38608884318; overlay 38608874098 / 38608884566; CI 38608874061 / 38608884388; revision guard 38608884287 |
+
+Links: `https://github.com/CosmicCuddle/N-Questie/actions/runs/<id>`. The #38 M2 framework log shows the full suite executing (busted 151 successes including the order tests, export integration 25, coverage integration 26 with the 8,401 / 758 and ID-set pins). The v2 draft test count in that run is 33 (the 57-check version is on #39). Local on #39: full M2 suite PASS.
+
+### 11.4 Outstanding
+
+1. Lead: genuine Lua 5.1 validation of the real private M2.1 input (1203 first).
+2. Approve the v2 design and the M2.3 two-axis status model.
+3. In-game: 11142 line count; 64128 only if unhidden. 12683: M1 to treat line 1's ID as a location hint (review in M2.3).
+4. Production v2 exporter and the M2.3 engine: separate approvals; not started.
+
+### 11.5 Review follow-up on #39 (lead comments, 14 October 2026)
+
+| Point | Change |
+|---|---|
+| 1. Roadmap §4 | rewritten to the two-axis model, three required inputs (server, effective, paired coverage manifest), version dispatch, pairing and membership checks, whole-batch rejection; marked design only |
+| 2. Server provenance | `CheckServerProvenance` replaced by `CheckServerDocument`, which runs the full frozen M2.1 validator; tests for each missing/invalid provenance field; no git comparison |
+| 3. Migration order | any quest with killCredit is refused for v1 → v2 migration; `killCreditFirst` defined as "flag affects order", so false is provable only without killCredit; new negative tests |
+| 4. Duplicates | 11142 / 12683 / 64128 and the multi-line cases relabelled as public-source hypotheses, not confirmations; 12683 not deduplicated, its creature ID not treated as kill credit |
+| Bookkeeping | `CI_EVIDENCE_2` placeholder replaced (60dd09dc7) |
+
+**CI scope statement.** All CI results in this handover are synthetic or public-data results from GitHub Actions and the box. They are **not** validation of the lead developer's private 1203 M2.1 file, which still needs genuine Lua 5.1 validation in a trusted environment.
+
+CI on the final #39 head 2912fd20d (all success, run head SHA verified): M2 38612976383 (push) / 38612981491 (PR); M0 38612976277 / 38612981424; M1 38612975898 / 38612981533; overlay 38612975641 / 38612981485; CI 38612976342 / 38612981634; revision guard 38612981589 (PR only).

@@ -26,7 +26,14 @@ M.KINDS = { creature = 1, object = 2, item = 3, reputation = 4, killCredit = 5, 
 M.EXTRA_REF_TYPES = { monster = true, object = true, item = true }
 -- Kinds and features the current M1 rules can interpret.
 M.M1_KINDS = { creature = true, object = true, item = true, killCredit = true, spell = true }
-M.M1_STATUS = { SUPPORTED = true, UNSUPPORTED = true }
+-- Static, per record: can the current M1 rules evaluate this content at all?
+-- (NEEDS_MANUAL_REVIEW is NOT a record status: it is an M2.3 comparison
+-- outcome when rules ran but evidence was incomplete. See the design doc.)
+M.M1_STATUS = { SUPPORTED = true, UNSUPPORTED_BY_RULES = true }
+-- v2 is a structural objective schema. Display text and exact custom spawn
+-- coordinates are deliberately NOT exported; this marker makes that explicit
+-- so an omission is never read as "no marker data exists".
+M.DISPLAY_SCOPE = "structural-only"
 
 local QUEST_KEYS = { ID = 1, requiredLevel = 1, questLevel = 1, sourceItemId = 1, requiredSourceItems = 1,
     objectives = 1, killCreditFirst = 1, hasTriggerEnd = 1, extraObjectives = 1, m1Status = 1, m1Reasons = 1 }
@@ -63,7 +70,10 @@ function M.ExpectedM1(q)
         end
     end
     table.sort(reasons)
-    return (#reasons == 0) and "SUPPORTED" or "UNSUPPORTED", reasons
+    -- killCreditFirst content is representable in v2 but the M1 rules have no
+    -- quest-log position semantics, so it is not M1-evaluable either.
+    if q.killCreditFirst then add("KILLCREDIT_FIRST_REORDER"); table.sort(reasons) end
+    return (#reasons == 0) and "SUPPORTED" or "UNSUPPORTED_BY_RULES", reasons
 end
 
 local function checkQuest(q, w, err)
@@ -78,10 +88,19 @@ local function checkQuest(q, w, err)
     for _, b in ipairs({ "killCreditFirst", "hasTriggerEnd" }) do
         if type(q[b]) ~= "boolean" then err(w .. "." .. b .. ": boolean required") end
     end
+    -- killCreditFirst = Questie's flag AS IT AFFECTS ORDER: true only when the
+    -- quest is flagged AND has at least one killCredit objective.
+    if q.killCreditFirst == true then
+        local hasKc = false
+        for _, o in ipairs(type(q.objectives) == "table" and q.objectives or {}) do
+            if type(o) == "table" and o.kind == "killCredit" then hasKc = true end
+        end
+        if not hasKc then err(w .. ".killCreditFirst: true requires a killCredit objective") end
+    end
 
     local objs = q.objectives
     if not isList(objs) then err(w .. ".objectives: list required") objs = {} end
-    local occ, lastKind, slotCount = {}, 0, {}
+    local occ, slotCount, slotSeen = {}, {}, {}
     for i, o in ipairs(objs) do
         local ow = w .. ".objectives[" .. i .. "]"
         if type(o) ~= "table" then err(ow .. ": not a table")
@@ -91,13 +110,11 @@ local function checkQuest(q, w, err)
             local kind = M.KINDS[o.kind]
             if not kind then err(ow .. ".kind: unknown kind " .. tostring(o.kind))
             else
-                -- Questie order: kinds ascend (killCredit may be first when killCreditFirst).
-                local rank = kind
-                if o.kind == "killCredit" and q.killCreditFirst then rank = 0 end
-                if rank < lastKind then err(ow .. ": out of Questie objective order") end
-                lastKind = rank
                 slotCount[o.kind] = (slotCount[o.kind] or 0) + 1
-                if o.slotIndex ~= slotCount[o.kind] then err(ow .. ".slotIndex: must be " .. slotCount[o.kind]) end
+                slotSeen[o.kind] = slotSeen[o.kind] or {}
+                if not isInt(o.slotIndex) or o.slotIndex < 1 or slotSeen[o.kind][o.slotIndex] then
+                    err(ow .. ".slotIndex: unique positive index within the compiled slot required")
+                else slotSeen[o.kind][o.slotIndex] = true end
                 local function only(allowed)
                     for k in pairs(o) do
                         if not (k == "position" or k == "kind" or k == "slotIndex" or allowed[k]) then
@@ -108,8 +125,9 @@ local function checkQuest(q, w, err)
                 if o.kind == "reputation" then
                     only({ factionId = 1, requiredValue = 1 })
                     if not posId(o.factionId) then err(ow .. ".factionId: positive integer required") end
-                    -- requiredValue absent = Questie data has no value (22 real quests); never defaulted.
-                    if o.requiredValue ~= nil and not isInt(o.requiredValue) then err(ow .. ".requiredValue: integer or absent") end
+                    -- Every real reputation objective is a {factionId, value} pair;
+                    -- 22 have value 0, which must stay 0 (never dropped or defaulted).
+                    if not isInt(o.requiredValue) then err(ow .. ".requiredValue: integer required (0 is a real value)") end
                     if slotCount.reputation > 1 then err(ow .. ": at most one reputation objective (objectives[4] is a single pair)") end
                 elseif o.kind == "killCredit" then
                     only({ ids = 1, rootId = 1 })
@@ -130,6 +148,26 @@ local function checkQuest(q, w, err)
         end
     end
 
+    -- Questie ObjectiveData order (QuestieDB.GetQuest): kinds ascend, entries
+    -- in compiled slot order; with killCreditFirst every killCredit entry is
+    -- inserted at position 1, so killCredit comes first in REVERSE slot order.
+    for kind, seen in pairs(slotSeen) do
+        for i = 1, slotCount[kind] do if not seen[i] then err(w .. ".objectives: " .. kind .. " slotIndex values must be 1.." .. slotCount[kind]) break end end
+    end
+    local function key(o)
+        local rank = M.KINDS[o.kind] or 99
+        local si = isInt(o.slotIndex) and o.slotIndex or 0
+        if o.kind == "killCredit" and q.killCreditFirst then return 0, -si end
+        return rank, si
+    end
+    for i = 2, #objs do
+        local a, b = objs[i - 1], objs[i]
+        if type(a) == "table" and type(b) == "table" then
+            local ra, sa = key(a); local rb, sb = key(b)
+            if ra > rb or (ra == rb and sa > sb) then err(w .. ".objectives[" .. i .. "]: out of Questie objective order") end
+        end
+    end
+
     local extras = q.extraObjectives
     if not isList(extras) then err(w .. ".extraObjectives: list required") extras = {} end
     for i, e in ipairs(extras) do
@@ -142,8 +180,11 @@ local function checkQuest(q, w, err)
             if type(e.hasText) ~= "boolean" then err(ew .. ".hasText: boolean required") end
             if not isList(e.spawnZones) then err(ew .. ".spawnZones: list required (may be empty)")
             else for j, z in ipairs(e.spawnZones) do if not isInt(z) then err(ew .. ".spawnZones[" .. j .. "]") end end end
-            if e.objectiveIndex ~= nil and not (isInt(e.objectiveIndex) and e.objectiveIndex >= 1) then
-                err(ew .. ".objectiveIndex: positive integer or absent")
+            -- Questie data always carries [4]: 0 = not linked (696 real entries), n = linked to objective n.
+            if not (isInt(e.objectiveIndex) and e.objectiveIndex >= 0) then
+                err(ew .. ".objectiveIndex: integer >= 0 required (0 = not linked to an ordinary objective)")
+            elseif e.objectiveIndex > #objs then
+                err(ew .. ".objectiveIndex: points past the ordinary objectives")
             end
             if not isList(e.refs) then err(ew .. ".refs: list required (may be empty)")
             else
@@ -162,7 +203,7 @@ local function checkQuest(q, w, err)
         end
     end
 
-    if not M.M1_STATUS[q.m1Status] then err(w .. ".m1Status: SUPPORTED or UNSUPPORTED required") end
+    if not M.M1_STATUS[q.m1Status] then err(w .. ".m1Status: SUPPORTED or UNSUPPORTED_BY_RULES required") end
     if not isList(q.m1Reasons) then err(w .. ".m1Reasons: list required")
     else
         local want, wr = M.ExpectedM1(q)
@@ -191,7 +232,12 @@ function M.Validate(doc, opts)
     local function err(m) errors[#errors + 1] = m end
     if type(doc) ~= "table" then return false, { "input: top level must be a table" } end
     for k in pairs(doc) do
-        if k ~= "schema" and k ~= "schemaVersion" and k ~= "provenance" and k ~= "quests" then err("input." .. tostring(k) .. ": unknown field") end
+        if k ~= "schema" and k ~= "schemaVersion" and k ~= "provenance" and k ~= "quests" and k ~= "displayScope" then
+            err("input." .. tostring(k) .. ": unknown field")
+        end
+    end
+    if doc.displayScope ~= M.DISPLAY_SCOPE then
+        err("displayScope: must be \"" .. M.DISPLAY_SCOPE .. "\" (display text and exact spawn coordinates are intentionally not exported)")
     end
     if doc.schema ~= M.SCHEMA then err("schema") end
     if doc.schemaVersion ~= 2 then err("schemaVersion: this draft validator accepts only 2") end
@@ -222,6 +268,9 @@ function M.ValidateAnyVersion(doc, opts)
     return false, { "schemaVersion: unknown version " .. tostring(v) .. " (known: 1, 2-draft)" }
 end
 
+-- v1 -> v2 migration ("v1-held-fields-only"). It never makes a claim v1
+-- cannot support: killCreditFirst is emitted as false only for quests with no
+-- killCredit entry, where v2 defines the field as false (see Validate).
 -- v1 -> v2 migration. Lossless for what v1 holds. Facts v1 never recorded are
 -- NOT guessed: killCreditFirst is unknown in v1, and v1 extraObjectives only
 -- list item references without icon/index, so a v1 record that has extra
@@ -230,15 +279,18 @@ function M.MigrateV1(doc, opts)
     guard(opts)
     local ok, errs = V1.Validate(doc)
     if not ok then return nil, errs end
-    local out = { schema = M.SCHEMA, schemaVersion = 2, provenance = {}, quests = {} }
+    local out = { schema = M.SCHEMA, schemaVersion = 2, displayScope = M.DISPLAY_SCOPE, provenance = {}, quests = {} }
     for k, v in pairs(doc.provenance) do out.provenance[k] = v end
     local refused = {}
     for _, q in ipairs(doc.quests) do
         if q.hasExtraObjectives then
             refused[#refused + 1] = "quest " .. q.ID .. ": v1 extraObjectives lack icon/index; re-export as v2 (not guessed)"
-        elseif #q.objectives.killCredit > 0 and (#q.objectives.creatures + #q.objectives.objects + #q.objectives.items
-            + #q.objectives.spells) > 0 then
-            refused[#refused + 1] = "quest " .. q.ID .. ": killCredit position relative to other objectives unknown in v1; re-export as v2"
+        elseif #q.objectives.killCredit > 0 then
+            -- v1 never stored QuestieCorrections.killCreditObjectiveFirst. For a
+            -- quest with any killCredit entry the v2 killCreditFirst value (and
+            -- with two or more entries, their order) cannot be proven from v1,
+            -- whatever exporter version wrote the file. Never inferred.
+            refused[#refused + 1] = "quest " .. q.ID .. ": v1 does not record killCreditObjectiveFirst; killCredit order cannot be proven; re-export as v2"
         else
             local objs = {}
             local function add(kind, id, extra)
@@ -272,6 +324,54 @@ end
 function M.DowngradeToV1(_, opts)
     guard(opts)
     return nil, { "downgrade v2 -> v1 refused: v1 cannot hold v2 content and data is never discarded" }
+end
+
+-- Provenance pairing (DRAFT). An effective export and its companion coverage
+-- manifest must come from the same checkout and corrections. The private
+-- server document is validated on its own terms and is never compared with a
+-- Questie git commit.
+M.PAIR_FIELDS = { "sourceCommit", "sourceTree", "nQuestieDataRevision", "correctionCount",
+    "correctionFingerprint", "tocInterface", "flavour", "harness", "harnessVersion" }
+
+local function sameList(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" or #a ~= #b then return false end
+    for i = 1, #a do if a[i] ~= b[i] then return false end end
+    return true
+end
+
+function M.CheckPairing(effectiveProv, coverageProv, opts)
+    guard(opts)
+    local errs = {}
+    if type(effectiveProv) ~= "table" or type(coverageProv) ~= "table" then return false, { "pairing: both provenance records required" } end
+    if effectiveProv.dataKind ~= "effective" then errs[#errs + 1] = "pairing: effective export must have dataKind \"effective\"" end
+    if effectiveProv.sourceDirty ~= false or coverageProv.sourceDirty ~= false then errs[#errs + 1] = "pairing: dirty checkout" end
+    for _, f in ipairs(M.PAIR_FIELDS) do
+        if effectiveProv[f] == nil or effectiveProv[f] ~= coverageProv[f] then
+            errs[#errs + 1] = "pairing: " .. f .. " differs or is missing (" .. tostring(effectiveProv[f]) .. " vs " .. tostring(coverageProv[f]) .. ")"
+        end
+    end
+    if not sameList(effectiveProv.correctionModules, coverageProv.correctionModules) then
+        errs[#errs + 1] = "pairing: correctionModules differ"
+    end
+    if #errs > 0 then return false, errs end
+    return true
+end
+
+-- Server document: validated in FULL by the frozen M2.1 validator
+-- (InputSchema.Validate: every provenance field, every record) before any
+-- provenance is used. There is deliberately no provenance-only entry point,
+-- so incomplete server provenance can never reach pairing or comparison.
+-- The server sha256 fingerprint is never compared with a git commit/tree.
+function M.CheckServerDocument(serverDoc, opts)
+    guard(opts)
+    local Input = dofile("tools/validation/InputSchema.lua")
+    local ok, errs = Input.Validate(serverDoc)
+    if not ok then
+        local out = { "server document rejected by the M2.1 validator (nothing compared)" }
+        for _, e in ipairs(errs) do out[#out + 1] = e end
+        return false, out
+    end
+    return true
 end
 
 return M

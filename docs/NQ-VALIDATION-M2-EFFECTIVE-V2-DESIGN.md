@@ -1,206 +1,201 @@
-# N-Questie M2: nq-m2-effective v2 design (DRAFT, design only)
+# N-Questie M2: nq-m2-effective v2 design (final draft for approval)
 
-Status: design for review. **No v2 exporter exists or is proposed in this PR.** v1 stays FROZEN and valid.
-Decision in force (Michael, 14 October 2026): Option A. v1-unsupported quests are out of scope for the initial pilot (temporary); v2 is designed next. The exporter stays fail-closed.
+Status: design final for review. Docs, synthetic tests and a DRAFT validator only. **No v2 exporter and no M2.3 engine exist.** v1 stays FROZEN and valid.
+Decisions in force: Option A (v1 frozen, unsupported quests out of scope for the initial pilot, exporter fail-closed). Lead review on PR #34 incorporated (§10).
 Date: 14 October 2026 (Europe/London)
-Evidence: public compiled 3.3.5a Questie database read through `cli/validate-335.lua` after the 232 M0 checks (this branch). No private data.
+Evidence: public compiled 3.3.5a Questie data read through `cli/validate-335.lua` after the 232 M0 checks; public Questie source and git history. No private data.
 
-## 1. Why v2
+## 1. Scope in one paragraph
 
-The coverage report (`docs/NQ-VALIDATION-M2.2-COVERAGE.md`) shows 752 of 9,159 compiled quests that v1 cannot represent, with 0 unclassified:
+v2 is a **structural objective schema**: it records, for each quest, every objective's kind, target IDs, relationships, order, quest-log position and duplicates, plus extra-objective references and reputation pairs, exactly as the compiled Questie database holds them. It is **not** a full-fidelity export of Questie's display or marker data. Display text and exact custom spawn coordinates are deliberately left out and the document says so (`displayScope = "structural-only"`). A separate future marker audit is designed in §7.
+
+## 2. Coverage today (v1, measured)
+
+| Measure | Quests |
+|---|---|
+| Compiled quests | 9,159 |
+| v1 representable | 8,401 |
+| v1 unsupported | 758 (0 unclassified) |
 
 | Reason | Quests | Occurrences |
 |---|---|---|
 | extraObjectives `monster` references | 359 | 466 |
 | extraObjectives `object` references | 243 | 335 |
 | Reputation objective | 181 | 181 |
+| killCreditObjectiveFirst reorder | 16 | 16 |
 | Duplicate creature | 7 | 9 |
 | Duplicate object | 1 | 1 |
 
-## 2. Investigation: real compiled representations
+Overlaps and the update procedure: `docs/NQ-VALIDATION-M2.2-COVERAGE.md`.
 
-### 2.1 How Questie reads these fields (public source)
+## 3. Real compiled representations (investigation)
 
-| Field | Source | Questie use |
-|---|---|---|
-| `extraObjectives` (questKey 27) | `Database/questDB.lua`: `{{spawnlist, iconFile, text, objectiveIndex (optional), {{dbReferenceType, id}, ...} (optional)}, ...}` | `QuestieDB.GetQuest` builds `SpecialObjectives[index]` with `Icon = o[2]`, `Description = o[3]`, `RealObjectiveIndex = o[4]`; `o[1]` gives custom spawns; `o[5]` gives DB references. `Type`/`Id` are taken from the **first** reference only; every reference contributes spawns. |
-| `objectives[4]` reputation | `{factionId, value}` | One `ObjectiveData` entry `{Type="reputation", Id=factionId, RequiredRepValue=value}`. A single pair, not a list. |
-| Ordinary objectives | slots 1-6 | `ObjectiveData` order: all creatures, all objects, all items, reputation, killCredit (moved to the front when `QuestieCorrections.killCreditObjectiveFirst[questId]`), spells (third field `ItemSourceId`), then `triggerEnd` as an event. Each entry is one quest-log line, matched by position. |
-| Icon | `Questie.ICON_TYPE_*` in `Questie.lua` | 1 slay, 2 loot, 3 event, 4 object, 5 talk (6-16 are quest-state icons) |
+### 3.1 How Questie uses these fields
 
-### 2.2 extraObjectives in the 752 quests
+| Field | Questie behaviour (public source) |
+|---|---|
+| Ordinary objectives | `QuestieDB.GetQuest` builds `ObjectiveData`: creatures, objects, items, reputation, killCredit, spells, then `triggerEnd` as an event. `QuestieQuest:PopulateQuestLogInfo` maps quest-log objective N to `ObjectiveData[N]` ("trusts the database order"). |
+| `killCreditObjectiveFirst` | Each killCredit entry is inserted at position 1, so killCredit lines come first and several entries end up in reverse order. 16 quests at runtime (10503 from `tbcQuestFixes.lua`, 15 from `wotlkQuestFixes.lua`). |
+| `objectives[4]` reputation | One pair `{factionId, value}` → `{Type="reputation", Id, RequiredRepValue}` |
+| `extraObjectives` | `{spawns, icon, text, objectiveIndex, {{type, id}, ...}}` → `SpecialObjectives[index]` with `Icon`, `Description`, `RealObjectiveIndex`; `Type`/`Id` from the **first** reference; every reference contributes spawns |
+| Icons | `Questie.ICON_TYPE_*`: 1 slay, 2 loot, 3 event, 4 object, 5 talk |
+
+### 3.2 Measured shapes (all compiled quests, raw values)
 
 | Measure | Value |
 |---|---|
-| extraObjectives entries | 666 |
-| With icon `[2]` | 666 (icon 1: 57, 2: 13, 3: 280, 4: 138, 5: 178) |
-| With text `[3]` | 666 |
-| With custom spawns `[1]` | 15 |
-| With objective index `[4]` | 31 (values 1: 19, 2: 7, 3: 2, 4: 3) |
-| With DB references `[5]` | 652 (14 entries are spawn-only) |
-| References | 801: `monster` 466, `object` 335, `item` 0 |
-| Max references in one entry | 14 |
-| Entries mixing `monster` and `object` | 4 (e.g. 3628, 10556, 13007) |
-| Same reference twice within an entry | 0 |
+| Quests with extraObjectives | 632 (entries 730) |
+| Entries with custom spawns `[1]` | 79 (78 spawn-only, no references) |
+| `objectiveIndex [4]` | always present: 0 (not linked) 696; 1: 20; 2: 8; 3: 3; 4: 3 |
+| References | 801: `monster` 466, `object` 335, `item` 0; max 14 per entry; 4 entries mix types; no repeated reference within an entry |
+| Reputation pairs | 181, all `{factionId, value}`: 0 = 22, 3000 = 50, 9000 = 40, 21000 = 37, 42000 = 32; 21 factions; 146 combined with other objectives |
 
-Representative records (public data; display text omitted):
+**Correction to the earlier draft.** The earlier draft reported 22 "faction-only" reputation objectives and only 31 entries with an objective index. Both were artifacts of the M0 harness's comparison normaliser, which treats 0 as absent. The raw compiled values are `{faction, 0}` and `objectiveIndex = 0`. The v2 design now requires both values and keeps 0 as 0. The draft validator and fixtures were changed to match.
 
-| Quest | Shape |
-|---|---|
-| 735 | items 4646, 4641, 4644; extra: icon 3, objectiveIndex 2, ref `object` 2871 (linked to the second objective) |
-| 1136 | item 5811; extra: icon 4, ref `object` 1770 |
-| 1367 | reputation {93, 3000}; extra: icon 1, nine `monster` refs (4653 ... 4652) |
-| 11142 | objects {500007}, {500007}; extra 1: custom spawn in zone 15, icon 3, no refs; extra 2: icon 5, ref `monster` 23704 |
+## 4. Duplicate cases: public-source hypotheses (unverified)
 
-Conclusion: position, icon, the objective-index link, the reference type and the reference order all carry meaning. v1 keeps none of these for non-item references, so trimming would change meaning. Refusing was correct.
+Sources: compiled data, inherited corrections, `git log`/`git blame` of the Questie corrections. **These are hypotheses from public Questie data only.** They are not confirmation of private-server objective correctness and not confirmed server bugs. Private server and in-game quest-log evidence is still outstanding. No dedupe and no correction made; 12683's two lines must not be deduplicated and its mapped creature ID is not proof of a kill-credit objective.
 
-### 2.3 Reputation objectives (181 quests)
-
-| Measure | Value |
-|---|---|
-| `{factionId, value}` | 159 (values: 3000 = 50, 9000 = 40, 21000 = 37, 42000 = 32) |
-| `{factionId}` only, no value | 22 (8470, 8471, 9871, 9872 and 18 quests with faction 910, e.g. 8544) |
-| Distinct factions | 21 |
-| Combined with other objectives | 146 (e.g. 1369: item 6083 + {93, 3000}) |
-
-The 22 faction-only entries are a data shape Questie accepts (`RequiredRepValue` = nil). v2 must keep "no value" distinct from any number and must never default it.
-
-### 2.4 The duplicate cases (8 quests, 10 duplicate occurrences)
-
-| Quest | Name (public) | Compiled entries | Assessment |
+| Quest | Compiled entries | Origin (git evidence) | Assessment |
 |---|---|---|---|
-| 11706 | The Collapse | creature 25768 (no text), 25768 "Nerubian tunnels collapsed" | Distinct log lines (kill + event credit to one NPC) |
-| 12252 | Torture the Torturer | 27209 "fully questioned", 27209 (no text) | Distinct log lines (question, then kill) |
-| 12481 | Adding Injury to Insult | 24238 "insulted", 24238 "defeated" | Distinct log lines |
-| 13042 | Deep in the Bowels of The Underhalls | 30409 "Information beaten out ...", 30409 (no text) | Distinct log lines (beat, then slay) |
-| 25199 | Basic Orders | 39368 x4: salute, roar, cheer, dance | Four distinct log lines (3 duplicate occurrences) |
-| 64128 | Eastern Plaguelands | 9564 "Speak to Tal...", 9564 "Visit Zeppelin Master Frezza" | Distinct lines naming two different NPCs on one ID: likely a placeholder credit. **Data anomaly candidate** |
-| 12683 | Burning to Help | 28003, 28003 (no text either) | Quest text asks for samples and kills; two identical entries. **Data anomaly candidate** (one may belong to another slot) |
-| 11142 | Survey Alcaz Island | object 500007, 500007 (no text) | 500007 is in Questie's custom-object range; two identical entries. **Data anomaly candidate** |
+| 11142 Survey Alcaz Island | objects {500007}, {500007}; extra: spawn-only event (zone 15), talk with `monster` 23704 | Raw DB has **no** objectives. `tbcQuestFixes.lua` added them in 4c36a5d88 (2022-10-27, "Fix missing objectives for 'Survey Alcaz Island'"). 500007 is a Questie-made object "Alcaz Survey Credit" (`tbcObjectFixes.lua`) | **Hypothesis:** deliberate upstream mapping of two quest-log lines to one placeholder credit object. Two lines appear intended; the in-game line count and texts **need an in-game check** before any M1 interpretation. Not a data error to remove. |
+| 12683 Burning to Help | creatures {28003}, {28003} | Raw DB: {28771 "Sputum Samples Collected"}, {28003}. `wotlkQuestFixes.lua` changed line 1 to 28003 in 9f5ee0d67 (2022-10-05, "Fix objective locations for 'Burning to Help'") | **Hypothesis:** two-line quest (samples, then kills). Line 1 deliberately points at the hydra (28003) **for map locations**: samples come from the hydras. The ID is a location hint, not the server's credit ID. M1 must not read it as a kill-credit claim. Needs review in M2.3, not a correction. |
+| 64128 Eastern Plaguelands (boosted Tauren Druid) | creatures {9564 "Speak to Tal, the Wind Rider Master"}, {9564 "Visit Zeppelin Master Frezza"} | Added by `tbcQuestFixes.lua` a192ef70d (2021-05-24, boosted-character version). 9564 is Frezza; Tal is NPC 2995. Quest is in `QuestieQuestBlacklist.lua` ("Boosted character quest"), so hidden in game | **Hypothesis:** upstream data anomaly candidate: line 1 names Tal but targets Frezza's ID (likely a copy). Low impact because the quest is blacklisted. **Needs an in-game check** only if it is ever unhidden. |
+| 11706, 12252, 12481, 13042, 25199 | same creature, distinct texts | upstream DB | **Hypothesis:** separate quest-log lines on one target (e.g. 25199 salute, roar, cheer, dance) |
 
-Findings:
+Design consequence (independent of which hypothesis is right): duplicates occupy quest-log positions, so v2 keeps every entry with an occurrence number and never treats one as an "either/or" alternative.
 
-1. Duplicates are not accidental repeats in most cases: 5 quests (11706, 12252, 12481, 13042, 25199) use the same target for several separate log lines. Deduplicating would delete real objectives.
-2. They are not alternatives (an "either" choice). Questie shows each as its own line by position.
-3. Three (64128, 12683, 11142) look like data anomalies. That is a review question for the data owner, not something the exporter may decide.
-
-## 3. v2 design
-
-### 3.1 Record shape
+## 5. v2 record design
 
 ```lua
-{
-  ID = 11142, requiredLevel = 32, questLevel = 37,
-  sourceItemId = 0, requiredSourceItems = {},
-  objectives = {                       -- one entry per ObjectiveData line, in Questie order
-    { position = 1, kind = "object", slotIndex = 1, id = 500007, occurrence = 1 },
-    { position = 2, kind = "object", slotIndex = 2, id = 500007, occurrence = 2 },
-  },
-  killCreditFirst = false,             -- QuestieCorrections.killCreditObjectiveFirst
-  hasTriggerEnd = true,
-  extraObjectives = {                  -- separate from ordinary objectives
-    { position = 1, icon = 3, hasText = true, spawnZones = { 15 }, refs = {} },
-    { position = 2, icon = 5, hasText = true, spawnZones = {},
-      refs = { { type = "monster", id = 23704, refIndex = 1 } } },
-  },
-  m1Status = "UNSUPPORTED", m1Reasons = { "DUPLICATE_OBJECT", "EXTRA_CREATURE_REF" },
-}
+{ schema = "nq-m2-effective", schemaVersion = 2, displayScope = "structural-only",
+  provenance = { ... same fields and rules as v1 ... },
+  quests = {
+    { ID = 11652, requiredLevel = 68, questLevel = 71, sourceItemId = 0, requiredSourceItems = {},
+      objectives = {                                   -- exactly Questie's ObjectiveData order
+        { position = 1, kind = "killCredit", slotIndex = 2, ids = { 25332, 25333, 25469 }, rootId = 25333 },
+        { position = 2, kind = "killCredit", slotIndex = 1, ids = { 27106, 27107, 27108, 27110 }, rootId = 27106 },
+        { position = 3, kind = "creature",   slotIndex = 1, id = 25465, occurrence = 1 },
+      },
+      killCreditFirst = true, hasTriggerEnd = true,
+      extraObjectives = {
+        { position = 1, icon = 3, hasText = true, spawnZones = {}, objectiveIndex = 0,
+          refs = { { type = "monster", id = 25334, refIndex = 1 } } },  -- "Drive a tank"
+      },
+      m1Status = "UNSUPPORTED_BY_RULES", m1Reasons = { "EXTRA_CREATURE_REF", "KILLCREDIT_FIRST_REORDER" } },
+  } }
 ```
 
 | Kind | Fields |
 |---|---|
 | `creature`, `object`, `item` | `id`, `occurrence` |
 | `spell` | `id`, `occurrence`, optional `itemSourceId` |
-| `killCredit` | `ids` (non-empty list, order kept), `rootId` |
-| `reputation` | `factionId`, optional `requiredValue` (absent = no value in Questie data) |
+| `killCredit` | `ids` (order kept), `rootId` |
+| `reputation` | `factionId`, `requiredValue` (required integer; 0 is real) |
+| all | `position` (list index), `slotIndex` (index in the compiled slot) |
 
-### 3.2 How each requirement is met
+## 6. Requirements matrix (objective preservation)
 
-| # | Requirement | Design |
-|---|---|---|
-| R1 | Preserve type | `kind` (ordinary) and `refs[].type` (extra), closed enumerations |
-| R2 | Preserve target ID | `id` / `ids` / `rootId` / `factionId` exactly as compiled |
-| R3 | Preserve relationship | extra `objectiveIndex` (Questie `RealObjectiveIndex`); killCredit `ids` with `rootId` |
-| R4 | Preserve order | `objectives` in Questie `ObjectiveData` order; `killCreditFirst` recorded |
-| R5 | Preserve position | `position` = list index (contiguous); `slotIndex` within each kind; `refIndex` within an extra |
-| R6 | Ordinary vs extra | separate lists; extras carry `icon`, `hasText`, `spawnZones`, `refs`, and need refs or spawns |
-| R7 | Duplicates with occurrence | every entry kept; `occurrence` numbers repeats of the same (kind, id) |
-| R8 | Reputation explicit | its own kind; at most one per quest; missing value stays missing |
-| R9 | M1 cannot interpret: preserve but classify | `m1Status`/`m1Reasons`: UNSUPPORTED when any reputation, extra creature/object reference or duplicate is present; validator rejects a SUPPORTED claim for such a record (no false SUPPORTED, so no false CONFIRMED downstream) |
-| R10 | Versioning | see §4 |
+| # | Requirement | v2 mechanism | Draft test evidence |
+|---|---|---|---|
+| R1 | type | `kind`, `refs[].type` closed sets | unknown kind / ref type rejected |
+| R2 | target ID | `id`, `ids`, `rootId`, `factionId` | invalid id rejected |
+| R3 | relationship | `objectiveIndex` (0 = not linked, n ≤ #objectives), killCredit `ids`+`rootId` | missing/out-of-range index rejected; 0 kept |
+| R4 | order | `objectives` in ObjectiveData order; `killCreditFirst`; reverse slot order for killCredit when first | 10503 and 11652 shapes accepted; slot order or default order rejected when the flag is set; flag must agree with order |
+| R5 | position | `position` contiguous; `slotIndex` a permutation per kind; `refIndex` | gaps and bad indexes rejected |
+| R6 | ordinary vs extra | separate lists; extras need refs or spawns | extra fields on ordinary objectives rejected |
+| R7 | duplicates | every entry kept, `occurrence` numbered | 25199 x4 kept; wrong occurrence or a dropped duplicate rejected |
+| R8 | reputation explicit | own kind, single pair, value required | value 0 kept; missing value rejected; two pairs rejected |
+| R9 | M1 cannot interpret → kept but classified | `m1Status` SUPPORTED / UNSUPPORTED_BY_RULES with all reasons | false SUPPORTED rejected; `NEEDS_MANUAL_REVIEW` and old `UNSUPPORTED` rejected as record statuses |
+| R10 | versioning | §8 | v1 valid; unknown/missing version rejected; migration and downgrade rules |
+| D1 | display scope explicit | `displayScope = "structural-only"`; `hasText`, `spawnZones` presence | marker required; `text` and coordinate fields rejected; presence recorded |
+| P1 | provenance pairing | §9 | pairing and server-provenance tests |
 
-Display text and spawn coordinates stay out (as in v1): `hasText` and `spawnZones` record their presence only.
+Draft evidence: `tests/test_nquestie_m2_effective_v2_draft.lua`, 63 checks over 10 hand-written records mirroring public shapes (1203, 1367, 735, 25199, 11142, 8470, 9666, 1369, 10503, 11652).
 
-### 3.3 What M1 would do with v2
+**Required before any production v2 exporter (lead review point 6):** a compiled-record round trip over all 9,159 quests, and specifically the 758 v1-unsupported IDs, proving that no objective kind, duplicate occurrence, reference order, reputation value or killCredit position is discarded; plus v2 → v1 equality for the 8,401 v1-representable quests. The projection below is not a measurement.
 
-M1 rules are unchanged. A v2 record with `m1Status = "SUPPORTED"` converts to the same Questie record v1 produces today. An UNSUPPORTED record is never passed to M1 for a CONFIRMED result. M2.3 reports it as "present but unsupported" (§5). New M1 rules for reputation, extra references and duplicate lines are a separate, later decision.
+## 7. Display text and markers: explicit limitation and future extension
 
-## 4. Versioning, migration and compatibility
+**v2 does not preserve:** extra-objective display text, objective text, `triggerEnd` text and coordinates, or exact custom spawn coordinates. It records only that text exists (`hasText`) and which zones custom spawns are in (`spawnZones`). Omission never means "no marker data": the document-level `displayScope` says the data was not exported, and the validator rejects attempts to smuggle text or coordinates into v2.
+
+**Future extension (design only): `nq-m2-markers` v0**, a separate schema and export for a marker/coordinate audit:
+
+| Element | Design |
+|---|---|
+| Records | per quest: `triggerEnd` coordinates; per extra objective `{position, zone, x, y}` lists; optional per-objective spawn sources (NPC/object IDs only, not Questie's derived spawn lists) |
+| Precision | coordinates kept as compiled (no rounding); zone IDs validated against Questie's zone table |
+| Pairing | same provenance pairing rules as v2 (§9); one markers file pairs with one effective export |
+| Validation | bounds 0–100, known zones, no duplicate points within an entry, positions agree with v2 `extraObjectives` |
+| Comparison | against server spawn data only when the server export carries it; otherwise reported "not comparable", never "match" |
+| Privacy | public-data derived; private server comparisons stay private |
+
+## 8. Versioning, migration, compatibility
 
 | Rule | Detail |
 |---|---|
-| v1 unchanged | `EffectiveSchema.lua` and its tests are not touched. v1 files stay valid forever. |
-| Unknown versions | Rejected (a missing version too). The frozen v1 validator already rejects v2 documents. |
-| Dispatch | A future loader dispatches on `schemaVersion`: 1 to the v1 validator, 2 to the v2 validator, anything else rejected. |
-| v1 to v2 | Feasible and lossless for what v1 holds. Facts v1 never recorded are not guessed: a v1 record with extraObjectives (no icon/index in v1), or with killCredit next to other objectives (relative order unknown in v1), is refused for migration and must be re-exported as v2. |
-| v2 to v1 | Never by discarding. The draft refuses every downgrade; a later version may allow it only when the v2 record holds nothing v1 cannot express. |
-| Provenance | Same fields and rules as v1 (reused). |
+| v1 unchanged | `EffectiveSchema.lua` untouched; v1 files valid forever |
+| Unknown versions | rejected (missing version too); the frozen v1 validator rejects v2 documents |
+| Dispatch | `schemaVersion` 1 → v1 validator, 2 → v2 validator, anything else rejected |
+| v1 → v2 | "v1-held-fields-only". Refused for any quest with extraObjectives (no icon/index in v1) and for **any quest with a killCredit entry**: v1 never stored `killCreditObjectiveFirst`, so neither the flag nor, with two or more entries, their order can be proven, whatever exporter version wrote the file. For quests without killCredit, v2 defines `killCreditFirst = false` (the field means "the flag affects order", which needs a killCredit objective), so the migrated value is provable rather than assumed. Tested: single-killCredit, two-killCredit-only and mixed cases refused; no-killCredit case accepted. |
+| v2 → v1 | never by discarding; refused |
 
-## 5. M2.3 status model (update)
+## 9. Provenance compatibility rules
 
-Each quest in a batch gets exactly one status. No silent filtering: every server-selected quest appears in the report.
-
-| Status | When |
+| Pair | Rule |
 |---|---|
-| `ABSENT_FROM_EFFECTIVE_DB` | The quest is not in the compiled Questie DB |
-| `UNSUPPORTED_BY_SCHEMA_VERSION` | Present, but the effective file's schema version cannot represent it (v1 today: the 752; reason codes from the coverage manifest) |
-| `EXPORTED` | Supported and exported; M1 classifications follow |
-| `REJECTED_MALFORMED_INPUT` | The server input record (or the effective file) failed validation; the whole batch stops if the file is malformed |
-| `NEEDS_MANUAL_REVIEW` | Exported but M1 cannot decide (including v2 `m1Status = UNSUPPORTED` content) |
+| Effective export ↔ its coverage manifest | must share `sourceCommit`, `sourceTree`, `nQuestieDataRevision`, `correctionCount`, `correctionFingerprint`, `correctionModules`, `tocInterface`, `flavour`, `harness`, `harnessVersion`; both clean (`sourceDirty = false`); effective `dataKind = "effective"`. Any difference: the batch stops. |
+| Server input (`nq-m2-input`) | validated in full by the frozen M2.1 validator before anything else (every provenance field: exporter, exporterVersion, sourceLabel, sourceFingerprint sha256, exportedAt with date check, selection = "explicit", questCount = records; plus every record). The draft exposes only `CheckServerDocument(doc)`; there is no provenance-only helper, so incomplete provenance cannot reach pairing or comparison. It has **no git commit** and is never compared with a Questie commit. |
+| Reports | keep all records in full: server provenance, effective provenance, coverage-manifest provenance |
+| Mixing | a batch takes exactly one server file, one effective file and one coverage manifest; files from different checkouts are rejected, never merged |
 
-Other M2.3 rules:
+Draft functions: `CheckPairing` and `CheckServerDocument` in the draft validator (tested, including each missing or invalid provenance field).
 
-- The preflight (coverage) manifest is a separate private input, never merged into the effective export.
-- Reports keep both provenance records in full (server input and effective), plus the coverage manifest's commit; all three commits must match or the batch stops.
-- The summary file (shareable) holds counts per status and reason only.
+## 10. M2.3 status model (final proposal)
 
-## 6. Test plan for v2 (for the future exporter)
+Two separate axes per server-selected quest. Nothing is filtered silently: every requested quest appears in the private report with one export status and, where applicable, one M1 outcome.
 
-| # | Test | Real quests (public) |
+**Export status**
+
+| Status | Meaning |
+|---|---|
+| `ABSENT_FROM_EFFECTIVE_DB` | not in the **full** paired coverage manifest (all 9,159 compiled IDs; completeness proven by count and ID-list sha256 pin). Never inferred from a selected export alone. |
+| `UNSUPPORTED_BY_SCHEMA_VERSION` | in the manifest as UNSUPPORTED and the effective file's schema version cannot represent it (v1); reason codes from the manifest |
+| `EXPORTED` | represented in the effective file |
+
+A successful report has only these three statuses. `REJECTED_MALFORMED_INPUT` is **not** a report status: any malformed input rejects the whole batch, and the code appears only in the private rejection diagnostic (batch-level). A manifest-REPRESENTABLE quest that the selected export does not contain is a whole-batch **selection mismatch**, not ABSENT. Final details: `docs/NQ-VALIDATION-M2.3-DESIGN.md` (stacked PR).
+
+**M1 outcome** (only for `EXPORTED`)
+
+| Outcome | Meaning | May confirm? |
 |---|---|---|
-| R1 | Each kind and each reference type round-trips | 1203 item, 2001 creatures, 498 objects, 2784 killCredit, 1367 monster refs, 735 object refs |
-| R2 | IDs equal compiled values | as above |
-| R3 | objectiveIndex kept; killCredit ids/root kept | 735 (index 2), 9666 |
-| R4 | ObjectiveData order, incl. item-before-reputation and killCreditFirst | 1369; 10503 (the only `killCreditObjectiveFirst` quest) |
-| R5 | Positions contiguous; ref order kept | 1367 (nine refs), 3628 (mixed refs) |
-| R6 | Spawn-only extra vs reference extra | 11142 (both in one quest) |
-| R7 | All occurrences kept and numbered | 25199 (x4), 11706, 12252, 12481, 13042, 64128, 12683, 11142 |
-| R8 | Reputation with and without value | 1036, 8470 (faction only) |
-| R9 | No false SUPPORTED | every UNSUPPORTED category and overlap: 3628, 1920, 735, 1367, 1380, 11142, 11706, 1036, 12252 |
-| R10 | v1 still valid; unknown version rejected; v1 to v2 migration; downgrade refused | v1 fixtures; 1203 |
+| `M1_UNSUPPORTED_BY_RULES` | M1 has no rule for this content (`m1Status = UNSUPPORTED_BY_RULES`) | **No.** Not a mismatch and not an evidence task |
+| `NEEDS_MANUAL_REVIEW` | rules ran, evidence incomplete or ambiguous (e.g. incomplete KillCredit, unknown script/IP flags) | **No**, until a human supplies evidence |
+| `EXPECTED_REPRESENTATION_DIFF` | known representation difference (e.g. 1203 effective) | no change needed |
+| `CONFIRMED_MATCH` / `CONFIRMED_MISMATCH` | rules ran with complete evidence | yes, then the normal evidence review before any correction |
 
-Plus, for the future exporter: a full-DB run must export all 9,159 quests (0 refused, 0 unclassified), and a v2 export of the 8,407 v1-representable quests must convert back to exactly the v1 records.
+**Unsupported quests in private reports.** Each appears as a row with its export status, reason codes from the coverage manifest, and no M1 outcome. The summary counts them per status and reason. No quest is dropped from the report because it could not be exported.
 
-### Prototype evidence (this PR, DRAFT)
+**Pairing coverage manifest ↔ effective export.** The manifest is a separate private input. M2.3 checks pairing (§9), checks that every requested ID is in exactly one of {manifest REPRESENTABLE ∧ effective file, manifest UNSUPPORTED, absent}, and stops on any contradiction (e.g. a quest exported but listed UNSUPPORTED).
 
-`tools/validation/draft/EffectiveSchemaV2Draft.lua` is a **draft** validator that refuses to run without `allowDraft = true` and is used by no harness. `tests/fixtures/m2_effective_v2_draft/v2_categories.lua` holds 8 hand-written records that mirror the public compiled shapes of 1203, 1367, 735, 25199, 11142, 8470, 9666 and 1369. `tests/test_nquestie_m2_effective_v2_draft.lua`: 33 checks covering R1-R10 (positive and negative cases), the draft guard, migration and downgrade refusal. The fixture also parses with the frozen data-only parser.
+## 11. Coverage projection
 
-## 7. Coverage projection (before / after)
-
-| | v1 (today) | v2 (projected) |
+| | v1 (measured) | v2 (projected) |
 |---|---|---|
-| Representable in the schema | 8,407 of 9,159 (91.8%) | 9,159 of 9,159 (100%) |
-| Of the 752 | 0 | 752 |
-| M1 SUPPORTED (usable for CONFIRMED) | 8,407 | 8,407 (unchanged) |
-| Present but M1 UNSUPPORTED | n/a (refused) | 752 (quests with each reason, overlapping: extra refs 571, reputation 181, duplicates 8) |
+| Structural objective fields representable | 8,401 of 9,159 | 9,159 of 9,159 |
+| Of the 758 | 0 | 758 |
+| M1 SUPPORTED | 8,401 | 8,401 (unchanged) |
+| Kept but `UNSUPPORTED_BY_RULES` | n/a (refused) | 758 |
 
-Basis: every refusal in the real DB has one of the five reason codes handled by §3 and there are 0 unclassified or "other" refusals. This is a projection from the coverage data and the draft fixtures, not a measured v2 export. It must be confirmed by the v2 exporter's full-DB test.
+This means "projected 100% representability of the structural objective fields", not a full-fidelity quest export (§7). It is projected from the coverage reasons (all are handled by §5 and none are unclassified) and the draft fixtures. It is not a measured v2 export.
 
-Gains for M1 would need new rules, each a separate decision: duplicate-line semantics (6 duplicate-only quests), reputation comparison (175 reputation-only quests), extra-reference comparison (the rest).
+## 12. Next integration and acceptance checklist
 
-## 8. Decisions needed
-
-1. Approve the v2 shape (§3), the M1 rule for UNSUPPORTED (R9) and the versioning rules (§4).
-2. Data anomaly review for 64128, 12683 and 11142 (data owner).
-3. Whether `spawnZones` (zone IDs only) is wanted, or presence only.
-4. Approve the M2.3 status model (§5) before M2.3 code.
+| Gate | Owner | State |
+|---|---|---|
+| #38 integration: all six workflows green on one commit | framework | see handover |
+| Lead: real private 1203 input validated under genuine Lua 5.1 | lead | open |
+| Approve this design (§5–§10) | Michael / lead | open |
+| In-game checks: 11142 line count; 64128 only if unhidden | lead | open |
+| v2 exporter (separate approval) with the full round-trip tests in §6 | framework | not started |
+| M2.3 engine (separate approval) with the status model in §10 | framework | not started |

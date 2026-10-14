@@ -69,6 +69,8 @@ Goal: write `nq-m2-effective` v1 records for explicitly selected quest IDs, take
 
 ### Open item from Steps 2–6: decided (Option A)
 
+> Historical snapshot (before the #36 kill-credit order check). Current measured figures: 8,401 representable, 758 unsupported of 9,159 (`NQ-VALIDATION-M2.2-COVERAGE.md` §3).
+
 v1 cannot represent 752 of 9,159 quests. **Decision (Michael, 14 October 2026): Option A.** v1 stays frozen; those quests are out of scope for the initial pilot (temporary); v2 is designed next. The exporter stays fail-closed: an unsupported requested ID fails the export, writes nothing and prints every reason. Never trim, dedupe, drop reputation or reinterpret extras; no false CONFIRMED.
 
 ### M2.2 follow-up (Option A)
@@ -78,92 +80,49 @@ v1 cannot represent 752 of 9,159 quests. **Decision (Michael, 14 October 2026): 
 - [x] CI review of #30/#31 and an exact activation diff (`docs/NQ-VALIDATION-M2.2-CI-COORDINATION.md`)
 - [x] Reproducible 1203 pilot and a 16-quest v1 pilot list (`docs/NQ-VALIDATION-M2.2-PILOT.md`)
 - [x] v2 design, duplicate investigation, draft validator and fixtures (`docs/NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md`)
-- [ ] Activate the proposed workflow (lead developer, CI-only PR)
+- [x] Activate the M2 workflow (lead's #35; integrated in #38)
+- [x] killCreditObjectiveFirst order refusal; measured coverage 8,401 / 758 (#36)
+- [x] 9,158 vs 9,159 explained and the compiled ID set pinned (#37)
+- [x] Final v2 design: display scope, provenance pairing, split M1 statuses, duplicate assessment
 - [ ] Approve v2 design; then a v2 exporter (separate approval)
 
-## 4. M2.3 Report-only batch comparison engine
+## 4. M2.3 Report-only batch comparison engine (DESIGN ONLY)
 
-Goal: compare one `nq-m2-input` file (server) with one `nq-m2-effective` file (N-Questie), quest by quest, using the M1 rules unchanged, and write a private report.
+Status: design only. Nothing in this section is implemented; examples and module names are proposals. Implementation needs separate maintainer authorisation. Final model: `docs/NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md` §9-§10.
 
-### Architecture and module layout
+Goal: compare one private server file (`nq-m2-input` v1) with one effective Questie export (`nq-m2-effective` v1 or v2) and its paired coverage manifest, quest by quest, using the M1 rules unchanged, and write a private report plus a separately reviewed aggregate.
 
-```
-cli/validate-m2-batch.lua           CLI (read-only inputs, private report output)
-tools/validation/BatchEngine.lua    pure: (inputDoc, effectiveDoc) -> results table
-tools/validation/BatchReport.lua    pure: results -> report text (TSV + Markdown)
-tools/validation/SafeWrite.lua      shared with M2.2 Step 4 (temp + rename, path rules)
-tools/validation/fixtures/batch_cases.lua
-tests/test_nquestie_m2_batch.lua    standalone
-tools/validation/BatchEngine.test.lua  busted
-```
+### Inputs (three, all required)
+
+| Input | Validation | Provenance |
+|---|---|---|
+| Server file | full `InputSchema.Validate` (every provenance field and record) | own: exporter, version, label, `sourceFingerprint` (sha256), time, selection, questCount. No git commit; never compared with one. |
+| Effective export | version dispatch: v1 → frozen v1 validator, v2 → v2 validator, other → rejected | git commit, tree, revision, correction fingerprint and modules, M0 count |
+| Coverage manifest | its own schema checks; reconciled aggregate | must pair with the effective export: same commit, tree, revision, correction count, fingerprint, modules, TOC, flavour, harness and version; both clean |
 
 ### Flow
 
-1. Load both files with `InputSchema.LoadFile` and `EffectiveSchema.LoadFile` (`expectKind = "effective"`, `expectCorrectionCount = 28`). Any error rejects the whole batch.
-2. Match by quest ID.
-   - In the server file but missing from effective: R-QUEST-MISSING (NEEDS_MANUAL_REVIEW).
-   - In effective but missing from the server file: a new report-level line "not in server selection" (no classification, listed separately).
-3. For each matched pair: `ObjectiveRules.Compare(FromQuestTemplateRow(row), EffectiveSchema.ToQuestieRecord(rec))`. No rule is weakened or skipped.
-4. Conservative by design. Incomplete KillCredit gives R-NPC-NOCREDIT. Several unmatched targets give R-ITEM-SET or R-NPC-SET. Unknown IP or script flags give C-UNKNOWN or C-SCRIPT and block confirmation.
-5. Check that inputs are unchanged (deep-compare before and after). A change aborts with no report.
-6. Write the report only via SafeWrite to a private path. If anything fails, write nothing.
+1. Validate the three inputs independently. Any failure rejects the **whole batch**: no report and no partial output.
+2. Check pairing between the effective export and the manifest. Any difference rejects the batch.
+3. Membership consistency: every effective-export quest is REPRESENTABLE in the manifest, and no quest is both exported and UNSUPPORTED. Any contradiction rejects the batch.
+4. For each server-selected quest, assign exactly **one export status**: `ABSENT_FROM_EFFECTIVE_DB` (not in the full manifest), `UNSUPPORTED_BY_SCHEMA_VERSION` or `EXPORTED`. A manifest-REPRESENTABLE quest missing from the selected export rejects the batch (selection mismatch). `REJECTED_MALFORMED_INPUT` exists only in the private rejection diagnostic, never in a report.
+5. For `EXPORTED` quests only, assign **at most one comparison outcome**: `M1_UNSUPPORTED_BY_RULES`, `NEEDS_MANUAL_REVIEW`, `EXPECTED_REPRESENTATION_DIFF`, `CONFIRMED_MATCH` or `CONFIRMED_MISMATCH`. Records with v2 `m1Status = UNSUPPORTED_BY_RULES` get `M1_UNSUPPORTED_BY_RULES` and are never passed to M1 for confirmation. Unknown IP, conditions, KillCredit completeness or scripts never confirm.
+6. Inputs are deep-compared before and after; any change aborts with no report.
+7. Write the private report and aggregate only through SafeWrite to private paths. If anything fails, nothing is written.
 
-### CLI
+### Reporting
 
-```
-lua5.1 cli/validate-m2-batch.lua \
-  --server  /abs/private/input.lua \
-  --effective /abs/private/effective.lua \
-  --out     /abs/private/reports/            # folder; files are new, never overwritten
-  [--force]                                 # allow replacing an existing report
-```
+Every selected ID appears exactly once in the private report, with its export status, its reason codes (from the manifest) when unsupported, and its comparison outcome when exported. Nothing disappears silently. The aggregate holds counts per status, outcome and reason only.
 
-Exit code: 0 for a report written, 1 for input rejected, 2 for a write refused.
-
-### Provenance in reports
-
-Every report keeps **both** provenance records in full: the server `nq-m2-input` provenance (exporter, version, source label, fingerprint, time) and the `nq-m2-effective` provenance (commit, tree, revision, correction fingerprint and modules, M0 count, time). The summary keeps the commit, revision, correction count and both export times. It does not keep the source fingerprint, so the private archive can't be identified. A report with either record missing is not written.
-
-### Quest statuses (no silent filtering)
-
-Every server-selected quest gets exactly one status (detail in the v2 design doc §5):
-
-| Status | When |
-|---|---|
-| `ABSENT_FROM_EFFECTIVE_DB` | not in the compiled Questie DB |
-| `UNSUPPORTED_BY_SCHEMA_VERSION` | present, but the effective schema version cannot represent it (reason codes from the coverage manifest) |
-| `EXPORTED` | supported and exported; M1 classifications follow |
-| `REJECTED_MALFORMED_INPUT` | the server record failed validation (a malformed file stops the whole batch) |
-| `NEEDS_MANUAL_REVIEW` | exported but M1 cannot decide (including v2 `m1Status = UNSUPPORTED`) |
-
-The coverage (preflight) manifest is a separate private input, never merged into the effective export. Reports keep both provenance records in full and the coverage manifest's commit; the commits must match or the batch stops.
-
-### Report format (private)
-
-| File | Content |
-|---|---|
-| `m2-report-<exportedAt>.tsv` | One row per finding: questId, kind, class, rule ids, server id, Questie id, explanation |
-| `m2-report-<exportedAt>.md` | Header (both provenances, counts), then per quest: worst class, findings with rule ids and evidence text |
-| `m2-summary-<exportedAt>.md` | Aggregates only: counts per class and per rule, number of quests, missing on each side. No IDs, names or text. This is the only file that may be shared. |
-
-### Steps
-
-- [ ] BatchEngine (pure) with synthetic cases: match, missing both sides, all four classes, ambiguous pairs, unknown flags.
-- [ ] BatchReport (pure) with golden-text tests; summary contains no IDs (asserted).
-- [ ] SafeWrite shared module (from M2.2 Step 4).
-- [ ] CLI with whole-batch rejection tests (malformed input, wrong kind, wrong correction count, duplicate IDs, path outside rules).
-- [ ] Non-mutation tests for both inputs and for Questie records.
-- [ ] Proposed CI step; docs.
-
-### Acceptance criteria
+### Acceptance (when implemented)
 
 | Criterion | Evidence |
 |---|---|
-| Any malformed input means no report file at all | Negative tests check the output folder stays empty |
-| M1 results identical to calling M1 directly | Test compares engine output with direct Compare |
-| 1203 synthetic batch: stock effective file refused; effective gives no confirmed result | Tests |
-| Summary has no quest IDs | Test greps the summary |
-| Inputs unchanged | Deep-compare test |
+| Any malformed or inconsistent input: no files at all | negative matrix, output folder stays empty |
+| One export status per selected ID; at most one outcome | property test over fixtures |
+| M1 results identical to calling M1 directly | comparison test |
+| 1203 effective gives EXPECTED_REPRESENTATION_DIFF, never CONFIRMED | test |
+| Aggregate contains no IDs, names or fingerprints | grep test |
 
 ## 5. M2.4 / M2.5 Real-data review process
 

@@ -187,3 +187,4 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 - 2026-10-14: private/ tracking guard (tests/check_no_tracked_private.sh) runs in CI via the M2.1 path test on the ci/nq-private-untracked-guard branch; a dedicated workflow step is proposed in docs/proposed-workflows/nquestie-private-untracked-guard.diff.
 - 2026-10-14: M2.2 Steps 2-6 in draft PRs #26-#29 (snapshot, safe writer, harness export, tests and proposed CI). v1 cannot represent 752/9159 quests; decision pending. See docs/NQ-VALIDATION-M2.2-HANDOVER.md.
 - 2026-10-14: M2.2 Option A follow-up (#33, #34): coverage report, pilot procedure, v2 design (draft). Next: activate M2 CI, approve v2.
+- 2026-10-14: #36-#39: killCreditFirst refusal, ID set pinned, CI integrated, v2 design final draft.
