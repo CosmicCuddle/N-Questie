@@ -1,5 +1,13 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Early-zone level corrections, draft PR #8
+
+- Individually cross-checked **11** early-game `MinLevel` / `QuestLevel` differences against the private offline world index and the installed Questie database. IDs: 98, 126, 169, 180, 249, 256, 304, 398, 442, 895, 6284.
+- Opened [draft PR #8](https://github.com/CosmicCuddle/N-Questie/pull/8), stacked on PR #7, with `Compat/NQuestieReviewedEarlyQuestLevels.lua`, a 3.3.5a-only fail-closed callback, source-level Python checks, synthetic Lua 5.1 tests, TOC packaging and cache revision 3→4.
+- [Scoped workflow 38562858874](https://github.com/CosmicCuddle/N-Questie/actions/runs/38562858874) **passed** on initial PR #8 head. Full inherited CI still needs the isolated PR #4 fixture repair and a reviewed integrated test branch.
+- Grok delivered an independent read-only integration review and M0 effective-database-validation proposal (private communication). The reviewer found no blocking functional error in PR #6/#7 callback logic in their local 3.3.5a harness, but identified workflow risks: cache revision not automatically enforced, no real-335 CI integration, missing PR #4 in stack, and documentation ancestry conflicts from PR #2 to PR #3. M0 is assigned separately to Grok; do not overlap branch ownership.
+- No in-game QA of these 11 quests yet, no live SQL or installed client changes, no merge, release, or N-Addon-Collection update.
+
 ## 14 October 2026 — Full installed Questie file and private world comparison
 
 **Source confirmed:** `wotlkQuestDB.lua` uploaded from the installed addon is byte-identical (git blob `abbf2831b6d6b54b5d9383ba2c3e5cce5147379d`) to the GitHub original WotLK Questie file. It contains 9,086 records. The private exported AzerothCore world contains 9,525 records.

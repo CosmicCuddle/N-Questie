@@ -1,5 +1,13 @@
 # N-Questie — Development Handover
 
+## Current continuation — 14 October 2026: early-zone quest corrections, draft PR #8
+
+**New:** [draft PR #8](https://github.com/CosmicCuddle/N-Questie/pull/8) is stacked on PR #7 and proposes **11 additional early-game existing-quest level/minimum-level corrections** (IDs **98, 126, 169, 180, 249, 256, 304, 398, 442, 895, 6284**). All values were cross-checked against the private offline `acore_world` quest templates and the earlier literal-correction audit. Only `requiredLevel` and/or `questLevel` fields are emitted, using source-value guards; other quest metadata stays unchanged. Cache revision 3→4, with synthetic Lua 5.1 tests and an original-source regression. See [EARLY-QUEST-LEVEL-AUDIT.md](EARLY-QUEST-LEVEL-AUDIT.md). **Scoped CI run 38562858874 passed**; inherited CI still requires independent PR #4 integration and is not proof of the final combined build.
+
+**Grok collaboration:** The maintainer assigned Grok independent correction-pipeline/integration review followed by M0 (effective 3.3.5a Questie database validation) **on their own branch**. Grok supplied `REVIEW-2026-10-14.md` and `VALIDATION-DESIGN-2026-10-14.md` to the maintainer. Reviewer reports that PR #6/#7 corrections work in a real mocked 335 initialization/compile path, but highlights high-priority absent real-pipeline CI, independent PR #4 CI harness repair, a nine-commit docs ancestry gap between #2/#3, cache revision guard weakness, and custom loader's possibility of replacing future base records. These remain recommendations requiring coordinated PR review; no merges or fixes have been authorized.
+
+**Branch ownership:** This PR #8 edits curated early-zone levels, tests and its own docs only. Grok owns the proposed separate 335 validation harness and objective-validation framework. No private world SQL, full audit workbook, credentials, server mutations, installed addon edits, SavedVariables replacement, tags or releases allowed. In-game QA for new PR #8 changes not yet performed.
+
 ## Collaboration checkpoint — 14 October 2026
 
 **Second-reviewer coordination:** The maintainer plans to invite Grok as a collaborating reviewer. The public handoff and defined work boundaries are in [EXTERNAL-COLLABORATION-REVIEW-BRIEF.md](EXTERNAL-COLLABORATION-REVIEW-BRIEF.md). Assign **read-only integration review** of stacked PRs #2/#3/#5/#6/#7 and independent CI fix #4 first; focus on Questie correction registration, database decode timing, cache revision, multiple overlay composition, and Lua 5.1 test fidelity. The existing-quest source audit, approved corrections and private world data stay with the main development workflow.
