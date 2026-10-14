@@ -1,5 +1,15 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Duskwood and Wetlands quest-chain level review
+
+Read-only verified the private AzerothCore world records, individual `PrevQuestID` links, creature/gameobject starters and enders, and original Questie level fields for Duskwood quests **225, 227, 228, 229, 231** and Wetlands quests **473, 464, 465, 474**. Quest 225's inherited TBC `requiredLevel=25` fix was explicitly included in the source comparison. No Questie quest objective, GO, NPC or chain field needs replacing in this narrow batch.
+
+Staged the nine field-level, fail-closed WoW 3.3.5a numeric corrections in [draft PR #13](https://github.com/CosmicCuddle/N-Questie/pull/13); added synthetic Lua 5.1, real public Questie baseline Python tests, TOC, cache revision 4→5 and new [CLASSIC-CHAIN-LEVEL-AUDIT.md](CLASSIC-CHAIN-LEVEL-AUDIT.md). [Scoped CI PASS 38567305494](https://github.com/CosmicCuddle/N-Questie/actions/runs/38567305494). Inherited Busted tests still need independent PR #4. New corrections have **not** been tested in game.
+
+Grok has simultaneously opened [draft #11](https://github.com/CosmicCuddle/N-Questie/pull/11) covering M0 validation of 19 level quests and [draft #12](https://github.com/CosmicCuddle/N-Questie/pull/12) covering CI-only cache revision guard. Sent the nine new source-verified IDs/values to Grok's PR #11 discussion; keep the combined 28-level validator in a separate integrated branch. See [COLLABORATION-INTEGRATION-STATUS.md](COLLABORATION-INTEGRATION-STATUS.md) for owners and dependencies.
+
+No code merges, releases, N-Addon-Collection updates, installed WoW addon/SavedVariables modifications or live AzerothCore world changes. Full private SQL and comprehensive audit remain off public GitHub.
+
 ## 14 October 2026 — Early-zone level corrections, draft PR #8
 
 - Individually cross-checked **11** early-game `MinLevel` / `QuestLevel` differences against the private offline world index and the installed Questie database. IDs: 98, 126, 169, 180, 249, 256, 304, 398, 442, 895, 6284.
