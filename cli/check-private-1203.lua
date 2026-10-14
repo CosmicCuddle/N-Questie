@@ -9,8 +9,9 @@
 -- The shared M2.1 parser reads DATA literals, never executes the input Lua.
 -- This tool writes nothing, prints no private source rows, paths, fingerprints
 -- or server labels, and never connects to a server/database.
--- A PASS means shape + selection + public expected objective only; it is NOT
--- archive SHA verification, current server attestation or a real M2.3 compare.
+-- A PASS means shape + selection + public expected objective only; the
+-- optional archive check tests byte-hash agreement but does NOT attest the
+-- exporter source, current server freshness or a real M2.3 comparison.
 
 local Input = dofile("tools/validation/InputSchema.lua")
 local path = arg[1] or os.getenv("NQ_M2_INPUT")
@@ -52,7 +53,11 @@ local function capture(cmd)
     local ok, h = pcall(io.popen, cmd .. " 2>/dev/null")
     if not ok or not h then return nil end
     local output = h:read("*a")
-    h:close()
+    -- A subprocess may emit plausible stdout and still exit unsuccessfully.
+    -- In Lua 5.1, pclose reports success as true (or status 0).
+    -- Never accept output from a failed hashing/stat/identity command.
+    local closeOk, closeStatus = h:close()
+    if closeOk ~= true and closeOk ~= 0 then return nil end
     return output and output:match("^(.-)\n?$")
 end
 local uid = capture("id -u")
