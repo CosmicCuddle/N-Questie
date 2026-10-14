@@ -1,5 +1,13 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Quest 2001 first in-game marker evidence
+
+**Maintainer evidence:** Screenshots show Ravenclaw Cleanup (2001) as Available in Shadow Priest Allister's Questie map tooltip and visible map markers around The Sepulcher / nearby objective area. **PASS:** quest is discoverable in Questie's available-quest presentation; initial map marker rendering is visible. These are stronger observations than the earlier installation-only checks.
+
+**Not yet established:** whether the nearby sword icons specifically represent quest 2001 rather than other active quests; objective markers after accepting quest 2001; objective coordinates versus actual Ravenclaw spawns; quest completion and turn-in icon. No quest-progress or database edits were requested or performed.
+
+**Next:** Have the maintainer accept quest 2001 through normal gameplay, inspect its quest-log objectives and hover one of its sword markers to identify the quest, then verify turn-in after normal completion. Preserve installed addon and SavedVariables. No merge/release authorization.
+
 ## 14 October 2026 — Maintainer's in-game installation checks: PASS (Step 1)
 
 The maintainer installed the temporary N-Questie QA addon and reported **five explicit PASS results**:
