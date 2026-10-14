@@ -159,3 +159,19 @@ A quest may require different expectations across progression stages. Document t
 - **Maintainer:** approval of production implementation, any QA install, in-game observations, merger and release.
 
 **This is a documentation-only safety and test plan.** It authorizes no production v2 exporter, M2.3 engine, client changes, corrections, merge, tag or release.
+
+## 9. Archive fingerprint and snapshot freshness gate (before a future *real* comparison)
+
+A valid `nq-m2-input` file is **not yet authenticated against the private archive it purports to represent**. `InputSchema.Validate` enforces the `sourceFingerprint` format, record types, exporter fields and internal count, but it does **not** open and hash the private SQL archive. A successful `OK:` therefore does **not** prove that the archive hash in the document is truthful, that the exporter read the intended archive, or that the snapshot describes the server's current running data.
+
+Perform these additional checks locally and **never post hashes or paths to GitHub**:
+
+1. Identify the exact private archive file and the offline exporter run that produced the selected quest-1203 Lua document. Keep their paths, archive name, exporter invocation and timestamps private.
+2. On the trusted host, recompute SHA-256 over the **identical archive bytes the exporter read** (not a re-zipped or extracted substitute). Compare it privately with the `sha256:<64 lowercase hex>` value stored in the input's provenance. Record only `MATCH / MISMATCH / NOT VERIFIED` in the public status. A hash match proves byte identity to that archived file, **not** that the running server has not changed since the snapshot.
+3. Separately verify that the archive's selected `quest_template` row and required objective/source/credit/conditions evidence represent **the intended snapshot**. Do not infer `killCreditComplete`, `ipGated`, `hasConditions` or `scriptedCredit` from missing SQL tables; incomplete evidence stays explicitly unknown.
+4. Record the archive snapshot time and the export time **privately**. If the world DB may have changed since that snapshot, report the result as **historical-snapshot comparison** until a newer authorised read-only archive can be verified. Never claim current-world correctness from an older offline archive.
+5. Any mismatch, missing original archive, unverifiable exporter version or uncertainty about exact hash source **blocks a confirmed real-data comparison**; stop rather than rewriting provenance or silently regenerating hashes.
+
+The public status should say only, for example: `private 1203 format PASS; snapshot fingerprint MATCH; current-world freshness NOT VERIFIED`. If evidence is insufficient, say `NOT VERIFIED` rather than `PASS`.
+
+This gate does not require connecting to the live DB. It does not authorise fresh backups, exporting new server data, installing the addon, or running production M2.3. It strengthens evidence hygiene before those steps are separately approved.
