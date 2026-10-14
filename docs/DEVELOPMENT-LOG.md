@@ -1,5 +1,22 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Revision guard CI enablement and Hillsbrad quest analysis
+
+- Reviewed Grok's independently owned draft PR #12 CI-only correction revision guard: `cli/check-revision-bump.sh`, seven synthetic regression cases and proposed workflow. No runtime revision changes.
+- Activated its proposed workflow as a **separate draft [PR #14](https://github.com/CosmicCuddle/N-Questie/pull/14)** stacked on PR #12, leaving #12 untouched. Real [GitHub guard workflow 38569424455](https://github.com/CosmicCuddle/N-Questie/actions/runs/38569424455) **PASSED**; existing overlay checks passed; inherited Busted `unit-tests` remains failing without independent unmerged #4. No merge, release or production changes.
+- Investigated Hillsbrad quest 566 and 567 using the private offline world export and installed Questie source. Verified `MinLevel` discrepancy (566: Questie 17/server 35; 567: 17/19), while starter GO 1763/2008, ender NPC 2215, quest-level 40/28 and target item/NPC IDs match. Searched 17,701 exported `conditions` rows, found none directly referring to numeric quest IDs 566/567; other scripted conditions and IP state remain unknown. **No correction proposed or applied for these two** pending effective-DB/IP review. See [HILLSBRAD-WANTED-QUESTS-REVIEW.md](HILLSBRAD-WANTED-QUESTS-REVIEW.md).
+- Grok owns M1 objective validation independently; no edits to its PR branches. The private world archive and full comparison workbook remain off public GitHub.
+
+## 14 October 2026 — Duskwood and Wetlands quest-chain level review
+
+Read-only verified the private AzerothCore world records, individual `PrevQuestID` links, creature/gameobject starters and enders, and original Questie level fields for Duskwood quests **225, 227, 228, 229, 231** and Wetlands quests **473, 464, 465, 474**. Quest 225's inherited TBC `requiredLevel=25` fix was explicitly included in the source comparison. No Questie quest objective, GO, NPC or chain field needs replacing in this narrow batch.
+
+Staged the nine field-level, fail-closed WoW 3.3.5a numeric corrections in [draft PR #13](https://github.com/CosmicCuddle/N-Questie/pull/13); added synthetic Lua 5.1, real public Questie baseline Python tests, TOC, cache revision 4→5 and new [CLASSIC-CHAIN-LEVEL-AUDIT.md](CLASSIC-CHAIN-LEVEL-AUDIT.md). [Scoped CI PASS 38567305494](https://github.com/CosmicCuddle/N-Questie/actions/runs/38567305494). Inherited Busted tests still need independent PR #4. New corrections have **not** been tested in game.
+
+Grok has simultaneously opened [draft #11](https://github.com/CosmicCuddle/N-Questie/pull/11) covering M0 validation of 19 level quests and [draft #12](https://github.com/CosmicCuddle/N-Questie/pull/12) covering CI-only cache revision guard. Sent the nine new source-verified IDs/values to Grok's PR #11 discussion; keep the combined 28-level validator in a separate integrated branch. See [COLLABORATION-INTEGRATION-STATUS.md](COLLABORATION-INTEGRATION-STATUS.md) for owners and dependencies.
+
+No code merges, releases, N-Addon-Collection updates, installed WoW addon/SavedVariables modifications or live AzerothCore world changes. Full private SQL and comprehensive audit remain off public GitHub.
+
 ## 14 October 2026 — Early-zone level corrections, draft PR #8
 
 - Individually cross-checked **11** early-game `MinLevel` / `QuestLevel` differences against the private offline world index and the installed Questie database. IDs: 98, 126, 169, 180, 249, 256, 304, 398, 442, 895, 6284.

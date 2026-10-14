@@ -2,7 +2,7 @@
 -- Public curated quest metadata only; never include a raw database dump here.
 -- Increase revision whenever any record changes to rebuild Questie's compiled DB.
 NQuestieCustomQuestData = {
-    revision = 4,
+    revision = 5,
     quests = {
         [2001] = {
             name = "Ravenclaw Cleanup",
