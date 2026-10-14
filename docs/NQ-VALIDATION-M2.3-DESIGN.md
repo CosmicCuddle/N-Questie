@@ -17,82 +17,85 @@ M2.3 never corrects anything, never edits the database and never confirms what t
 
 | # | Input | Validator | Rejects batch when |
 |---|---|---|---|
-| 1 | Server file `nq-m2-input` v1 | frozen `InputSchema.Validate` (full: every provenance field and record) | any error; duplicate quest ID; git commit in provenance |
+| 1 | Server file `nq-m2-input` v1 | frozen `InputSchema.Validate` (full: every provenance field and record), via `CheckServerDocument` | any error; duplicate quest ID; git commit in provenance |
 | 2 | Effective export | dispatch on `schemaVersion`: 1 → frozen v1 validator, 2 → v2 validator, other → reject | any error; `sourceDirty = true` |
 | 3 | Coverage manifest | manifest schema + `Coverage.Aggregate` reconciliation | any error; counts do not reconcile |
 
 The server `sourceFingerprint` is a sha256 of the server data. It is independent of git and is never compared with a Questie commit or tree.
 
-## 3. Pairing and membership (whole batch)
+## 3. Pairing, membership and selection (whole batch)
 
-**Pairing** between the effective export and the manifest: identical `sourceCommit`, `sourceTree`, `nQuestieDataRevision`, `correctionCount`, `correctionFingerprint`, `correctionModules` (order-sensitive), `tocInterface`, `flavour`, `harness`, `harnessVersion`; both `sourceDirty = false`.
+**Pairing** between the effective export and the manifest: identical `sourceCommit`, `sourceTree`, `nQuestieDataRevision`, `correctionCount`, `correctionFingerprint`, `correctionModules` (order-sensitive), `tocInterface`, `flavour`, `harness`, `harnessVersion`; both `sourceDirty = false`. Draft: `CheckPairing` (tested).
 
-**Membership consistency:**
+**Manifest completeness.** The coverage manifest lists every compiled quest (9,159 at baseline). It proves full-DB membership only when its entry count equals the pinned count and the ID-list sha256 equals the pin; otherwise the batch is rejected (`REJECTED_MANIFEST_INCOMPLETE`), because absence could not be proven.
 
-- v1 export: the exported quest set equals the manifest REPRESENTABLE set restricted to the selection; no exported quest is UNSUPPORTED in the manifest.
-- v2 export: every manifest quest is exported; each record's `m1Status`/`m1Reasons` equals the manifest classification.
-- Quest counts agree.
+**Selection protocol (exact ID sets).**
 
-Any failure: whole-batch rejection, defined precisely as: exit non-zero, write **no** report, **no** aggregate, **no** temporary or partial file, and print only the failed check names (no quest data) to stderr.
+1. The server selection must be a dense list of unique positive integers (`REJECTED_DUPLICATE_ID` otherwise).
+2. **Preflight split** (`PreflightSplit`, before any export) divides the server selection by the full manifest into `v1Request` (REPRESENTABLE), `unsupported` (UNSUPPORTED) and `absent` (not in the manifest).
+3. **v1 export:** the frozen all-or-nothing v1 exporter is asked only for `v1Request`. v1 is not changed and still refuses any request containing an unsupported ID. The effective export's ID set must equal `v1Request` exactly. A REPRESENTABLE quest missing from the export, or an extra exported quest, is `REJECTED_SELECTION_MISMATCH`, never ABSENT. An exported quest marked UNSUPPORTED, or not in the manifest, is `REJECTED_MEMBERSHIP`.
+4. **v2 export:** always all manifest quests (Proposal A); anything less is `REJECTED_SELECTION_MISMATCH`.
+5. Rows: `absent` → `ABSENT_FROM_EFFECTIVE_DB`; `unsupported` with v1 → `UNSUPPORTED_BY_SCHEMA_VERSION` with the manifest reason codes; everything else → `EXPORTED` (with v2, unsupported quests are EXPORTED with `m1Supported = false`).
 
-## 4. Per-quest export status (axis 1, exactly one)
+Draft: `PlanSelection` implements exactly these rules for synthetic ID sets (no files, no M1) so the matrix in §9 is executed, not described.
+
+**Whole-batch rejection** means: exit non-zero; write **no** report, **no** aggregate and no temporary or partial file. Optionally a private rejection diagnostic (`nq-m2-3-rejection` v1: rejection code plus failed check names, no quest rows) may be written to the private output path. Rejection codes: `REJECTED_MALFORMED_INPUT`, `REJECTED_DUPLICATE_ID`, `REJECTED_PAIRING`, `REJECTED_MEMBERSHIP`, `REJECTED_SELECTION_MISMATCH`, `REJECTED_MANIFEST_INCOMPLETE`, `REJECTED_INPUT_CHANGED`, `REJECTED_UNSAFE_OUTPUT`.
+
+## 4. Per-quest export status (axis 1, exactly one, successful reports only)
 
 | Status | When |
 |---|---|
-| `ABSENT_FROM_EFFECTIVE_DB` | selected server quest ID not in the compiled database (not in the manifest at all) |
-| `UNSUPPORTED_BY_SCHEMA_VERSION` | in the manifest as UNSUPPORTED and the export version cannot hold it (v1); row carries the manifest reason codes |
-| `EXPORTED` | record present in the export |
-| `REJECTED_MALFORMED_INPUT` | the quest's own data cannot be compared (reserved for per-quest problems that the batch validators deliberately allow, such as a server record that is valid but refers to a quest the export marks malformed); never used to hide a batch error |
+| `ABSENT_FROM_EFFECTIVE_DB` | not in the complete manifest (full-DB membership proven, §3) |
+| `UNSUPPORTED_BY_SCHEMA_VERSION` | manifest UNSUPPORTED and the export is v1; row carries the manifest reason codes |
+| `EXPORTED` | in the export |
 
-Every selected ID gets exactly one row. Nothing disappears silently.
+`REJECTED_MALFORMED_INPUT` is **batch-level only** (one consistent model): it never appears as a report row, because a malformed input never produces a report. The draft report validator rejects any row that carries a rejection code. Every selected ID gets exactly one row; nothing disappears silently.
 
 ## 5. Comparison outcome (axis 2, only for EXPORTED, exactly one)
 
-| Outcome | When |
+Each EXPORTED row lists `m1Classes`, the M1 class of every finding (`ObjectiveRules.CLASS`, unchanged): `CONFIRMED_MISMATCH`, `EXPECTED_REPRESENTATION_DIFF`, `NEEDS_MANUAL_REVIEW`, `UNSUPPORTED`. An empty list means M1 returned no findings.
+
+| Outcome | Allowed only when |
 |---|---|
-| `M1_UNSUPPORTED_BY_RULES` | v2 record has `m1Status = UNSUPPORTED_BY_RULES`; M1 is not run for confirmation |
-| `EXPECTED_REPRESENTATION_DIFF` | M1 findings are fully explained by a documented representation difference (for example 1203 effective vs server) |
-| `NEEDS_MANUAL_REVIEW` | any evidence item unknown (KillCredit completeness, conditions, scripts, IP, objective data), any M1 NEEDS_MANUAL_REVIEW class, or kill-credit-first order cannot be matched to server order |
-| `CONFIRMED_MISMATCH` | an M1 finding remains, M1 supports the record and every evidence item is complete |
-| `CONFIRMED_MATCH` | section 6 |
+| `M1_UNSUPPORTED_BY_RULES` | the record is not M1-supported (v2 `m1Status = UNSUPPORTED_BY_RULES`); M1 is not run for confirmation, and no other outcome is allowed |
+| `NEEDS_MANUAL_REVIEW` | always permitted for an M1-supported record (the conservative default whenever evidence is unknown) |
+| `EXPECTED_REPRESENTATION_DIFF` | at least one finding and **all** findings are EXPECTED_REPRESENTATION_DIFF |
+| `CONFIRMED_MISMATCH` | at least one CONFIRMED_MISMATCH-class finding, no NEEDS_MANUAL_REVIEW or UNSUPPORTED finding, and all evidence complete |
+| `CONFIRMED_MATCH` | §6 |
 
 ## 6. CONFIRMED_MATCH mapping (M1 has no such class)
 
-M1 reports findings; it has no "match" class. M2.3 derives `CONFIRMED_MATCH` only when **all** hold:
-
-1. the record is M1-supported (v1, or v2 `SUPPORTED`);
-2. M1 returned **zero** findings of any class, including NEEDS_MANUAL_REVIEW sets;
-3. every evidence item (`killCredit`, `conditions`, `scripts`, `ip`, `objectiveData`) is `complete`;
-4. no representation difference applies.
-
-This does not change M1. Unknown IP, conditions, KillCredit or scripts never confirm. Implemented as `ConfirmedMatchAllowed` in the draft validator and tested.
+Only when **all** hold: the record is M1-supported; `m1Classes` is empty (zero findings of any class); every evidence item (`killCredit`, `conditions`, `scripts`, `ip`, `objectiveData`) is `complete`; no representation difference applies. A missing evidence table is not positive evidence. M1 is not changed. Draft: `OutcomeAllowed` (tested).
 
 ## 7. Private report format (`nq-m2-3-report` v1)
 
 ```
 { schema = "nq-m2-3-report", schemaVersion = 1, private = true,
-  selected = { <quest IDs> },
-  rows = { { questId, exportStatus, reasons?, m1Supported?, m1Findings?, representationDiff?,
-             evidence? = { killCredit, conditions, scripts, ip, objectiveData }, outcome? } } }
+  selected = { <unique positive quest IDs, dense list> },
+  rows = { { questId, exportStatus, reasons? (UNSUPPORTED only, closed vocabulary),
+             m1Supported?, m1Classes?, representationDiff?,
+             evidence? = { killCredit, conditions, scripts, ip, objectiveData }, outcome? (EXPORTED only) } } }
 ```
 
 Written only through SafeWrite to a private path, after the whole batch has passed. Never committed, uploaded or attached anywhere.
 
 ## 8. Aggregate format (`nq-m2-3-aggregate` v1)
 
-Fields allowed: `schema`, `schemaVersion`, `selectedCount`, `exportStatus` (counts by status), `outcome` (counts by outcome), `reasons` (counts by reason code). No quest IDs, names, labels or fingerprints; keys are names only; status counts sum to `selectedCount`; outcome counts sum to EXPORTED; must reconcile with the private report. Sharing an aggregate needs a separate human review each time.
+Fields allowed: `schema`, `schemaVersion`, `reasonVocabVersion` (= 1), `selectedCount`, `exportStatus`, `outcome`, `reasons`. Every key in the three count tables must belong to a **closed vocabulary**: the three report statuses, the five outcomes, and reason vocabulary v1 (exactly the 17 `EffectiveExport.REASONS` codes; the test checks equality). Unknown, numeric or label-like keys are rejected, so no quest ID, name, label or fingerprint can leak. Counts must reconcile exactly with the private report: per status, per outcome, and per reason **occurrence** (a reason on two quests counts 2). The aggregate is never validated without its report. Sharing needs a separate human review each time.
 
-## 9. Synthetic fixtures and negative matrix
+## 9. Synthetic fixtures and executable matrix
 
 | File | Content |
 |---|---|
-| `tests/fixtures/m2_3_draft/report_synthetic.lua` | 9 rows reaching all 4 statuses and all 5 outcomes; values invented |
-| `tests/fixtures/m2_3_draft/batch_matrix.lua` | 15 whole-batch rejection cases (server, effective, pairing, membership, manifest, input-changed, output path) and 11 per-quest cases (1203, absent, duplicates 11142/25199, kill-credit-first 10503, malformed, unknown evidence, complete match/mismatch, kill-credit order) |
-| `tests/test_nquestie_m2_3_report_draft.lua` | 104 checks: report rules, CONFIRMED rules, aggregate privacy and reconciliation, matrix completeness |
+| `tests/fixtures/m2_3_draft/report_synthetic.lua` | 8 rows reaching all 3 statuses and all 5 outcomes, with M1 class lists; values invented |
+| `tests/fixtures/m2_3_draft/batch_matrix.lua` | synthetic 6-quest complete manifest; 17 selection cases and 1 preflight case **executed** through `PlanSelection`/`PreflightSplit`; 3 engine-only design assertions (input changed, unsafe output, M1 equality) clearly marked and not counted as tests |
+| `tests/test_nquestie_m2_3_report_draft.lua` | 110 checks: report rules, CONFIRMED rules, selection uniqueness, batch-only malformed status, diagnostic, aggregate vocabulary and reconciliation, executed matrix, server-provenance and pairing gates |
+
+Key executed cases: 1203 selected but export holds only 2001 → `REJECTED_SELECTION_MISMATCH` (not ABSENT); quest absent from a complete manifest → ABSENT; incomplete manifest → `REJECTED_MANIFEST_INCOMPLETE`; mixed 1203 + 11142 → split, 1203 EXPORTED, 11142 UNSUPPORTED with reasons; v1 export claiming 11142 → `REJECTED_MEMBERSHIP`.
 
 ## 10. Acceptance for a future engine
 
-All B-cases produce no files; all Q-cases produce exactly the stated status/outcome; output passes `ValidateReport` and `ValidateAggregate`; M1 results equal direct M1 calls; inputs unchanged after the run; 1203 never CONFIRMED.
+See `docs/NQ-VALIDATION-M2.3-ENGINE-PROPOSAL.md` (Proposal B).
 
 ## 11. Limitations
 
