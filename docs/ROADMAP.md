@@ -39,6 +39,18 @@
 
 ## Phase 2A — Corrections for existing WotLK quests (added 14 October 2026)
 
+**Full-server audit intake completed:** Exact installed quest database source verified (9,086 records; matches GitHub blob). Compared all 9,525 private world quest templates. Identified 270 level candidate quest IDs after static literal correction-layer approximation, 24 unresolved item objective cases after source-item normalization, and 18 linked non-placeholder server quest IDs missing from stock Questie. See `docs/FULL-SERVER-QUEST-AUDIT-CHECKPOINT.md` (aggregates only). Private seven-tab workbook delivered to maintainer separately; no private world export committed.
+
+- [x] Compare full installed WotLK Questie database file with all private AzerothCore quest templates (read-only).
+- [x] Explain standard source-item objective representation to eliminate 1,460 false positive item mismatches.
+- [ ] Triage 270 numeric candidates against live client effective corrections and IP restrictions, then approve selective field-level changes.
+- [ ] Review 24 remaining item-objective candidates; no automatic bulk replacement.
+- [ ] Review 18 plausibly linked missing quests for playability, starter/end links, prerequisites and progression phase.
+- [ ] Investigate quest NPC/GO objectives and chain/condition differences separately; preserve untouched fields.
+- [ ] Integrate previously tested CI harness fix on a reviewed staging branch and validate combined QA before any merge.
+
+## Phase 2A — Corrections for existing WotLK quests (added 14 October 2026)
+
 **14 October checkpoint:** The maintainer supplied private acore_world.zip. Quest 1203 actual server levels equal stock Questie, but one Moonsteel Broadsword (3853) replaces inherited WotLK Razorspine's Sword (33110). Draft PR #6 proposes a narrow item/text correction. Of 134 Dustwallow server quests, eight confirmed numeric level disagreements are staged in guarded draft PR #7; 31 additional item discrepancy candidates remain unapproved for correction. See docs/DUSTWALLOW-QUEST-AUDIT.md.
 
 - [x] Read-only parse of 9,525 unique quest_template entries in the private offline export.
