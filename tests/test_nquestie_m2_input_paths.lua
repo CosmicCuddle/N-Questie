@@ -128,6 +128,19 @@ local okRun, err = pcall(function()
 end)
 
 cleanup()
+
+-- Repository guard: nothing under private/ may be tracked by git.
+if sh("bash tests/check_no_tracked_private.sh") then
+    pass("no tracked files under private/, and private/ is gitignored")
+else
+    fail("files under private/ are tracked by git, or private/ is not gitignored")
+end
+if sh("bash tests/test_check_no_tracked_private.sh >/dev/null") then
+    pass("private/ guard self-test (tracked file and missing ignore are both caught)")
+else
+    fail("private/ guard self-test failed")
+end
+
 if not okRun then fail("test harness error: " .. tostring(err)) end
 if failures > 0 then
     io.stderr:write(string.format("FAILED: %d failure(s), %d passed\n", failures, passes))
