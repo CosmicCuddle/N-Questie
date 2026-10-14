@@ -1,9 +1,9 @@
 diff --git a/.github/workflows/nquestie-m2-effective-export.yml b/.github/workflows/nquestie-m2-effective-export.yml
 new file mode 100644
-index 0000000..a92c47f
+index 0000000..8345ddf
 --- /dev/null
 +++ b/.github/workflows/nquestie-m2-effective-export.yml
-@@ -0,0 +1,91 @@
+@@ -0,0 +1,98 @@
 +# Proposed (NOT active). Dedicated CI for M2.1 + M2.2.
 +# The push token has no workflow scope. To activate, the lead developer copies
 +# this file to .github/workflows/ in a CI-only PR, as with #22 and #25.
@@ -41,10 +41,11 @@ index 0000000..a92c47f
 +
 +      - name: Lua 5.1 syntax for every M1/M2 module, spec, test and fixture
 +        run: >
-+          luac5.1 -p tools/validation/*.lua tools/validation/fixtures/*.lua
++          luac5.1 -p tools/validation/*.lua tools/validation/draft/*.lua tools/validation/fixtures/*.lua
 +          cli/validate-335.lua cli/validate-m2-input.lua cli/validate-objectives.lua
 +          tests/test_nquestie_m2_*.lua tests/check_m2_export_values.lua
 +          tests/fixtures/m2_input/*.lua tests/fixtures/m2_effective/*.lua
++          tests/fixtures/m2_effective_v2_draft/*.lua
 +          tests/fixtures/validate335/*.lua
 +
 +      - name: Private-file guard and its self-test
@@ -74,6 +75,12 @@ index 0000000..a92c47f
 +
 +      - name: M2.2 coverage / preflight (synthetic, shared exporter reasons)
 +        run: lua5.1 tests/test_nquestie_m2_coverage.lua
++
++      - name: M2 v2 DRAFT prototype (design validation only; no exporter)
++        run: lua5.1 tests/test_nquestie_m2_effective_v2_draft.lua
++
++      - name: Pilot script syntax
++        run: bash -n tools/validation/run-m2-pilot.sh
 +
 +      - name: Busted (M1 + M2 specs)
 +        run: busted -p ".test.lua" tools/validation

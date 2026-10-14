@@ -1,5 +1,14 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — M2.2 Option A follow-up: coverage, pilot, v2 design (draft PRs #33, #PR_B)
+
+- **Decision applied:** Option A. v1 frozen; unsupported quests out of scope for the initial pilot; exporter fail-closed.
+- **Change:** shared reason codes in the exporter; read-only coverage mode over all compiled quests (private manifest via SafeWrite, public aggregate); pilot script; v2 design with a DRAFT validator and synthetic fixtures. No runtime addon, SQL or SavedVariables change; no workflow edits.
+- **Evidence:** 9,159 quests: 8,407 representable, 752 unsupported (extra creature refs 359, extra object refs 243, reputation 181, duplicate creature 7, duplicate object 1; 0 unclassified). Pilot: 1203 effective 3853 vs stock 33110 after 232 M0 checks, 28 corrections, 82,431 fields, 5 negatives; 16-quest list exported.
+- **Tests:** 71 coverage, 20 coverage integration, 33 v2 draft; existing suites unchanged. In-game: not run (not applicable).
+- **Rollback:** close the draft PRs.
+- **Next:** activate the proposed CI; approve v2 and M2.3 statuses; validate the real M2.1 input under Lua 5.1.
+
 ## 14 October 2026 — M2.2 Steps 2–6: effective export framework (draft PRs #26–#29)
 
 - **Source evidence:** The public compiled 3.3.5a Questie database through `cli/validate-335.lua`. No private data.

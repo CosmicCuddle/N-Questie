@@ -156,3 +156,57 @@ See the PR checks. Actions links are recorded in the PR #29 description and in t
 2. Review and activate the proposed workflow (lead developer, CI-only PR).
 3. Review the writer races against how private outputs will actually be stored.
 4. Confirm environment-variable options are acceptable for the harness.
+
+## 10. Follow-up after the Option A decision (14 October 2026)
+
+Decision: Option A. v1 frozen; v1-unsupported quests out of scope for the initial pilot (temporary); v2 designed next; exporter fail-closed.
+
+### 10.1 PR stack and dependency order
+
+| Order | PR | Branch | Content |
+|---|---|---|---|
+| 0–4 | #24 → #26 → #27 → #28 → #29 | as §1 | M2.2 Steps 1–6 |
+| 5 | #33 | feat/nq-validation-m2.2-coverage-preflight-2026-10-14 | Shared reason codes, coverage/preflight mode, coverage tests, CI coordination notes and activation diff |
+| 6 | #PR_B | feat/nq-validation-m2.2-pilot-v2-design-2026-10-14 | Pilot script and results, v2 design and duplicate investigation, DRAFT v2 validator and fixtures, docs |
+
+Each PR's base is the PR above it; no rebases, force-pushes or base changes. #30 and #31 (lead developer) were reviewed and not touched; this stack does not merge #31, because #31 changes `nquestie-objective-rules.yml` and the M2.2 code is not on its base. Merging both lines later is a plain merge with no expected conflicts beyond doc appends.
+
+### 10.2 Per-stage handover (concise)
+
+| Stage | Result | Where |
+|---|---|---|
+| CI review | #30/#31 run Step 1 schema, luac and GNU realpath checks only; 0 of the 129 export/writer/provenance/integration checks ran in GitHub | `NQ-VALIDATION-M2.2-CI-COORDINATION.md` |
+| Coverage | 9,159 total; 8,407 representable; 752 unsupported; 0 unclassified; overlaps reconciled | `NQ-VALIDATION-M2.2-COVERAGE.md` |
+| Pilot | 1203 and the 16-quest list pass all gates locally; nothing published | `NQ-VALIDATION-M2.2-PILOT.md` |
+| v2 design | shape, R1–R10, versioning, M2.3 statuses, test plan, projection (752 of 752 representable; M1 SUPPORTED unchanged at 8,407) | `NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md` |
+
+### 10.3 Tests added
+
+| Test | Checks |
+|---|---|
+| `tests/test_nquestie_m2_coverage.lua` | 71 |
+| `tests/test_nquestie_m2_coverage_integration.sh` (real DB) | 20 |
+| `tests/test_nquestie_m2_effective_v2_draft.lua` (DRAFT) | 33 |
+
+All existing M2 tests unchanged and passing (46 / 36 / 22 / 25); the exporter's refusal messages are unchanged, only reason codes were added.
+
+### 10.4 CI evidence
+
+CI_EVIDENCE
+
+### 10.5 Limitations
+
+- Option A excludes 752 quests (8.2%) until v2.
+- v1 records lists per kind, not cross-kind position; quest 10503 (`killCreditObjectiveFirst`) is v1-representable but its "killCredit shown first" fact is not in v1.
+- The coverage tool counts compiled quests (9,159); the M0 log counts 9,158 `questData` records before compilation. The one-quest difference is unexplained (review item).
+- The new GitHub checks only run once the proposed workflow is activated; until then busted wrappers report pending in `ci.yml`.
+- The v2 validator is a draft prototype; the projection is not a measured v2 export.
+
+### 10.6 Outstanding reviews and items
+
+1. Activate the proposed workflow (CI-only PR from the activation diff) and confirm the six log lines.
+2. Approve the v2 design and the M2.3 status model.
+3. Data owner: review duplicate anomalies 64128, 12683, 11142.
+4. **The lead developer's real M2.1 input still needs genuine Lua 5.1 validation (`cli/validate-m2-input.lua`) in a trusted Linux environment.**
+5. Explain 9,158 vs 9,159.
+6. Then, with approval: v2 exporter, then M2.3.

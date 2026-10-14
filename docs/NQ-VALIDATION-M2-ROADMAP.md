@@ -67,9 +67,19 @@ Goal: write `nq-m2-effective` v1 records for explicitly selected quest IDs, take
 | No overwrite; temp + rename; 0600; folder checks | Write-safety tests incl. symlink cases |
 | Output validates as `nq-m2-effective` v1 | Round-trip test |
 
-### Open item from Steps 2–6
+### Open item from Steps 2–6: decided (Option A)
 
-v1 cannot represent 752 of 9,159 quests (reputation, extraObjectives monster/object refs, duplicate ids). The export refuses them. A v2 or out-of-scope decision is needed before M2.3 coverage work. See `docs/NQ-VALIDATION-M2.2-HANDOVER.md` §4.
+v1 cannot represent 752 of 9,159 quests. **Decision (Michael, 14 October 2026): Option A.** v1 stays frozen; those quests are out of scope for the initial pilot (temporary); v2 is designed next. The exporter stays fail-closed: an unsupported requested ID fails the export, writes nothing and prints every reason. Never trim, dedupe, drop reputation or reinterpret extras; no false CONFIRMED.
+
+### M2.2 follow-up (Option A)
+
+- [x] Read-only coverage/preflight over all compiled quests, sharing the exporter's reason codes (`docs/NQ-VALIDATION-M2.2-COVERAGE.md`)
+- [x] Export refusals carry reason codes per quest
+- [x] CI review of #30/#31 and an exact activation diff (`docs/NQ-VALIDATION-M2.2-CI-COORDINATION.md`)
+- [x] Reproducible 1203 pilot and a 16-quest v1 pilot list (`docs/NQ-VALIDATION-M2.2-PILOT.md`)
+- [x] v2 design, duplicate investigation, draft validator and fixtures (`docs/NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md`)
+- [ ] Activate the proposed workflow (lead developer, CI-only PR)
+- [ ] Approve v2 design; then a v2 exporter (separate approval)
 
 ## 4. M2.3 Report-only batch comparison engine
 
@@ -114,9 +124,19 @@ Exit code: 0 for a report written, 1 for input rejected, 2 for a write refused.
 
 Every report keeps **both** provenance records in full: the server `nq-m2-input` provenance (exporter, version, source label, fingerprint, time) and the `nq-m2-effective` provenance (commit, tree, revision, correction fingerprint and modules, M0 count, time). The summary keeps the commit, revision, correction count and both export times. It does not keep the source fingerprint, so the private archive can't be identified. A report with either record missing is not written.
 
-### Unexportable quests
+### Quest statuses (no silent filtering)
 
-Quests that the M2.2 export refuses (see the open item above) are not silently dropped. Until a v2 decision is made, the batch runner requires the effective file to cover every server quest. The selection must leave such quests out, and the report lists them as "not exportable in v1" with the reason.
+Every server-selected quest gets exactly one status (detail in the v2 design doc §5):
+
+| Status | When |
+|---|---|
+| `ABSENT_FROM_EFFECTIVE_DB` | not in the compiled Questie DB |
+| `UNSUPPORTED_BY_SCHEMA_VERSION` | present, but the effective schema version cannot represent it (reason codes from the coverage manifest) |
+| `EXPORTED` | supported and exported; M1 classifications follow |
+| `REJECTED_MALFORMED_INPUT` | the server record failed validation (a malformed file stops the whole batch) |
+| `NEEDS_MANUAL_REVIEW` | exported but M1 cannot decide (including v2 `m1Status = UNSUPPORTED`) |
+
+The coverage (preflight) manifest is a separate private input, never merged into the effective export. Reports keep both provenance records in full and the coverage manifest's commit; the commits must match or the batch stops.
 
 ### Report format (private)
 
@@ -199,13 +219,16 @@ Quests that the M2.2 export refuses (see the open item above) are not silently d
 | Over-trusting CONFIRMED | Process rule: human evidence review before any correction |
 | CI drift (proposed workflow steps not activated) | Busted covers specs today; the proposed diffs are listed in the handover |
 | Linux-only path resolver | Accepted; documented |
+| Pilot scope hides 8.2% of quests | Option A is temporary; coverage report lists every excluded quest with reasons |
+| v1 has no cross-kind position (quest 10503 shows killCredit first) | Recorded in v2 (`killCreditFirst`); review item for M2.3 |
+| Lead developer's real M2.1 input not yet validated under genuine Lua 5.1 | Run `cli/validate-m2-input.lua` in a trusted Linux environment before M2.3 |
 | The M0 harness takes about 90 s; export adds time | Export only selected IDs |
 
 ## 7. Open questions
 
 1. Who applies the proposed workflow diffs (token scope)?
 2. Should "in effective but not in the server selection" be reported at all, or ignored?
-3. Should reputation objectives (slot 4) enter a future schema version?
+3. Reputation objectives (slot 4): designed for v2 (explicit kind; value may be absent), pending approval.
 4. Where do private reports live by default: a fixed folder outside the checkout, or `private/`?
 5. How long are private reports kept, and are they ever shared outside the lead developer's machine?
 6. What is the size of the first real batch after 1203 (suggested: 10–20 edge cases)?

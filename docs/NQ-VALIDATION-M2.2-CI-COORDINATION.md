@@ -36,7 +36,7 @@ Both closed the two #22 gaps (luac coverage and GNU realpath) for the files that
 
 ## 2. Proposed action (CI-only, for the lead developer)
 
-Open one CI-only draft PR whose **base is the top of the M2.2 stack** (currently the coverage/preflight PR branch `feat/nq-validation-m2.2-coverage-preflight-2026-10-14`, or #29 if you prefer to activate before coverage), adding one new file:
+Open one CI-only draft PR whose **base is the top of the M2.2 stack** (currently `feat/nq-validation-m2.2-pilot-v2-design-2026-10-14`; the file also runs the coverage, v2-draft and pilot-syntax steps, which exist only from that branch up), adding one new file:
 
 `.github/workflows/nquestie-m2-effective-export.yml` = byte-for-byte copy of `docs/proposed-workflows/nquestie-m2-effective-export.yml` from that branch.
 
@@ -59,6 +59,7 @@ After activation, confirm in the job log that these lines appear (proof that the
 | `PASS: M2.2 export integration (25 checks)` | 25 |
 | `PASS: M2.2 coverage (71 checks)` | 71 |
 | `coverage integration: 20 passed, 0 failed` | 20 |
+| `PASS: M2 v2 DRAFT prototype (33 checks)` | 33 |
 
 Optional, later: once this workflow is active, the M2.2 busted wrappers in `ci.yml` can stay pending there; no change to `ci.yml` is needed.
 
