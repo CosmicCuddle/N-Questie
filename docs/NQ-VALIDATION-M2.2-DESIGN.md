@@ -100,7 +100,7 @@ Each step is a separate draft PR with its own tests. Every existing M0, M1 and M
 
 | Step | Work | Done when |
 |---|---|---|
-| 1 | Write the `nq-m2-effective` v1 schema and validator, reusing the M2.1 parser and path gate | Synthetic positive and negative fixtures pass |
+| 1 (done, draft PR) | Write the `nq-m2-effective` v1 schema and validator, reusing the M2.1 parser and path gate | Synthetic positive and negative fixtures pass |
 | 2 | Add `EffectiveExport.lua`, a pure function from an in-memory QuestieDB plus a list of quest IDs to a snapshot table, tested on a fake DB | Quest 1203 shows 33110 before corrections and 3853 after |
 | 3 | Add `--export-effective PATH` to `cli/validate-335.lua`. It runs only after every M0 check passes and writes nothing on failure. | M0 still reports 232 checks; a negative test shows no file is written when M0 fails |
 | 4 | Writing safety: absolute path, the same resolved-path rules as M2.1, no overwrite without `--force`, atomic write via a temporary file and rename | Path and symlink tests mirror the M2.1 set |
@@ -108,6 +108,21 @@ Each step is a separate draft PR with its own tests. Every existing M0, M1 and M
 | 6 | Proposed workflow under `docs/proposed-workflows/`, docs and handover | Michael decides on activation |
 
 M2.3 (the batch runner) starts only after these steps are reviewed.
+
+## 6b. Path check and open race before writes
+
+M2.1 checks a path, then opens it. Between those two steps another process could swap a symlink in a parent folder. For reads this is low risk. For the M2.2 **writer** it matters more, because a swapped link could send the export into the public checkout.
+
+| Option | How | Pros | Cons |
+|---|---|---|---|
+| A. O_NOFOLLOW-style via shell | `set -o noclobber` plus checks like `[ -L ]` before writing | No new tools | Only protects the last component. Parent folders can still be swapped. Still racy. |
+| B. Open, then verify via `/proc/self/fd` | Open the file, then resolve `/proc/<pid>/fd/N` and check the real target | Checks the file actually opened | Lua 5.1 has no fd access or getpid. It would need a helper process, which checks its own fds, not ours. Not practical in pure Lua. |
+| C. Temp file in the resolved folder, then rename | Resolve the target folder with `realpath -e`. Create a temp file there with `mktemp` (O_EXCL, no follow). Write it. Re-resolve the folder and the temp file and check they still match the allowed location. Then `mv -T --no-clobber` (or `mv -f` with `--force`) into place on the same filesystem. | Rename is atomic. The temp file is created exclusively, so it can't be a pre-planted symlink. The final re-check narrows the window to the rename itself. | A parent folder swap between the re-check and the rename is still possible in theory. |
+| D. Private output folder owned by the user, mode 0700 | Require the output folder to be owned by the current user and not group/world writable (check with `stat`) | Other users can't swap links inside it | Doesn't stop the same user's processes. |
+
+**Recommendation: C + D.** Write only into an output folder that resolves outside the checkout (or under `private/`), is owned by the current user and has mode 0700 or stricter. Create the temp file there with `mktemp`, re-verify after writing, then rename atomically, refusing to overwrite unless `--force` is given. Reject on any failed step. The remaining window needs the same user to act maliciously at the exact moment of the rename. That's acceptable for a single-user tool, and it will be documented.
+
+For reads (M2.1 and this step) no change is proposed. The resolved path is opened directly, and the content is parsed as data only.
 
 ## 7. Safety
 

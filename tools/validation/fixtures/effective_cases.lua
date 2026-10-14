@@ -1,0 +1,58 @@
+-- M2.2 Step 1 negative cases. Each mutates a deep copy of
+-- tests/fixtures/m2_effective/effective_selected_quests.lua and must be
+-- rejected with an error containing `expect`.
+local function q(doc, id)
+    for _, r in ipairs(doc.quests) do if r.ID == id then return r end end
+end
+return {
+    { name = "wrong schema name", expect = "schema: must be", mutate = function(d) d.schema = "nq-m2-input" end },
+    { name = "unsupported version", expect = "schemaVersion: unsupported", mutate = function(d) d.schemaVersion = 2 end },
+    { name = "unknown top-level field", expect = "unknown top-level field", mutate = function(d) d.x = 1 end },
+    { name = "quests empty", expect = "quests: empty", mutate = function(d) d.quests = {} end },
+    { name = "quests keyed by ID", expect = "list has holes", mutate = function(d) d.quests = { [1203] = d.quests[1] } end },
+    -- provenance
+    { name = "provenance missing", expect = "provenance: missing", mutate = function(d) d.provenance = nil end },
+    { name = "unknown provenance field", expect = "provenance.path: unknown field", mutate = function(d) d.provenance.path = "/x" end },
+    { name = "harness missing", expect = "provenance.harness:", mutate = function(d) d.provenance.harness = nil end },
+    { name = "harness version not semver", expect = "provenance.harnessVersion", mutate = function(d) d.provenance.harnessVersion = "dev" end },
+    { name = "commit too short", expect = "provenance.sourceCommit", mutate = function(d) d.provenance.sourceCommit = "abc123" end },
+    { name = "commit uppercase", expect = "provenance.sourceCommit", mutate = function(d) d.provenance.sourceCommit = string.rep("A", 40) end },
+    { name = "tree missing", expect = "provenance.sourceTree", mutate = function(d) d.provenance.sourceTree = nil end },
+    { name = "dirty tree", expect = "provenance.sourceDirty", mutate = function(d) d.provenance.sourceDirty = true end },
+    { name = "dirty flag missing", expect = "provenance.sourceDirty", mutate = function(d) d.provenance.sourceDirty = nil end },
+    { name = "wrong TOC build", expect = "provenance.tocInterface", mutate = function(d) d.provenance.tocInterface = 30400 end },
+    { name = "wrong flavour", expect = "provenance.flavour", mutate = function(d) d.provenance.flavour = "classic" end },
+    { name = "unknown dataKind", expect = "provenance.dataKind: must be", mutate = function(d) d.provenance.dataKind = "raw" end },
+    { name = "effective with revision 0", expect = "nQuestieDataRevision: effective", mutate = function(d) d.provenance.nQuestieDataRevision = 0 end },
+    { name = "effective with no corrections", expect = "correctionCount: effective", mutate = function(d) d.provenance.correctionCount = 0 end },
+    { name = "effective fingerprint none", expect = "correctionFingerprint: effective", mutate = function(d) d.provenance.correctionFingerprint = "none" end },
+    { name = "effective with no modules", expect = "at least one module", mutate = function(d) d.provenance.correctionModules = {} end },
+    { name = "module name is a path", expect = "plain .lua file name", mutate = function(d) d.provenance.correctionModules[1] = "Compat/X.lua" end },
+    { name = "duplicate module", expect = "correctionModules: duplicate", mutate = function(d) d.provenance.correctionModules[2] = d.provenance.correctionModules[1] end },
+    { name = "effective with zero M0 checks", expect = "m0Checks: effective", mutate = function(d) d.provenance.m0Checks = 0 end },
+    { name = "export time not UTC", expect = "provenance.exportedAt", mutate = function(d) d.provenance.exportedAt = "2026-10-14T15:00:00+01:00" end },
+    { name = "export time impossible", expect = "not a valid date", mutate = function(d) d.provenance.exportedAt = "2026-10-14T25:00:00Z" end },
+    { name = "questCount mismatch", expect = "does not match", mutate = function(d) d.provenance.questCount = 9 end },
+    -- records
+    { name = "duplicate quest ID", expect = "duplicate quest ID 1203", mutate = function(d) d.quests[2].ID = 1203 end },
+    { name = "record not a table", expect = "record is not a table", mutate = function(d) d.quests[2] = true end },
+    { name = "missing objectives", expect = "objectives: missing", mutate = function(d) q(d, 1203).objectives = nil end },
+    { name = "missing questLevel", expect = "questLevel: missing", mutate = function(d) q(d, 1203).questLevel = nil end },
+    { name = "unknown record field", expect = "name: unknown field", mutate = function(d) q(d, 1203).name = "Jarl" end },
+    { name = "questLevel below -1", expect = "questLevel: must be", mutate = function(d) q(d, 1203).questLevel = -2 end },
+    { name = "requiredLevel fractional", expect = "requiredLevel: must be", mutate = function(d) q(d, 1203).requiredLevel = 1.5 end },
+    { name = "negative sourceItemId", expect = "sourceItemId: must be", mutate = function(d) q(d, 1203).sourceItemId = -1 end },
+    { name = "requiredSourceItems not a list", expect = "requiredSourceItems: missing or not a list", mutate = function(d) q(d, 1203).requiredSourceItems = 5 end },
+    { name = "hasTriggerEnd not boolean", expect = "hasTriggerEnd: must be a boolean", mutate = function(d) q(d, 1203).hasTriggerEnd = "no" end },
+    { name = "extra items without flag", expect = "hasExtraObjectives is false", mutate = function(d) q(d, 1203).extraObjectiveItems = { 5 } end },
+    { name = "unknown objectives slot", expect = "objectives.reputation: unknown field", mutate = function(d) q(d, 1203).objectives.reputation = {} end },
+    { name = "items missing", expect = "objectives.items: missing", mutate = function(d) q(d, 1203).objectives.items = nil end },
+    { name = "negative object id (AzerothCore sign)", expect = "objectives.objects[1]: must be a positive", mutate = function(d) q(d, 900302).objectives.objects = { -900200 } end },
+    { name = "item id as string", expect = "objectives.items[1]: must be a positive", mutate = function(d) q(d, 1203).objectives.items = { "3853" } end },
+    { name = "duplicate item id", expect = "duplicate id 3853", mutate = function(d) q(d, 1203).objectives.items = { 3853, 3853 } end },
+    { name = "objective list with holes", expect = "list has holes", mutate = function(d) q(d, 1203).objectives.items = { [1] = 3853, [3] = 5 } end },
+    { name = "killCredit entry without ids", expect = "killCredit[1].ids: missing", mutate = function(d) q(d, 900301).objectives.killCredit[1].ids = nil end },
+    { name = "killCredit entry empty ids", expect = "killCredit[1].ids: must not be empty", mutate = function(d) q(d, 900301).objectives.killCredit[1].ids = {} end },
+    { name = "killCredit rootId missing", expect = "killCredit[1].rootId", mutate = function(d) q(d, 900301).objectives.killCredit[1].rootId = nil end },
+    { name = "killCredit extra field", expect = "killCredit[1].text: unknown field", mutate = function(d) q(d, 900301).objectives.killCredit[1].text = "x" end },
+}
