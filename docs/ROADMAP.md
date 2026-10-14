@@ -1,5 +1,17 @@
 # N-Questie — Development Roadmap
 
+## Combined M1 integration milestone — 14 October 2026
+
+- [x] Review Grok's M1 safety fixes and their completed local QA evidence ([draft #18](https://github.com/CosmicCuddle/N-Questie/pull/18)); require explicit complete creature KillCredit and no false one-to-one pairing.
+- [x] Open [draft #20](https://github.com/CosmicCuddle/N-Questie/pull/20) on a separate branch from #19/#16 combining the report-only M1 rule engine and strict 28-quest M0 compiled database harness, preserving all 5 negative fixtures and the revision guard.
+- [x] Initial [M1 GitHub 38580760515](https://github.com/CosmicCuddle/N-Questie/actions/runs/38580760515) green: 29 synthetic scenarios, 25 rules, 31 Busted tests; initial overlay and revision guard green.
+- [x] Verify **all five** GitHub workflows on the PR #20 integrated source-and-documentation head `4470f3657483dfcdee08a080f22f258f6c1a51bd`: [M1 38581451391](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451391), [M0 38581451396](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451396), [overlay 38581451217](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451217), [revision 38581451165](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451165), [full inherited CI 38581451178](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451178), all PASS. Recheck any newer docs-only head before claiming it is also green.
+- [ ] Agree Grok-owned **M2.1 strict input schema and validator** and **M2.2 compiled effective quest-record export**, with the lead adapting the private local exporter only afterward.
+- [ ] Perform one private M2 pilot on quest 1203 before any batch of 24 item / 151 NPC discrepancies. Do not treat manual-review findings as approved corrections.
+- [ ] Reconcile PR #2/#3 missing documentation ancestry with a separate approved plan and complete backed-up in-game QA before any merge/release.
+
+**Current integration handover:** [INTEGRATION-M1-28QUEST-2026-10-14.md](INTEGRATION-M1-28QUEST-2026-10-14.md).
+
 ## M2 private intake foundation — 14 October 2026
 
 - [x] Prepare **local-only selected quest objective exporter** (no SQL/code/report uploaded to GitHub): 12 synthetic Python tests passed; offline quest 1203 + quest 2001 records read successfully.
