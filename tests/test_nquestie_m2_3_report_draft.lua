@@ -35,7 +35,7 @@ r, e = mut(function(d) d.selected[#d.selected + 1] = 1203 end)
 ok(not r and has(e, "duplicate ID"), "duplicate selected ID rejected")
 r, e = mut(function(d) d.selected[#d.selected + 1] = -4 end)
 ok(not r and has(e, "positive integer"), "non-positive selected ID rejected")
-r, e = mut(function(d) d.selected[#d.selected + 1] = 1.5 end)
+r = mut(function(d) d.selected[#d.selected + 1] = 1.5 end)
 ok(not r, "non-integer selected ID rejected")
 r, e = mut(function(d) d.selected[20] = 4242 end)
 ok(not r and has(e, "sparse"), "sparse selected list rejected")
@@ -43,7 +43,7 @@ r, e = mut(function(d) row(d, 10503).outcome = "CONFIRMED_MATCH" end)
 ok(not r and has(e, "only EXPORTED"), "outcome on non-exported quest rejected")
 r, e = mut(function(d) row(d, 1203).outcome = nil end)
 ok(not r and has(e, "exactly one known outcome"), "exported quest without outcome rejected")
-r, e = mut(function(d) row(d, 498).outcome = "CONFIRMED_MATCH" end)
+r = mut(function(d) row(d, 498).outcome = "CONFIRMED_MATCH" end)
 ok(not r, "unknown KillCredit never confirms a match")
 for _, k in ipairs({ "conditions", "scripts", "ip", "objectiveData" }) do
     r = mut(function(d) row(d, 2001).evidence = copy(row(d, 2001).evidence); row(d, 2001).evidence[k] = "unknown" end)
@@ -95,7 +95,7 @@ local agg = { schema = "nq-m2-3-aggregate", schemaVersion = 1, reasonVocabVersio
     exportStatus = { EXPORTED = 5, UNSUPPORTED_BY_SCHEMA_VERSION = 2, ABSENT_FROM_EFFECTIVE_DB = 1 },
     outcome = { EXPECTED_REPRESENTATION_DIFF = 1, CONFIRMED_MATCH = 1, NEEDS_MANUAL_REVIEW = 1, M1_UNSUPPORTED_BY_RULES = 1, CONFIRMED_MISMATCH = 1 },
     reasons = { KILLCREDIT_FIRST_REORDER = 1, DUPLICATE_OBJECT = 1, EXTRA_CREATURE_REF = 1 } }
-r, e = R.ValidateAggregate(agg, base, OPT)
+r = R.ValidateAggregate(agg, base, OPT)
 ok(r, "aggregate valid and reconciles: " .. table.concat(e or {}, "; "))
 local function aggMut(f) local x = copy(agg); f(x); return R.ValidateAggregate(x, base, OPT) end
 ok(not aggMut(function(x) x.reasons["quest-1203-private-label"] = 1 end), "private label as aggregate reason key rejected")
