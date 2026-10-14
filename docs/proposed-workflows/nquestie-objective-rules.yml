@@ -1,0 +1,31 @@
+# PROPOSED workflow. Copy to .github/workflows/ to enable. The review token
+# cannot create workflow files (GitHub requires the `workflow` OAuth scope).
+# Runs the M1 objective-rule tests on synthetic fixtures only.
+name: N-Questie objective validation rules (M1)
+
+on:
+  push:
+    branches:
+      - "feat/**"
+  pull_request:
+
+jobs:
+  objective-rules:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+      - name: Install Lua 5.1 and busted
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lua5.1 luarocks
+          sudo luarocks --lua-version=5.1 install busted
+      - name: Parse M1 files with Lua 5.1
+        run: luac5.1 -p tools/validation/*.lua tools/validation/fixtures/*.lua cli/validate-objectives.lua
+      - name: Standalone Lua 5.1 fixture test
+        run: lua5.1 tests/test_nquestie_objective_rules.lua
+      - name: Busted spec (M1 only; the inherited suite needs PR #4)
+        run: busted -p ".test.lua" tools/validation
+      - name: Print synthetic report
+        run: lua5.1 cli/validate-objectives.lua
