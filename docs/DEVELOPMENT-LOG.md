@@ -217,6 +217,27 @@ The maintainer installed the temporary N-Questie QA addon and reported **five ex
 - **Rollback:** Addon/SavedVariables backup and commit revert steps.
 - **Next:** Highest-priority unresolved item.
 
+## 14 October 2026 (evening): M2 planning stack
+
+- #39 review addressed (two-axis roadmap, full server validation, migration refuses kill credit, duplicates as hypotheses); CI green on 2912fd20d.
+- #41 v2 exporter specification and acceptance fixtures; #42 M2.3 design and draft report validator; #43 markers design; correction workflow and roadmap M2.2-M2.5.
+- Draft tests now run in the existing M2 workflow through the busted wrapper. No exporter, engine or correction added.
+
+## 14 October 2026 (late): review round 2 on the planning stack
+
+- #39: CI evidence recorded, M2.3 statuses aligned (three report statuses; malformed batch-level only).
+- #41: reproducible comparison (`Canonical`, exportedAt excluded explicitly), v2 exporter as opt-in validate-335 mode, Proposal A.
+- #42: closed reason vocabulary, exact aggregate reconciliation, confirming findings for CONFIRMED_MISMATCH, unique dense selections, executable selection protocol with preflight split, Proposal B.
+- #43: exact custom spawn pins with origin tags, item source categories, waypoints separate, map-bounds decision, draft marker validator.
+- #44: two-tier correction regression, text/tooltip QA lane aligned with #40, roadmap fixes, design audit.
+- Separate: harness 1.2.0 PR on the #38 line. No exporter, engine, marker exporter or correction added.
+
+## 14 Oct 2026, late evening: integration plan
+
+Added docs/NQ-INTEGRATION-PLAN.md and tools/validation/integration/test_inventory.sh.
+A local throwaway merge of #44 + #40 + #45 + #46 (never pushed) found two
+union conflicts (DEVELOPMENT-LOG, M22Libraries); the inventory check passed
+(36 test files, 22 suite steps, 10 busted entries) and the full M2 suite passed.
 ## 14 Oct 2026, night: M2.3 publication corrections (round 4)
 
 - Correction: earlier notes and my round-3 report said the bundle is published
@@ -229,3 +250,11 @@ The maintainer installed the temporary N-Questie QA addon and reported **five ex
   inner schemas, closed keys, codes, the m1Supported rule and reconciliation,
   and recomputes a tamper digest recorded by BuildBundle. 17 tamper cases,
   nothing written on rejection. Contract draft: 185 checks.
+
+## 14 Oct 2026, night: round 4 trial integration
+
+Trial c54dbf2ea (local only): stack + #46 + #45 + #47 + #40 by merge. Two
+union conflicts at #46 (DEVELOPMENT-LOG, M22Libraries). Inventory, static
+assertion counts (38 files, 566 calls) and executed counts all preserved.
+Added tools/validation/integration/assertion_counts.sh. Plan updated with the
+pre-integration-335 tag proposal (not created) and the old-PR table.

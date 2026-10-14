@@ -274,3 +274,55 @@ Links: `https://github.com/CosmicCuddle/N-Questie/actions/runs/<id>`. The #38 M2
 **CI scope statement.** All CI results in this handover are synthetic or public-data results from GitHub Actions and the box. They are **not** validation of the lead developer's private 1203 M2.1 file, which still needs genuine Lua 5.1 validation in a trusted environment.
 
 CI on the final #39 head 2912fd20d (all success, run head SHA verified): M2 38612976383 (push) / 38612981491 (PR); M0 38612976277 / 38612981424; M1 38612975898 / 38612981533; overlay 38612975641 / 38612981485; CI 38612976342 / 38612981634; revision guard 38612981589 (PR only).
+
+## 12. Planning stack after #39 (14 October 2026)
+
+| PR | Branch | Content |
+|---|---|---|
+| #41 | feat/nq-validation-m2-v2-exporter-spec-2026-10-14 | v2 exporter specification, acceptance fixture and test (38 checks), Proposal A, CI evidence for #39 |
+| #42 | feat/nq-validation-m2-3-design-2026-10-14 | M2.3 detailed design, draft contract validator, executable matrix (185 checks, 21 cases), bundle and stderr-code contracts, Proposal B |
+| #43 | feat/nq-validation-m2-markers-design-2026-10-14 | nq-m2-markers design with Questie source citations, draft marker validator (39 checks) |
+| #44 | feat/nq-validation-m2-corrections-roadmap-2026-10-14 | correction workflow (two-tier regression, text/tooltip lane, 25 checks), roadmap M2.2-M2.5, design audit |
+
+Nothing in the stack is a production exporter, an M2.3 engine or a marker exporter. Decisions taken 14 October 2026: harness 1.2.0 (separate PR), v2 exporter as opt-in mode of validate-335, map bounds from verified client data with a provisional 1.0 tolerance.
+
+## 13. Review round 2 (14 October 2026, evening)
+
+Resolved: #39 CI evidence and status alignment; #42 aggregate vocabulary, confirming findings, unique selections, batch-only malformed status, selection protocol and mixed-selection preflight split; #43 exact custom pins, origins, item source categories, waypoints, map-bounds decision; #44 two-tier regression, reproducible v1 equivalence, text/tooltip QA lane, marker traceability. Audit: `docs/NQ-VALIDATION-M2-DESIGN-AUDIT.md`. Proposals: `docs/NQ-VALIDATION-M2-V2-EXPORTER-PROPOSAL.md` (A), `docs/NQ-VALIDATION-M2.3-ENGINE-PROPOSAL.md` (B).
+
+Separate PR: harness 1.2.0 on the #38 line (see the PR text for heads and CI).
+
+Heads and CI for this round are recorded in the PR descriptions and the final report, because adding them here would change the head again. All results are public/synthetic CI and box runs; the real private 1203 M2.1 file has not been validated by these tests.
+
+## 14. Review round 3 (14 October 2026, late evening)
+
+- M2.3 (#42): CONFIRMED_MATCH and CONFIRMED_MISMATCH need `m1Supported == true`
+  exactly; nil, false, "unknown" and anything else never confirm. Report and
+  aggregate are published together as one bundle file through SafeWrite
+  (temp, close, read-back, link: atomic visibility and no clobber; no fsync,
+  so no power-loss durability, see section 15); a staged directory renamed into place was
+  rejected because rename(2) can replace an empty target directory. A v1
+  selection that is empty after preflight is rejected with
+  REJECTED_V1_SELECTION_EMPTY_AFTER_PREFLIGHT (a v2 export is needed). There
+  is no rejection file: a rejection prints only `nq-m2-3: <CODE>` on stderr,
+  checked against a closed code list with no paths, extra digits or hex.
+  Contract draft then: 165 checks (185 after round 4).
+- Proposal A (#41) split into Stage A1 (in-memory round trip, counts only, no
+  writes, harness stays 1.2.0) and Stage A2 (opt-in export, SafeWrite,
+  harness 1.3.0).
+- Integration plan: docs/NQ-INTEGRATION-PLAN.md, with the test-inventory
+  script tools/validation/integration/test_inventory.sh.
+
+## 15. Review round 4 (14 October 2026, night)
+
+- Correction to round 3: SafeWrite has no fsync(2). The M2.3 bundle
+  guarantee is atomic visibility and no-clobber only (implemented and
+  tested); power-loss durability is not provided and is an open item for a
+  future approved implementation. The draft test step is now `closeTemp`.
+- `PublishBundle` fails closed: full revalidation of bundle, report and
+  aggregate plus a tamper digest from `BuildBundle`; 17 tamper cases write
+  nothing. Contract draft: 185 checks.
+- Trial integration c54dbf2ea (local, never pushed): stack + #46 + #45 + #47
+  + #40, two union conflicts at #46, all counts preserved. Details, the
+  pre-integration tag proposal and the old-PR table are in
+  docs/NQ-INTEGRATION-PLAN.md.

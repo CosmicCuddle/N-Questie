@@ -188,3 +188,8 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 - 2026-10-14: M2.2 Steps 2-6 in draft PRs #26-#29 (snapshot, safe writer, harness export, tests and proposed CI). v1 cannot represent 752/9159 quests; decision pending. See docs/NQ-VALIDATION-M2.2-HANDOVER.md.
 - 2026-10-14: M2.2 Option A follow-up (#33, #34): coverage report, pilot procedure, v2 design (draft). Next: activate M2 CI, approve v2.
 - 2026-10-14: #36-#39: killCreditFirst refusal, ID set pinned, CI integrated, v2 design final draft.
+
+## M2 planning (14 October 2026)
+
+Detailed plan: `docs/NQ-VALIDATION-M2-ROADMAP-M2.2-M2.5.md`. Correction process: `docs/NQ-VALIDATION-M2-CORRECTION-WORKFLOW.md`.
+Proposals awaiting approval: `docs/NQ-VALIDATION-M2-V2-EXPORTER-PROPOSAL.md`, `docs/NQ-VALIDATION-M2.3-ENGINE-PROPOSAL.md`. Audit: `docs/NQ-VALIDATION-M2-DESIGN-AUDIT.md`.
