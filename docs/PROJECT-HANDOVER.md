@@ -1,5 +1,11 @@
 # N-Questie — Development Handover
 
+## Collaboration checkpoint — 14 October 2026
+
+**Second-reviewer coordination:** The maintainer plans to invite Grok as a collaborating reviewer. The public handoff and defined work boundaries are in [EXTERNAL-COLLABORATION-REVIEW-BRIEF.md](EXTERNAL-COLLABORATION-REVIEW-BRIEF.md). Assign **read-only integration review** of stacked PRs #2/#3/#5/#6/#7 and independent CI fix #4 first; focus on Questie correction registration, database decode timing, cache revision, multiple overlay composition, and Lua 5.1 test fidelity. The existing-quest source audit, approved corrections and private world data stay with the main development workflow.
+
+Any suggested implementation must be a **separately coordinated draft PR**, with tests and clear change ownership. Do not upload the private SQL/Excel audit, silently edit another contributor's branch, merge, release or modify the installed addon/live server without maintainer approval.
+
 **Project:** N-Questie  
 **Maintainer:** CosmicCuddle  
 **Established:** 13 October 2026  
@@ -8,6 +14,28 @@
 **Fork parent:** https://github.com/divial28/Questie-335  
 **Client:** World of Warcraft 3.3.5a (`## Interface: 30300`)  
 **Inherited addon identity:** `Questie-335.toc`, display title `Questie-335`, upstream version `9.5.1`  
+
+## Current verified intake — 14 October 2026 (installed quest file + full server audit)
+
+**Installed file verified:** Maintainer uploaded the working addon's `Database/Wotlk/wotlkQuestDB.lua`. Its git blob is `abbf2831b6d6b54b5d9383ba2c3e5cce5147379d`, identical to the N-Questie repository's original WotLK quest source. No installed version discrepancy.
+
+**Private all-server audit completed:** 9,525 server quest templates versus 9,086 original Questie entries; 439 server-only IDs, most unlinked/unused/NYI, with only 18 *plausibly linked* non-placeholder quests needing eligibility review. Initial raw level mismatches: 139 nominal, 150 minimum across 259 unique quests. After literal inherited correction-layer approximation: **270** unique level candidate IDs (148 nominal, 154 minimum, overlapping). Of 1,484 raw item differences, **1,460** match Questie's separate `sourceItemId` representation; **24** require follow-up. Additional NPC/GO and chain mismatches are candidates, not accepted fixes.
+
+**PRIVATE handover artifact:** A seven-tab Excel workbook of candidate mismatches was generated for the maintainer inside the conversation. Do not push that file, the private original SQL ZIP, full data JSON or per-record full audit into public GitHub. Aggregate methodology and caveats are documented in `docs/FULL-SERVER-QUEST-AUDIT-CHECKPOINT.md`.
+
+**Next:** Review the 24 unresolved item cases and 18 linked missing quests; triage high-impact early-zone level candidates; test server IP/condition gate behavior separately. Keep PR #6 and PR #7 draft, unmerged, not released. Maintain backups before future client QA.
+
+## Latest handover — 14 October 2026 (private database re-upload analyzed)
+
+**Private source is now available in this conversation:** The maintainer uploaded acore_world.zip, an offline HeidiSQL export. It was inspected read-only locally; 9,525 unique quest templates. Keep the original SQL/ZIP private and OFF GitHub.
+
+**Confirmed quest 1203 issue:** Existing WotLK Questie levels match server (required 30, nominal 35), but inherited Questie has Razorspine's Sword (33110) while server requires one Moonsteel Broadsword (3853) and the corresponding item objective text. [Draft PR #6](https://github.com/CosmicCuddle/N-Questie/pull/6) stages an item/text-only guarded correction without changing levels, questgivers or prerequisite.
+
+**Dustwallow pass:** 134 server quests under QuestSortID 15, 126 present in stock WotLK Questie; 8 missing require classification. Eight existing level mismatches were source-verified and stage through [draft PR #7](https://github.com/CosmicCuddle/N-Questie/pull/7). Thirty-two item-ID candidates include quest 1203; 31 require closer source semantics review. See [Dustwallow audit](docs/DUSTWALLOW-QUEST-AUDIT.md). Scoped PR #6 Lua 5.1 checks passed; PR #7 dedicated CI still requires checking when run concludes.
+
+**Next:** Expand to all-zone comparisons, never patch candidate item objectives blindly; check IP stage/conditions and verify in-game on an eligible character after backups. Source-guarded corrections must preserve Questie objective metadata outside the approved fields. All PRs #1–#7 remain unmerged; #2–#7 draft (PR #1 is foundation open). No release or collection update authorized.
+
+## Historical checkpoint: original PR #5 audit
 
 ## Existing-quest mismatch audit — draft PR #5 (14 October 2026)
 
