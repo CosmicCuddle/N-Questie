@@ -16,7 +16,8 @@ No technical reason was found that makes a separate CLI safer, provided the mode
 ## 2. Mode contract
 
 - Triggered only when **both** `NQ_EXPORT_SCHEMA_VERSION=2` and `NQ_EXPORT_V2_OUT=<absolute private path>` are set. Either alone is an error, nothing written. No default, no CLI flag shortcut, no config file.
-- v1 variables (`NQ_EXPORT_OUT`, `NQ_EXPORT_QUESTS`, `NQ_EXPORT_SELECTION`) together with v2 variables: error (one export per run).
+- v1 variables (`NQ_EXPORT_EFFECTIVE_OUT`, `NQ_EXPORT_QUESTS`, `NQ_EXPORT_SELECTION`) together with v2 variables: error (one export per run). `NQ_EXPORT_FORCE` (v1 replace-existing) is refused in v2 mode: v2 never replaces a file.
+- `NQ_VALIDATE_SKIP_COMPILE=1` with v2: error, as for v1.
 - v2 always exports **all 9,159** compiled quests (no selection); a selection variable with v2 is an error. Subsets are made by readers, which keeps the manifest pairing simple.
 - Runs only after compile and the full M0 run pass, exactly like v1.
 - Same SafeWrite rules, same provenance collector (adds `schemaVersion = 2`, `displayScope`), self-validation before and after writing.
