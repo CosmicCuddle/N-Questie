@@ -48,6 +48,24 @@ def sql_fixture(level=26, min_level=20):
 
 
 class QuestLevelAuditTests(unittest.TestCase):
+    def test_real_repository_jarl_record_and_literal_layers(self):
+        # Public repo source only; no private acore_world required.
+        root = Path(__file__).resolve().parents[1]
+        raw, skipped = audit.parse_questie_raw(
+            (root / audit.QUESTIE_RAW).read_text(encoding="utf-8")
+        )
+        self.assertGreater(len(raw), 5000)
+        self.assertEqual(raw[1203]["name"], "Jarl Needs a Blade")
+        self.assertEqual(raw[1203]["requiredLevel"], 30)
+        self.assertEqual(raw[1203]["questLevel"], 35)
+        # Explicitly fail if the inherited source acquires an unresolved Jarl fix.
+        for name in audit.LEVEL_FIXES:
+            overrides, unknown = audit.parse_static_level_fixes(
+                (root / name).read_text(encoding="utf-8")
+            )
+            self.assertNotIn(1203, overrides)
+            self.assertNotIn(1203, unknown)
+
     def test_parse_generated_lua_nested_quests(self):
         quests, skipped = audit.parse_questie_raw(RAW)
         self.assertEqual(skipped, [])
