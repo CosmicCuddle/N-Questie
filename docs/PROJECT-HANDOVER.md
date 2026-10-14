@@ -9,6 +9,18 @@
 **Client:** World of Warcraft 3.3.5a (`## Interface: 30300`)  
 **Inherited addon identity:** `Questie-335.toc`, display title `Questie-335`, upstream version `9.5.1`  
 
+## Latest verified state — 14 October 2026 (current checkpoint)
+
+**Quest 2001 Ravenclaw Cleanup: first custom quest visual smoke test PASSED in game.** Maintainer screenshots verified the available starter at Shadow Priest Allister (NPC 2121); quest 2001 objective pins and both Ravenclaw Servant (1868) / Champion (1869) tooltip variants with 0/8 progress; the ready-to-turn-in `(Complete)` state at Allister; and normal Questie quests alongside it. Maintainer explicitly confirmed the completed marker **disappears after normal turn-in**. Step 1's original five addon installation/compatibility checks remain PASS.
+
+**Limits:** Did not individually compare all objective pin coordinates against active world spawns, nor document each interim 0→8 counter update. Quest prerequisites, phases, and availability are server-authoritative; one test does not prove all custom quests.
+
+**Active PRs:** [#1 docs/foundation](https://github.com/CosmicCuddle/N-Questie/pull/1) (open); [#2 curated quest overlay](https://github.com/CosmicCuddle/N-Questie/pull/2) (draft; this branch); [#3 reviewed JSON-to-Lua generator](https://github.com/CosmicCuddle/N-Questie/pull/3) (draft, stacked on #2). Dedicated PR #3 workflow [38547219011](https://github.com/CosmicCuddle/N-Questie/actions/runs/38547219011) passed generator and overlay checks; inherited Busted suite failure remains separately outstanding (see development log). **None merged or released.**
+
+**Next development task:** Continue reviewing safe offline quest import and CI, and select a second source-verified custom quest. Never put the full private `acore_world.zip`, raw review JSON, or server access details in the public repository; only approved curated addon data. Preserve installed addon, existing SavedVariables, quest progression and live databases; no merge or release without maintainer permission.
+
+## Earlier new-chat handover — retained for historical context
+
 ## Latest verified state — 14 October 2026 (new-chat entry point)
 
 **Maintainer in-game QA STEP 1: PASS — five out of five.** User installed the PR-only N-Questie test addon and explicitly confirmed:
