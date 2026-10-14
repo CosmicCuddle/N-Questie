@@ -67,3 +67,20 @@ These are public historical variants; **do not infer which one the Naxxramas wor
 5. **Do not merge, tag, release, update N-Addon-Collection, or alter the live world database without explicit maintainer approval.**
 
 The private world export from the earlier chat may need to be reattached in the current conversation to perform the actual audit. Publishing the original archive to GitHub is prohibited.
+
+
+## Private database verification — 14 October 2026
+
+The maintainer re-uploaded the complete private \`acore_world.zip\` directly in chat. The archive was inspected **read-only**; it contains approximately 9,525 unique \`quest_template\` records. This private archive itself has **not** been placed in GitHub.
+
+**Quest 1203 verified server values:**
+- \`QuestLevel = 35\`; \`MinLevel = 30\`. These match stock Questie's nominal level and required level, so no quest-level correction is appropriate for this ID.
+- \`RequiredItemId1 = 3853\`; \`RequiredItemCount1 = 1\`: Moonsteel Broadsword.
+- Server objective text: "Bring a Moonsteel Broadsword to Jarl in Dustwallow Marsh."
+- NPC giver and recipient 4792; prerequisite 1206, unchanged.
+
+**Public source difference:** stock WotLK Questie item objective is \`33110\` (Razorspine's Sword), so this is an actual **item/objective text mismatch**, not a level mismatch.
+
+A separate stacked draft correction changes only the existing quest 1203 item objective (to \`3853\`) and its objective text, preserving quest level, minimum level, NPC links and prerequisite. It verifies the expected original Questie objective ID and refuses to overwrite unexpected/updated records. **The in-game correction has not yet been tested.**
+
+The original level scanner's full-database mismatch counts **have not yet been established** from the combined private archive and current Questie data; do not substitute its synthetic fixture results for a real comparison. The next audit stage needs item/NPC objective comparison and module/Individual Progression condition review.
