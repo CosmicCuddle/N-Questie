@@ -16,6 +16,12 @@ jobs:
     steps:
       - name: Checkout project
         uses: actions/checkout@v4
+      - name: Refuse any tracked private server files
+        run: |
+          bash tests/check_no_tracked_private.sh
+      - name: Exercise private-file guard against malicious Git indexes
+        run: |
+          bash tests/test_check_no_tracked_private.sh
       - name: Install Lua 5.1 and busted
         run: |
           sudo apt-get update -qq
