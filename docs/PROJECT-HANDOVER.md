@@ -96,3 +96,11 @@ The first documentation PR is **foundation only**. It does not implement or inst
 
 **Next action:** Back up the existing Questie folder and both Questie SavedVariables. Then, when the maintainer is ready, install the reviewed **PR-only** test build and verify quest 2001's starter, kill objective and turn-in markers in Silverpine on an eligible Horde character with prerequisite quest 437. Do not mutate server/character progression for testing. Use [QUEST-2001-SMOKE-TEST.md](QUEST-2001-SMOKE-TEST.md). After that, implement reviewed-JSON to Lua generation, added/new NPC spawn mapping and progressively expand to further server-specific quests. Neither PR has been merged; no release has been published.
 
+
+## 14 October 2026 — New stacked draft generator PR (next continuation)
+
+- [Draft PR #3 — Reviewed JSON-to-Lua generator](https://github.com/CosmicCuddle/N-Questie/pull/3) is stacked on draft PR #2, **not merged**. It adds a local-only conversion program, synthetic tests, CI coverage and an importer guide. The complete private SQL ZIP and review JSON remain off public GitHub.
+- Source reviewed quest IDs and verified-existing NPC ID sets must be supplied explicitly; do not assume generated Lua implies live quest availability, map-coordinate correctness or Individual Progression unlocks.
+- **Step 1 remains PASS 5/5. Step 2 remains NOT TESTED.** Continue actual quest 2001 (Ravenclaw Cleanup) starter / NPC kills / turn-in in-game only when a legitimately eligible character exists. No progression changes just for testing.
+- PR #3 automation results must be checked separately from PR #2's last passing scoped run and inherited CI failures. No PR merge, release, live database changes or addon collection change without maintainer approval.
+

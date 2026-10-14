@@ -1,5 +1,17 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Reviewed quest JSON-to-Lua generator (draft PR #3)
+
+**Reason:** Reduce repetitive manual Lua editing when adding curated custom Naxxramas quests, without exposing the private acore_world export or guessing NPC spawn coordinates.
+
+**Change:** Draft [PR #3](https://github.com/CosmicCuddle/N-Questie/pull/3) is stacked on draft PR #2 and introduces `tools/generate_custom_quests.py`, offline synthetic Python tests, dedicated CI coverage, and an import guide update. It requires the exact approved quest set, exact verified NPC set and an explicit cache revision before producing small, deterministic Lua output. It does not read or connect to the live server, and it does not change existing Questie Lua on the maintainer's machine.
+
+**Evidence/status:** Newly submitted code, **CI outcomes to verify on PR #3**. No new in-game data: the verified Step 1 installation pass remains 5/5. Step 2 quest 2001 starter/objective/ender markers remain **NOT TESTED** until reported by maintainer. The inherited Questie CI continues to require separate triage.
+
+**Safety:** Private review JSON/SQL/ZIP and server details are not included in commits. Any generated Lua must be reviewed before copying to the public curated overlay. NPC coordinates, progression rules and active phases cannot be verified by this generator. No merge, stable release, or N-Addon-Collection update authorized. Revert PR #3 to remove this proposed development change; the installed test addon is untouched.
+
+**Next:** Run and inspect scoped CI; obtain in-game evidence on eligible quest 2001 or a different legitimately available custom quest; then expand verified NPC and gameobject mapping.
+
 ## 14 October 2026 — Maintainer's in-game installation checks: PASS (Step 1)
 
 The maintainer installed the temporary N-Questie QA addon and reported **five explicit PASS results**:

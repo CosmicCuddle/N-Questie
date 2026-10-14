@@ -31,3 +31,28 @@ Supported: quest title, min/quest level, race mask, flags, zone/sort, positive p
 Next milestone: validate actual spawn-coordinate conversions and produce **reviewable Lua directly from the curated manifest** so future quests need only one safe command rather than hand-editing the small data file.
 
 **Privacy:** The repository is public. The user approved publishing only curated quest IDs, names, links and coordinates needed for functionality. Keep the SQL export, server connection strings and unrelated data private.
+
+
+## Draft next stage — Generate a reviewed Lua overlay (PR #3)
+
+The new offline generator is in a **separate draft development branch**. This does not update your installed addon and is not a release. Step 2's live quest 2001 markers still need testing.
+
+1. Use the read-only extractor above to produce a **private** JSON review file. Keep it outside the public checkout.
+2. Independently verify the quest is actually available and the relevant NPC IDs already have correct map locations in Questie's 3.3.5a database (or plan separately reviewed NPC spawn corrections). For quest 2001, the inherited records already have coordinates, but their accuracy against active server spawns still needs in-game verification.
+3. Review which quest metadata is approved for publication. Then run the following command **locally**, substituting paths and the next new revision number:
+
+```bash
+python3 tools/generate_custom_quests.py \
+  --review /private/review-2001.json \
+  --approved-quest 2001 \
+  --verified-npc 2121 --verified-npc 1868 --verified-npc 1869 \
+  --revision 2 \
+  --output /private/staging/NQuestieCustomQuestData.lua
+```
+
+4. Compare the staged Lua against the current curated data. After review and authorization, copy the generated Lua into `Compat/NQuestieCustomQuestData.lua` on a development branch; never commit the JSON review file, SQL/ZIP source, credentials or full export. Increment `revision` each time published curated Lua changes.
+5. Run `python3 tools/test_generate_custom_quests.py` and the Lua 5.1 checks, and test the game markers before any release.
+
+**Safety behavior:** the converter refuses unapproved quest IDs, missing or extra verified NPC IDs, malformed records, unsupported extra fields, duplicate IDs, unsafe quest names and overwriting an existing destination without explicit `--overwrite`. A successful conversion **does not prove** that quest availability, phases or spawn positions are correct. Kill counts in the source JSON are validated, but the addon objective records intentionally contain only NPC IDs; the WoW quest log supplies counts.
+
+**Future extension:** validated gameobject/item/script objectives and server-specific NPC map-coordinate mapping will require separate verified data and code, not guessed locations.
