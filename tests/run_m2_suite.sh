@@ -22,6 +22,7 @@ step "M2.2 coverage (synthetic)" "$LUA" tests/test_nquestie_m2_coverage.lua
 step "M2.2 objective order (killCreditObjectiveFirst)" "$LUA" tests/test_nquestie_m2_order.lua
 step "M2 v2 DRAFT prototype (design validation only)" "$LUA" tests/test_nquestie_m2_effective_v2_draft.lua
 step "pilot script syntax" bash -n tools/validation/run-m2-pilot.sh
+step "pilot output path and no-clobber preflight" bash tests/test_nquestie_m2_pilot_preflight.sh
 step "busted tools/validation" busted -p ".test.lua" tools/validation
 if [ "${NQ_M2_SKIP_INTEGRATION:-0}" != "1" ]; then
     step "M2.2 real-DB export integration (M0 + export)" bash tests/test_nquestie_m2_export_integration.sh

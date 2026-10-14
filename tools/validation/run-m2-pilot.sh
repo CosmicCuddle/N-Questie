@@ -21,16 +21,44 @@ bad() { fails=$((fails+1)); echo "FAIL: $1"; }
 die() { echo "STOP: $1"; exit 1; }
 strip() { sed 's/\x1b\[[0-9;]*m//g'; }
 
-# 0. Preconditions (fail closed)
-[ -n "$OUT" ] && [ "${OUT#/}" != "$OUT" ] || die "OUT_DIR must be an absolute path"
+# 0. Preconditions (fail closed, BEFORE any log or export is created)
+case "$OUT" in /*) ;; *) die "OUT_DIR must be an absolute path" ;; esac
 case "$MODE" in 1203) IDS=1203 ;; pilot) IDS="$PILOT" ;; *) die "mode must be 1203 or pilot" ;; esac
+case "$OUT" in *$'\n'*|*$'\r'*|*$'\t'*) die "OUT_DIR contains a control character" ;; esac
+# Refuse dot segments even when realpath would silently normalise them.
+case "/$OUT/" in */../*|*/./*) die "OUT_DIR must not contain . or .. segments" ;; esac
 realpath --version 2>/dev/null | head -1 | grep -q GNU || die "GNU realpath required"
-command -v "$LUA" >/dev/null && command -v git >/dev/null && command -v sha256sum >/dev/null || die "lua5.1, git and sha256sum required"
+command -v "$LUA" >/dev/null && command -v git >/dev/null && command -v sha256sum >/dev/null \
+    && command -v stat >/dev/null && command -v id >/dev/null || die "lua5.1, git, sha256sum, stat and id required"
 [ -z "$(git status --porcelain --untracked-files=all)" ] || die "checkout must be clean (provenance)"
-[ -d "$OUT" ] || { mkdir -p -- "$OUT" && chmod 700 -- "$OUT"; } || die "cannot create $OUT"
-[ "$(stat -c %a "$OUT")" = 700 ] || die "$OUT must be mode 0700"
+ROOT=$(pwd -P)
+# Validate the would-be destination BEFORE mkdir. -m resolves existing parent
+# symlinks without needing the final output directory to exist yet.
+EXPECTED_OUT=$(realpath -m -- "$OUT") || die "cannot resolve OUT_DIR"
+case "$EXPECTED_OUT" in
+    "$ROOT"|"$ROOT"/*)
+        case "$EXPECTED_OUT" in
+            "$ROOT/private"|"$ROOT/private"/*) ;;
+            *) die "OUT_DIR resolves inside the public checkout; use outside checkout or private/" ;;
+        esac ;;
+esac
+[ ! -L "$OUT" ] || die "OUT_DIR must not be a symlink"
+[ -d "$OUT" ] || { mkdir -p -- "$OUT" && chmod 700 -- "$OUT"; } || die "cannot create OUT_DIR"
+CANON_OUT=$(realpath -e -- "$OUT") || die "cannot resolve existing OUT_DIR"
+[ "$CANON_OUT" = "$EXPECTED_OUT" ] || die "OUT_DIR resolution changed"
+[ -d "$CANON_OUT" ] && [ ! -L "$CANON_OUT" ] || die "OUT_DIR is not a real directory"
+[ "$(stat -c %u -- "$CANON_OUT")" = "$(id -u)" ] || die "OUT_DIR must be owned by the current user"
+[ "$(stat -c %a -- "$CANON_OUT")" = 700 ] || die "OUT_DIR must be mode 0700"
+OUT="$CANON_OUT"
 FILE="$OUT/effective-$MODE.lua"
-[ ! -e "$FILE" ] || die "$FILE exists; remove it or choose another OUT_DIR (no clobber)"
+# Protect every output, not only the exported Lua file. Even a dangling
+# symlink is an occupied filename. set -C makes later shell redirects refuse
+# a newly appeared existing file, reducing races after this preflight.
+for f in "$FILE" "$OUT/negatives-$MODE.log" "$OUT/harness-$MODE.log" \
+         "$OUT/verify-$MODE.log" "$OUT/SHA256SUMS-$MODE"; do
+    [ ! -e "$f" ] && [ ! -L "$f" ] || die "output already exists (no clobber): $f"
+done
+set -C
 HEAD=$(git rev-parse HEAD)
 echo "N-Questie M2.2 pilot: mode=$MODE commit=$HEAD out=$FILE"
 
@@ -78,6 +106,11 @@ print("effective 1203: levels 30/35, item 3853; records " .. n .. "; sourceCommi
       "; revision " .. p.nQuestieDataRevision .. "; corrections " .. p.correctionCount .. "; M0 " .. p.m0Checks)
 ' >"$OUT/verify-$MODE.log" 2>&1 && ok "$(tail -1 "$OUT/verify-$MODE.log")" || bad "export verification: $(tail -3 "$OUT/verify-$MODE.log")"
 
-sha256sum "$FILE" | sed "s|$OUT/||" >"$OUT/SHA256SUMS-$MODE"
-echo "sha256: $(cut -d' ' -f1 "$OUT/SHA256SUMS-$MODE")"
+# Hash first and fail closed; never interpolate OUT into a sed pattern.
+hash_line=$(sha256sum -- "$FILE") || die "failed to hash exported file"
+digest=${hash_line%% *}
+[[ "$digest" =~ ^[0-9a-f]{64}$ ]] || die "invalid SHA-256 digest"
+printf '%s  %s\n' "$digest" "effective-$MODE.lua" >"$OUT/SHA256SUMS-$MODE" \
+    || die "failed to write pilot checksum manifest"
+echo "sha256: $digest"
 [ $fails -eq 0 ] && echo "PILOT PASS ($MODE). Files stay in $OUT; publish nothing." || { echo "PILOT FAILED ($fails)"; exit 1; }
