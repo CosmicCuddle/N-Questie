@@ -28,6 +28,8 @@ jobs:
         run: lua5.1 tests/test_nquestie_overlay.lua
       - name: Test reviewed existing quest 1203 correction (no server data)
         run: lua5.1 tests/test_nquestie_existing_quest_1203.lua
+      - name: Test verified Dustwallow quest-level changes (no private source)
+        run: lua5.1 tests/test_nquestie_reviewed_dustwallow_levels.lua
       - name: Test selected quest SQL export parser
         run: python3 tools/test_export_world_quests.py
       - name: Test reviewed JSON to Lua generation (offline, fail closed)
@@ -42,6 +44,7 @@ jobs:
           grep -Fq 'Compat\NQuestieCustomQuestData.lua' Questie-335.toc
           grep -Fq 'Compat\NQuestieCustomQuestLoader.lua' Questie-335.toc
           grep -Fq 'Compat\NQuestieExistingQuestCorrections.lua' Questie-335.toc
+          grep -Fq 'Compat\NQuestieReviewedQuestLevelCorrections.lua' Questie-335.toc
           grep -Fq 'nQuestieDataRevision' Modules/QuestieInit.lua
       - name: Assemble PR-only WoW 3.3.5a addon package
         if: github.event_name == 'pull_request'
@@ -60,6 +63,7 @@ jobs:
           test -s qa-package/Questie-335/Compat/NQuestieCustomQuestLoader.lua
           test -s qa-package/Questie-335/Compat/NQuestieCustomQuestData.lua
           test -s qa-package/Questie-335/Compat/NQuestieExistingQuestCorrections.lua
+          test -s qa-package/Questie-335/Compat/NQuestieReviewedQuestLevelCorrections.lua
           echo "QA build only. Run in-game tests before merging or releasing." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload temporary N-Questie PR test build
         if: github.event_name == 'pull_request'
