@@ -2,6 +2,9 @@
 -- N-Questie: read-only, privacy-minimising pilot check for exactly quest 1203.
 -- RUN ONLY from a trusted development checkout, never from live worldserver.
 -- Usage: lua5.1 cli/check-private-1203.lua /absolute/private/quest-1203.lua
+-- Optional: add --archive /absolute/private/original-acore_world.zip
+-- The optional archive must be the EXACT bytes the exporter claimed to read.
+-- A matching hash alone never proves the exporter really read those bytes.
 --
 -- The shared M2.1 parser reads DATA literals, never executes the input Lua.
 -- This tool writes nothing, prints no private source rows, paths, fingerprints
@@ -11,8 +14,15 @@
 
 local Input = dofile("tools/validation/InputSchema.lua")
 local path = arg[1] or os.getenv("NQ_M2_INPUT")
+local archive = nil
 if arg[2] ~= nil then
-    io.stderr:write("FAIL: one input path only (details not printed)\n")
+    if arg[2] ~= "--archive" or type(arg[3]) ~= "string" or arg[3] == "" or arg[4] ~= nil then
+        io.stderr:write("FAIL: invalid arguments; use input path, optionally --archive with an absolute archive path\n")
+        os.exit(1)
+    end
+    archive = arg[3]
+elseif arg[3] ~= nil then
+    io.stderr:write("FAIL: invalid arguments (details not printed)\n")
     os.exit(1)
 end
 
@@ -93,8 +103,47 @@ for i = 1, 4 do
     end
 end
 
+-- Optional provenance verification: hash the original archive *as bytes*
+-- without opening its SQL contents or printing its path, digest or metadata.
+-- This is separate from M2.1's syntax-only sourceFingerprint check. Do NOT
+-- claim to have authenticated the exporter's source selection or live DB.
+if archive then
+    local sourceOk, sourcePath = Input.CheckInputPath(archive, ".")
+    if not sourceOk or type(sourcePath) ~= "string" then
+        io.stderr:write("FAIL: private source archive path rejected\n")
+        os.exit(1)
+    end
+    if sourcePath == root or sourcePath:sub(1, #root + 1) == root .. "/" then
+        io.stderr:write("FAIL: private source archive must resolve outside the public checkout\n")
+        os.exit(1)
+    end
+    local archiveParent = sourcePath:match("^(.*)/[^/]+$") or "/"
+    if not secureStat(archiveParent, "700", "directory")
+        or not (secureStat(sourcePath, "600", "regular file") or secureStat(sourcePath, "600", "regular empty file")) then
+        io.stderr:write("FAIL: private source archive permissions refused; require owned 0700 folder and 0600 regular file\n")
+        os.exit(1)
+    end
+
+    -- Using stdin avoids printing a pathname in sha256sum's output.
+    local line = capture("sha256sum < " .. shellQuote(sourcePath))
+    local digest = line and line:match("^([0-9a-f]+)%s+")
+    if not digest or #digest ~= 64 then
+        io.stderr:write("FAIL: private source archive SHA-256 unavailable\n")
+        os.exit(1)
+    end
+    if digest ~= doc.provenance.sourceFingerprint:sub(8) then
+        io.stderr:write("FAIL: source archive SHA-256 differs from declared input provenance\n")
+        os.exit(1)
+    end
+end
+
 -- Flags and credit evidence remain as supplied: do not rewrite unknown to
 -- false or infer KillCredit completeness from the selected quest.
 io.stdout:write("PASS: quest 1203 M2.1 schema, single-ID selection and public 3853 x1 item-only objective\n")
-io.stdout:write("NOT VERIFIED: private archive fingerprint, current-world freshness, IP/conditions/scripts and M2.3 match\n")
+if archive then
+    io.stdout:write("PASS: supplied offline archive SHA-256 matches the declared source fingerprint (byte comparison only)\n")
+    io.stdout:write("NOT VERIFIED: whether exporter read that archive, current-world freshness, IP/conditions/scripts and M2.3 match\n")
+else
+    io.stdout:write("NOT VERIFIED: private archive fingerprint, current-world freshness, IP/conditions/scripts and M2.3 match\n")
+end
 os.exit(0)
