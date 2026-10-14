@@ -26,7 +26,7 @@ Standing safeguards for every stage: synthetic or public data only in the reposi
 |---|---|
 | Depends on | M2.2 completion (v2) for the 758; v1 alone covers the 8,401 |
 | Files | `tools/validation/BatchCompare.lua`, CLI `cli/compare-m2.lua`, `M23Report.lua` promoted from draft |
-| Synthetic tests | contract draft tests (110 checks) become production; matrix S01-S17 and P01 already executed against the draft protocol; D01-D03 become executable with the engine |
+| Synthetic tests | contract draft tests (165 checks) become production; matrix S01-S20 and P01 already executed against the draft protocol; D01-D03 become executable with the engine |
 | Full-DB tests | run against a synthetic server file covering all 9,159 IDs (public-derived values) to prove every quest gets one row |
 | Privacy | real server comparisons only on the lead's trusted machine; aggregate reviewed before sharing |
 | Deliverables | engine, private report, aggregate |

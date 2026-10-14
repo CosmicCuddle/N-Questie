@@ -32,7 +32,7 @@ Changes made low in the stack (#39 CI evidence, status model, historical-figure 
 | Correction regression | forced CONFIRMED against unknown evidence | fixed: two tiers, documented manual review allowed |
 | Text/tooltip | not covered | added: separate lane, aligned with #40 vocabulary |
 | Superseded helper names | `CheckServerProvenance` only mentioned as replaced | pass |
-| Check counts quoted in docs | v2 draft 63, acceptance 38, M2.3 contract 110, markers 39, QA 25, harness pin 5 | pass (executed, see handover §13) |
+| Check counts quoted in docs | v2 draft 63, acceptance 38, M2.3 contract 165 (21 matrix cases), markers 39, QA 25, harness pin 5 | pass (executed, see handover §13) |
 
 ## 3. Open items
 

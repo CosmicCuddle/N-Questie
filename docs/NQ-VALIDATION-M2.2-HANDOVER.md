@@ -280,7 +280,7 @@ CI on the final #39 head 2912fd20d (all success, run head SHA verified): M2 3861
 | PR | Branch | Content |
 |---|---|---|
 | #41 | feat/nq-validation-m2-v2-exporter-spec-2026-10-14 | v2 exporter specification, acceptance fixture and test (38 checks), Proposal A, CI evidence for #39 |
-| #42 | feat/nq-validation-m2-3-design-2026-10-14 | M2.3 detailed design, draft contract validator, executable matrix (110 checks), Proposal B |
+| #42 | feat/nq-validation-m2-3-design-2026-10-14 | M2.3 detailed design, draft contract validator, executable matrix (165 checks, 21 cases), bundle and stderr-code contracts, Proposal B |
 | #43 | feat/nq-validation-m2-markers-design-2026-10-14 | nq-m2-markers design with Questie source citations, draft marker validator (39 checks) |
 | #44 | feat/nq-validation-m2-corrections-roadmap-2026-10-14 | correction workflow (two-tier regression, text/tooltip lane, 25 checks), roadmap M2.2-M2.5, design audit |
 
@@ -293,3 +293,21 @@ Resolved: #39 CI evidence and status alignment; #42 aggregate vocabulary, confir
 Separate PR: harness 1.2.0 on the #38 line (see the PR text for heads and CI).
 
 Heads and CI for this round are recorded in the PR descriptions and the final report, because adding them here would change the head again. All results are public/synthetic CI and box runs; the real private 1203 M2.1 file has not been validated by these tests.
+
+## 14. Review round 3 (14 October 2026, late evening)
+
+- M2.3 (#42): CONFIRMED_MATCH and CONFIRMED_MISMATCH need `m1Supported == true`
+  exactly; nil, false, "unknown" and anything else never confirm. Report and
+  aggregate are published together as one bundle file through SafeWrite
+  (temp, fsync, link: no clobber); a staged directory renamed into place was
+  rejected because rename(2) can replace an empty target directory. A v1
+  selection that is empty after preflight is rejected with
+  REJECTED_V1_SELECTION_EMPTY_AFTER_PREFLIGHT (a v2 export is needed). There
+  is no rejection file: a rejection prints only `nq-m2-3: <CODE>` on stderr,
+  checked against a closed code list with no paths, extra digits or hex.
+  Contract draft: 165 checks, 21 matrix cases executed, 3 design assertions.
+- Proposal A (#41) split into Stage A1 (in-memory round trip, counts only, no
+  writes, harness stays 1.2.0) and Stage A2 (opt-in export, SafeWrite,
+  harness 1.3.0).
+- Integration plan: docs/NQ-INTEGRATION-PLAN.md, with the test-inventory
+  script tools/validation/integration/test_inventory.sh.

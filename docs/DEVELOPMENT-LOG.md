@@ -231,3 +231,10 @@ The maintainer installed the temporary N-Questie QA addon and reported **five ex
 - #43: exact custom spawn pins with origin tags, item source categories, waypoints separate, map-bounds decision, draft marker validator.
 - #44: two-tier correction regression, text/tooltip QA lane aligned with #40, roadmap fixes, design audit.
 - Separate: harness 1.2.0 PR on the #38 line. No exporter, engine, marker exporter or correction added.
+
+## 14 Oct 2026, late evening: integration plan
+
+Added docs/NQ-INTEGRATION-PLAN.md and tools/validation/integration/test_inventory.sh.
+A local throwaway merge of #44 + #40 + #45 + #46 (never pushed) found two
+union conflicts (DEVELOPMENT-LOG, M22Libraries); the inventory check passed
+(36 test files, 22 suite steps, 10 busted entries) and the full M2 suite passed.
