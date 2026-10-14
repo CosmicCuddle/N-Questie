@@ -1,5 +1,13 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Grok M1 safety fixes reviewed and combined on PR #20
+
+Reviewed Grok's [draft PR #18](https://github.com/CosmicCuddle/N-Questie/pull/18), including 29 synthetic M1 scenarios, 25 rules, stricter NPC KillCredit evidence, no positional pairing of multiple unmatched objectives, and tri-state conditions/IP/script signals. Grok reported four negative fixtures correctly rejected, local Busted 49 successes with a temporary PR #4 test repair, and 28 Python tests across four tool files. Their own original branch remains unmerged with a known inherited CI failure due to absent #4.
+
+Created a **new [draft PR #20](https://github.com/CosmicCuddle/N-Questie/pull/20)** based on the previously tested #19/#16 correction/validation stack, copying Grok's reviewed public-only M1 implementation, 29-fixture tests, synthetic report CLI, M1 docs and active workflow. Transplanted **only** their quest-1203 stock/effective classification check into the strict 28-quest real 3.3.5a database compilation harness; the 28 per-field permissions, full compiled readback, five M0 synthetic rejections and revision guard remain unchanged. None of Grok's or earlier correction PR heads was edited.
+
+Initial [M1 GitHub Actions 38580760515](https://github.com/CosmicCuddle/N-Questie/actions/runs/38580760515) **PASSED**, including 29 cases, 25 rule IDs and 31 Busted tests; initial revision and overlay checks passed. Full latest-head status must be confirmed after handover commits. This branch does **not** import private `acore_world.zip` data or implement M2. See [integration handover](INTEGRATION-M1-28QUEST-2026-10-14.md).
+
 ## 14 October 2026 — M2 private selected-quest objective exporter pilot
 
 Grok shared [draft PR #18](https://github.com/CosmicCuddle/N-Questie/pull/18), implementing stricter M1 kill-credit completeness, ambiguous item/NPC set-level review and explicit tri-state script/conditions/IP flags. Public PR #18 M1/overlay/M0 CI passed, inherited Busted `unit-tests` remains blocked without independent PR #4; Grok has three further local QA tasks before final approval.
