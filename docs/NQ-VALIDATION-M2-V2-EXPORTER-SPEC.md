@@ -72,14 +72,14 @@ The 758 are exported in full like every other quest. They differ only in `m1Stat
 | v1 | unchanged, still produced by the existing exporter |
 | v1 → v2 migration | "v1-held-fields-only"; refused for any quest with extraObjectives or killCredit (v2 design §8) |
 | v2 → v1 | refused (no downgrade) |
-| Harness version | the production exporter bumps `HARNESS_VERSION`; whether to bump it already for the #36 order check is an open decision for the lead |
+| Harness version | 1.2.0 for the order protection (separate PR); the production v2 exporter bumps it again |
 
 ## 8. Failure handling, paths, determinism, performance
 
 - **Fail closed, whole file.** Any malformed record, unclassified quest, missing kill-credit-first set, ID-set mismatch, provenance error or validator failure: no file is written. Errors go to stderr with the quest ID and field.
 - **Self-validation.** The document is validated with the v2 validator before writing; the written bytes are re-read and validated again.
 - **Safe paths.** Writes only through `SafeWrite` (no overwrite of existing files, no symlinks, no repository paths, owner-only permissions), the same rules as the private coverage manifest.
-- **Deterministic serialisation.** Quests sorted by ID; keys in a fixed order per table; integers only (no floats); `\n` line endings; no timestamps except `provenance.exportedAt`. Two runs on the same tree with a fixed `exportedAt` must produce byte-identical output (sha256 compared).
+- **Deterministic serialisation.** Quests sorted by ID; keys in a fixed order per table; integers only (no floats); `\n` line endings; no timestamps except `provenance.exportedAt`. Reproducibility is tested, not forced: the test harness compares `Canonical(doc, exclude)` (draft function, tested), where `exclude` may only name per-run provenance fields (`exportedAt`, and `sourceCommit`/`sourceTree` across commits). The real file keeps its real timestamp; production provenance is never weakened to make hashes stable.
 - **Inputs untouched.** Deep compare of the compiled database before and after the run.
 - **Performance target.** All 9,159 quests within the existing M0 run budget; no measured figure yet (no exporter). The acceptance run records wall time and peak memory.
 - **Privacy.** The export holds only public Questie data, but it goes to a private path by default, as v1 does, to keep one handling rule for all M2 files.
@@ -94,6 +94,7 @@ Synthetic tests (run in CI, no private data):
 | A2 | acceptance fixture (6 synthetic quests, IDs 900001-900006) valid; covers no-objective quest, all six kinds, multi-ID kill credit, three reversed kill-credit entries, required source items, spell item source, trigger end, objectiveIndex 0 and maximum, spawn-only extra | `tests/test_nquestie_m2_v2_acceptance.lua` |
 | A3 | negative: kill credit not reversed, reputation 0 dropped, objectiveIndex too large, quest dropped, display text present, unknown version | same |
 | A4 | migration refusals and downgrade refusal | v2 draft test |
+| A5 | reproducible comparison: exportedAt excluded explicitly, record and non-run provenance differences still detected, non-run exclusion refused, v1 golden fixture | acceptance test |
 
 Full-database tests (to run once an exporter is authorised):
 
@@ -104,8 +105,8 @@ Full-database tests (to run once an exporter is authorised):
 | F3 | round trip (section 10) | 0 differences over 9,159 |
 | F4 | no-loss for the 758 (section 10) | 0 differences; 801 refs, 181 reputation values, 16 kill-credit-first quests accounted for |
 | F5 | v1 equivalence (section 11) | 0 differences over 8,401 |
-| F6 | determinism | two runs byte-identical |
-| F7 | M0, M1, v1 unchanged | 232 M0 checks pass; M1 and v1 suites pass; v1 export byte-identical before and after |
+| F6 | determinism | two runs on the same clean tree are byte-identical after `Canonical(doc, {"exportedAt"})`; production provenance keeps its real timestamp |
+| F7 | M0, M1, v1 unchanged | 232 M0 checks pass with strict field-level pins; M1 and v1 suites pass; v1 writer source unchanged (diff empty); v1 export equivalent before and after by `Canonical(doc, {"exportedAt"})` (and `sourceCommit`/`sourceTree` only when comparing across commits), plus the synthetic v1 golden fixture test |
 | F8 | fail-closed | injected malformed record, missing kill-credit set, unwritable path: no file |
 
 ## 10. Round-trip proof design
@@ -136,6 +137,6 @@ For each SUPPORTED quest, the v1 record and the v2 record are equivalent when al
 
 ## 12. Remaining open points
 
-- Whether the production exporter is a new CLI or a mode of `cli/validate-335.lua`.
+- Exporter entry point: **decided** (maintainer, 14 October 2026): an explicit opt-in v2 mode in `cli/validate-335.lua`. See `docs/NQ-VALIDATION-M2-V2-EXPORTER-PROPOSAL.md` for the trade-off and the mode contract.
 - Performance figures (none measured).
-- HARNESS_VERSION bump timing (lead decision).
+- HARNESS_VERSION: **decided**, 1.1.0 → 1.2.0 with the kill-credit ordering protection, in a separate draft PR on the #38 line (not in this design stack). The production v2 exporter bumps it again (proposed 1.3.0).

@@ -65,5 +65,24 @@ ok(not r, "display text in structural-only export rejected")
 r, e = mut(function(d) d.schemaVersion = 3 end)
 ok(not r, "unknown schema version rejected")
 
+-- Reproducible equivalence despite run timestamps (lead review #44 point 3)
+local a1, a2 = copy(A), copy(A)
+a2.provenance.exportedAt = "2027-01-01T00:00:00Z"
+ok(D.Canonical(a1, nil, OPT) ~= D.Canonical(a2, nil, OPT), "raw canonical forms differ when only exportedAt differs")
+ok(D.Canonical(a1, { "exportedAt" }, OPT) == D.Canonical(a2, { "exportedAt" }, OPT), "exportedAt excluded explicitly: equal")
+local a3 = copy(A); q(a3, 900002).questLevel = 13
+ok(D.Canonical(a1, { "exportedAt" }, OPT) ~= D.Canonical(a3, { "exportedAt" }, OPT), "record difference still detected after exclusion")
+local a4 = copy(A); a4.provenance.correctionCount = 27
+ok(D.Canonical(a1, { "exportedAt" }, OPT) ~= D.Canonical(a4, { "exportedAt" }, OPT), "non-run provenance difference still detected")
+ok(not pcall(D.Canonical, a1, { "correctionCount" }, OPT), "excluding a non-run field is refused")
+ok(not pcall(D.Canonical, a1, { "exportedAt" }), "Canonical needs allowDraft")
+local V1 = dofile("tools/validation/EffectiveSchema.lua")
+local v1a = dofile("tests/fixtures/m2_effective/effective_selected_quests.lua")
+local v1b = copy(v1a); v1b.provenance.exportedAt = "2030-05-05T05:05:05Z"
+ok(V1.Validate(v1a) and V1.Validate(v1b), "v1 golden fixture valid with both timestamps (v1 unchanged)")
+ok(D.Canonical(v1a, { "exportedAt" }, OPT) == D.Canonical(v1b, { "exportedAt" }, OPT), "v1 golden equivalence reproducible")
+local rev = {} for k, v in pairs(copy(A)) do rev[k] = v end
+ok(D.Canonical(rev, nil, OPT) == D.Canonical(a1, nil, OPT), "key insertion order does not change the output")
+
 if fails > 0 then print(("FAIL: %d of %d checks failed"):format(fails, n)); os.exit(1) end
 print(("PASS: M2 v2 exporter acceptance DRAFT (%d checks)"):format(n))

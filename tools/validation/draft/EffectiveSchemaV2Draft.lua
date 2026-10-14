@@ -374,4 +374,47 @@ function M.CheckServerDocument(serverDoc, opts)
     return true
 end
 
+-- Reproducible comparison form (spec section 8 and F6/F7). Serialises any
+-- v1 or v2 document deterministically (sorted keys, integers, no whitespace
+-- variation) after removing ONLY the fields named in `exclude`, which must be
+-- a subset of the per-run provenance fields below. Production provenance is
+-- never changed; this is a test-harness view.
+M.RUN_FIELDS = { exportedAt = true, sourceCommit = true, sourceTree = true }
+function M.Canonical(doc, exclude, opts)
+    guard(opts)
+    local skip = {}
+    for _, f in ipairs(exclude or {}) do
+        if not M.RUN_FIELDS[f] then error("Canonical: may only exclude per-run provenance fields, not " .. tostring(f), 2) end
+        skip[f] = true
+    end
+    local out = {}
+    local function emit(v, path)
+        local t = type(v)
+        if t == "table" then
+            local keys = {}
+            for k in pairs(v) do keys[#keys + 1] = k end
+            table.sort(keys, function(a, b)
+                if type(a) == type(b) then return a < b end
+                return type(a) == "number"
+            end)
+            out[#out + 1] = "{"
+            for _, k in ipairs(keys) do
+                if not (path == "provenance" and skip[k]) then
+                    out[#out + 1] = (type(k) == "number" and ("[" .. k .. "]") or k) .. "="
+                    emit(v[k], (path == "" and k == "provenance") and "provenance" or "x")
+                    out[#out + 1] = ";"
+                end
+            end
+            out[#out + 1] = "}"
+        elseif t == "number" then
+            if v ~= math.floor(v) then error("Canonical: non-integer number", 2) end
+            out[#out + 1] = string.format("%d", v)
+        elseif t == "string" then out[#out + 1] = string.format("%q", v)
+        elseif t == "boolean" then out[#out + 1] = tostring(v)
+        else error("Canonical: unsupported type " .. t, 2) end
+    end
+    emit(doc, "")
+    return table.concat(out)
+end
+
 return M
