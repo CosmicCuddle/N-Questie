@@ -9,6 +9,14 @@
 **Client:** World of Warcraft 3.3.5a (`## Interface: 30300`)  
 **Inherited addon identity:** `Questie-335.toc`, display title `Questie-335`, upstream version `9.5.1`  
 
+## Existing-quest correction scope — 14 October 2026
+
+The maintainer confirmed that **incorrect inherited WotLK quest information must be repaired too**, especially outdated quest levels and red/green difficulty colours on the Naxxramas AzerothCore server with Individual Progression. This is now explicitly tracked in `docs/ROADMAP.md` as **Phase 2A — Corrections for existing WotLK quests**.
+
+Technical finding: `Modules/Libs/QuestieLib.lua` colours quests by the effective `questLevel` compared with `QuestiePlayer.GetPlayerLevel()` via `PrintDifficultyColor` and `GetTbcLevel`; `MinLevel` / `requiredLevel` is a separate eligibility gate. IP era availability may need module-specific interpretation beyond static quest data.
+
+Implementation must start with a **private read-only Questie-vs-server discrepancy report** (server source plus effective Questie corrections), then an **approved field-level** correction overlay that preserves other fields. Do not replace full existing quest records merely to fix a level, infer a green colour from the IP era, access server progression, publish the raw SQL export, or change installed addons. Add regression tests and staged in-game QA; PR review/merge/release gates remain unchanged.
+
 ## Most recent verified state — 14 October 2026 (supersedes historical checkpoints below)
 
 - **In-game quest 2001 visual marker lifecycle: PASS.** Available starter, Ravenclaw Servant/Champion objective pin tooltips, completed turn-in indicator and post-hand-in marker disappearance confirmed by maintainer. Existing Questie installation/regression tests also passed 5/5. Individual kill-counter transitions and exact active NPC spawn-coordinate alignment not independently tested.
