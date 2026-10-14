@@ -36,7 +36,9 @@ jobs:
       - name: Parse harness with Lua 5.1
         run: luac -p cli/validate-335.lua tests/fixtures/validate335/*.lua
 
-      - name: Validate effective 3.3.5a Questie DB with N-Questie corrections
+      - name: Validate effective 3.3.5a Questie DB with all 28 reviewed level corrections
+        env:
+          NQ_VALIDATE_EXPECT_LEVEL_COUNT: '28'
         run: lua cli/validate-335.lua
 
       - name: Negative tests (synthetic faults must fail the harness)
