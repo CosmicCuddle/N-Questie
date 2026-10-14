@@ -10,6 +10,7 @@
 #   1203  (default) export quest 1203 only
 #   pilot export the proposed v1 pilot list (docs/NQ-VALIDATION-M2.2-PILOT.md)
 set -u
+umask 077
 cd "$(dirname "$0")/../.."
 LUA="${LUA:-lua5.1}"
 OUT="${1:-}"; MODE="${2:-1203}"
@@ -34,15 +35,15 @@ HEAD=$(git rev-parse HEAD)
 echo "N-Questie M2.2 pilot: mode=$MODE commit=$HEAD out=$FILE"
 
 # 1. M0 negatives: the five fault-injection fixtures must still be rejected
-LUA="$LUA" bash tests/test_validate_335_fixtures.sh >"$OUT/negatives.log" 2>&1; c=$?
-n=$(strip <"$OUT/negatives.log" | grep -c "rejected with")
+LUA="$LUA" bash tests/test_validate_335_fixtures.sh >"$OUT/negatives-$MODE.log" 2>&1; c=$?
+n=$(strip <"$OUT/negatives-$MODE.log" | grep -c "rejected with")
 [ $c -eq 0 ] && [ "$n" -eq 5 ] && ok "5 M0 negative fixtures rejected" || bad "M0 negatives (exit $c, $n rejected)"
 [ $fails -eq 0 ] || die "negatives failed; not exporting"
 
 # 2. M0 + export in one harness run (export happens only after every check passes)
 NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 NQ_EXPORT_EFFECTIVE_OUT="$FILE" NQ_EXPORT_QUESTS="$IDS" \
-    "$LUA" cli/validate-335.lua 2>&1 | strip >"$OUT/harness.log"; c=${PIPESTATUS[0]}
-L="$OUT/harness.log"
+    "$LUA" cli/validate-335.lua 2>&1 | strip >"$OUT/harness-$MODE.log"; c=${PIPESTATUS[0]}
+L="$OUT/harness-$MODE.log"
 [ $c -eq 0 ] && ok "harness exit 0" || bad "harness exit $c"
 grep -q "PASS: 232 checks" "$L" && ok "232 M0 checks passed" || bad "232 M0 checks"
 grep -q "level corrections asserted: 28" "$L" && ok "28 level corrections" || bad "28 corrections"
@@ -75,8 +76,8 @@ assert(q.ID == 1203 and q.requiredLevel == 30 and q.questLevel == 35, "1203 leve
 assert(#q.objectives.items == 1 and q.objectives.items[1] == 3853, "1203 effective item 3853")
 print("effective 1203: levels 30/35, item 3853; records " .. n .. "; sourceCommit " .. p.sourceCommit:sub(1, 9) ..
       "; revision " .. p.nQuestieDataRevision .. "; corrections " .. p.correctionCount .. "; M0 " .. p.m0Checks)
-' >"$OUT/verify.log" 2>&1 && ok "$(tail -1 "$OUT/verify.log")" || bad "export verification: $(tail -3 "$OUT/verify.log")"
+' >"$OUT/verify-$MODE.log" 2>&1 && ok "$(tail -1 "$OUT/verify-$MODE.log")" || bad "export verification: $(tail -3 "$OUT/verify-$MODE.log")"
 
-sha256sum "$FILE" | sed "s|$OUT/||" >"$OUT/SHA256SUMS"
-echo "sha256: $(cut -d' ' -f1 "$OUT/SHA256SUMS")"
+sha256sum "$FILE" | sed "s|$OUT/||" >"$OUT/SHA256SUMS-$MODE"
+echo "sha256: $(cut -d' ' -f1 "$OUT/SHA256SUMS-$MODE")"
 [ $fails -eq 0 ] && echo "PILOT PASS ($MODE). Files stay in $OUT; publish nothing." || { echo "PILOT FAILED ($fails)"; exit 1; }
