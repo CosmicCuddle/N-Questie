@@ -39,7 +39,7 @@ reject "reject wrong quest selection" "$T/id.lua" "not exactly quest 1203"
 
 cp "$T/valid.lua" "$T/item.lua"
 sed -i 's/RequiredItemId1 = 3853/RequiredItemId1 = 33110/' "$T/item.lua"
-reject "reject stock item's incorrect ID" "$T/item.lua" "does not have exactly one required item 3853 x1"
+reject "reject stock item's incorrect ID" "$T/item.lua" "additional/different item objective"
 
 cp "$T/valid.lua" "$T/count.lua"
 sed -i 's/RequiredItemCount1 = 1/RequiredItemCount1 = 2/' "$T/count.lua"
