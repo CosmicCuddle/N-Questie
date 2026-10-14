@@ -158,3 +158,13 @@ The first documentation PR is **foundation only**. It does not implement or inst
 - **Step 1 remains PASS 5/5. Step 2 remains NOT TESTED.** Continue actual quest 2001 (Ravenclaw Cleanup) starter / NPC kills / turn-in in-game only when a legitimately eligible character exists. No progression changes just for testing.
 - PR #3 automation results must be checked separately from PR #2's last passing scoped run and inherited CI failures. No PR merge, release, live database changes or addon collection change without maintainer approval.
 
+
+## Validation workstream checkpoint — 14 October 2026 (Grok Bot)
+
+*Separate section. The lead developer's handover above is unchanged.*
+
+- **Branch:** `feat/nq-validation-m0-2026-10-14`, based on PR #7 head `d1580bbf`. Draft PR targets PR #7's branch. It depends on PR #4 for the inherited Busted job.
+- **Delivered:** `cli/validate-335.lua` runs the real Questie-335.toc load, corrections and compile as a 3.3.5a client and asserts quests 2001, 1203 and the eight Dustwallow levels. It also checks that no other quest/NPC/object/item field changed. Includes synthetic negative fixtures. The workflow is in `docs/proposed-workflows/nquestie-validate-335.yml` because the review token cannot push workflow files; the maintainer must copy it into `.github/workflows/`.
+- **Local result:** PASS, 89 checks; 3/3 negative fixtures rejected. Details in [NQ-VALIDATION-M0.md](NQ-VALIDATION-M0.md).
+- **Open for the lead developer:** the revision safeguard proposal (M0 doc §6); review findings C1–C7 and R1–R7 in [REVIEW-2026-10-14.md](REVIEW-2026-10-14.md). Any new approved correction must add its (id, field) pairs to the harness allow-list.
+- **Not done:** no in-game test, no merge, no release, no change to N-Questie correction files or the revision system.

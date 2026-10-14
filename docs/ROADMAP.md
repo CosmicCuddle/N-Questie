@@ -117,3 +117,12 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 - [ ] Keep NPC spawn accuracy and special objective/GO handling as separate source-verified milestones; do not interpret syntactically valid Lua as working pins.
 - [ ] Investigate inherited Busted suite initialization independently of successful scoped overlay tests.
 
+
+## Validation workstream (Grok Bot) — added 14 October 2026
+
+*Separate workstream. Does not change the phases above.* Design: [VALIDATION-DESIGN-2026-10-14.md](VALIDATION-DESIGN-2026-10-14.md). Review: [REVIEW-2026-10-14.md](REVIEW-2026-10-14.md).
+
+- [x] M0 — 3.3.5a effective-DB validation harness `cli/validate-335.lua`, preservation allow-list, negative fixtures, proposed CI workflow (needs a maintainer to add it under .github/workflows) ([NQ-VALIDATION-M0.md](NQ-VALIDATION-M0.md)). Draft PR stacked on #7, unmerged.
+- [ ] Agree the cache revision safeguard with the lead developer (proposal in the M0 doc §6).
+- [ ] M1 — effective-record JSON export and rule-catalogue fixtures.
+- [ ] M2–M5 as per the design document.
