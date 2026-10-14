@@ -20,7 +20,7 @@ IDS="1203,2001,2784,30,25,28,498,532,553,786"
 out=$(NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 run "$LUA" cli/validate-335.lua); code=$?
 if [ $code -eq 0 ] && echo "$out" | grep -q "PASS: 232 checks" && ! echo "$out" | grep -q "export"; then
     ok "no export option: 232 checks, no export"; else bad "baseline run changed (code $code)"; fi
-[ -z "$(ls -A "$T")" ] && ok "baseline wrote nothing" || bad "baseline wrote files"
+[ -z "$(ls -A "$T" | grep -v "^log$")" ] && ok "baseline wrote nothing" || bad "baseline wrote files"
 
 # 2. Real export of representative quests
 out=$(NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 NQ_EXPORT_EFFECTIVE_OUT="$T/eff.lua" NQ_EXPORT_QUESTS="$IDS" run "$LUA" cli/validate-335.lua); code=$?
@@ -50,7 +50,7 @@ if [ $code -eq 0 ] && grep -q "ID = 1203," "$T/fromsel.lua"; then ok "selection 
 # 5. Refusals before M0 (fast) and after M0
 expect_refuse() { # name needle env...
     local name="$1" needle="$2"; shift 2
-    local o c; o=$(env "$@" "$LUA" cli/validate-335.lua 2>&1 | strip); c=${PIPESTATUS[0]}
+    local o c; env "$@" "$LUA" cli/validate-335.lua >"$T/log" 2>&1; c=$?; o=$(strip <"$T/log")
     if [ "$c" -ne 0 ] && echo "$o" | grep -qF "$needle"; then ok "$name"; else bad "$name (code $c): $(echo "$o" | tail -2)"; fi
 }
 E28=NQ_VALIDATE_EXPECT_LEVEL_COUNT=28
@@ -75,7 +75,7 @@ expect_refuse "failed M0 (wrong level count) writes nothing" "FAILED" NQ_VALIDAT
 # 6. Dirty checkout (temporary local clone, so the real checkout is untouched)
 CLONE="$(mktemp -d)"
 git clone -q . "$CLONE/c" && echo "untracked" > "$CLONE/c/UNTRACKED.txt"
-o=$(cd "$CLONE/c" && NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 NQ_EXPORT_EFFECTIVE_OUT="$T/dirty.lua" NQ_EXPORT_QUESTS=1203 "$LUA" cli/validate-335.lua 2>&1 | strip); c=${PIPESTATUS[0]}
+(cd "$CLONE/c" && NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 NQ_EXPORT_EFFECTIVE_OUT="$T/dirty.lua" NQ_EXPORT_QUESTS=1203 "$LUA" cli/validate-335.lua) >"$T/log" 2>&1; c=$?; o=$(strip <"$T/log")
 if [ "$c" -ne 0 ] && echo "$o" | grep -q "not clean" && [ ! -e "$T/dirty.lua" ]; then ok "dirty checkout refused, nothing written"; else bad "dirty checkout (code $c)"; fi
 
 echo "== $passes passed, $fails failed"
