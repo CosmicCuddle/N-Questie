@@ -4,6 +4,13 @@
 **Purpose:** A single current entry point for the lead quest-data workstream and the external validation workstream.  
 **Important:** All referenced changes are in **draft, unmerged** pull requests unless specifically stated otherwise.
 
+## Latest checkpoint: revision CI activation and Hillsbrad review (14 October 2026)
+
+- **Grok PR #12:** Independently implemented a CI-only `NQuestieCustomQuestData.revision` bump guard with seven synthetic cases. The runtime cache mechanism is not changed.
+- **Lead PR #14:** Independently activated the guard's proposed GitHub workflow on a separate draft branch stacked on #12, without changing Grok's source branch. GitHub [run 38569424455](https://github.com/CosmicCuddle/N-Questie/actions/runs/38569424455) **PASSED**; this is an isolated workflow result, *not* combined 28-quest CI.
+- **Hillsbrad source candidates:** Quest 566 has inherited min 17/server min 35, quest 567 has 17/19. Actual quest-levels (40/28), gameobject starters (1763/2008), quest-ender NPC 2215 and objective target IDs agree. Explicit `conditions` quest-ID references were not found in 17,701 exported rows; IP and indirect conditions remain unverified. **Neither quest has been added to a correction PR.** See [HILLSBRAD-WANTED-QUESTS-REVIEW.md](HILLSBRAD-WANTED-QUESTS-REVIEW.md).
+- **Next combined integration gate:** Both the cache guard and Grok's 3.3.5a M0 validator need to run against the **same future review branch** containing 28 source-approved quest level corrections, then inherited PR #4 Busted repairs, before any merge consideration.
+
 ## 1. Development ownership
 
 | Workstream | Maintainer/contact | Area | GitHub PRs |
