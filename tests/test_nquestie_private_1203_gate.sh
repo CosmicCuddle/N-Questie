@@ -43,11 +43,11 @@ reject "reject stock item's incorrect ID" "$T/item.lua" "does not have exactly o
 
 cp "$T/valid.lua" "$T/count.lua"
 sed -i 's/RequiredItemCount1 = 1/RequiredItemCount1 = 2/' "$T/count.lua"
-reject "reject wrong item count" "$T/count.lua" "does not have exactly one required item 3853 x1"
+reject "reject wrong item count" "$T/count.lua" "additional/different item objective"
 
 cp "$T/valid.lua" "$T/extra.lua"
 sed -i 's/RequiredItemId2 = 0, RequiredItemCount2 = 0/RequiredItemId2 = 3853, RequiredItemCount2 = 1/' "$T/extra.lua"
-reject "reject duplicate/extra item slot" "$T/extra.lua" "exactly one required item 3853 x1"
+reject "reject duplicate/extra item slot" "$T/extra.lua" "additional/different item objective"
 
 cp "$T/valid.lua" "$T/creature.lua"
 sed -i 's/RequiredNpcOrGo1 = 0, RequiredNpcOrGoCount1 = 0/RequiredNpcOrGo1 = 199, RequiredNpcOrGoCount1 = 1/' "$T/creature.lua"
