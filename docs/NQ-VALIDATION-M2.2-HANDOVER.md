@@ -79,6 +79,8 @@ Provenance in the test run: m0Checks 232, correctionCount 28, revision 5, source
 
 ## 4. Finding for review: v1 cannot represent 752 of 9,159 quests
 
+> Historical snapshot (before the #36 kill-credit order check). Current measured figures: 8,401 representable, 758 unsupported of 9,159 (`NQ-VALIDATION-M2.2-COVERAGE.md` §3).
+
 A full scan of the compiled database (all 9,159 quests, using `EffectiveExport.Record`):
 
 | Reason | Count |
@@ -143,7 +145,7 @@ See the PR checks. Actions links are recorded in the PR #29 description and in t
 
 ## 8. Known limitations
 
-- 752 quests are not representable in v1 (§4).
+- 758 quests are not representable in v1 (752 before #36; §4 is a historical snapshot).
 - The export needs a clean checkout and Linux with GNU coreutils and git.
 - Writer races are documented, not eliminated (safe-writer doc §2).
 - A full M0 run takes 20–90 s; the integration test runs it about 7 times (around 2–3 minutes).
@@ -176,9 +178,9 @@ Each PR's base is the PR above it; no rebases, force-pushes or base changes. #30
 | Stage | Result | Where |
 |---|---|---|
 | CI review | #30/#31 run Step 1 schema, luac and GNU realpath checks only; 0 of the 129 export/writer/provenance/integration checks ran in GitHub | `NQ-VALIDATION-M2.2-CI-COORDINATION.md` |
-| Coverage | 9,159 total; 8,407 representable; 752 unsupported; 0 unclassified; overlaps reconciled | `NQ-VALIDATION-M2.2-COVERAGE.md` |
+| Coverage | 9,159 total; 8,401 representable; 758 unsupported (8,407/752 before #36); 0 unclassified; overlaps reconciled | `NQ-VALIDATION-M2.2-COVERAGE.md` |
 | Pilot | 1203 and the 16-quest list pass all gates locally; nothing published | `NQ-VALIDATION-M2.2-PILOT.md` |
-| v2 design | shape, R1–R10, versioning, M2.3 statuses, test plan, projection (752 of 752 representable; M1 SUPPORTED unchanged at 8,407) | `NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md` |
+| v2 design | shape, R1–R10, versioning, M2.3 statuses, test plan, projection (758 of 758 representable; M1 SUPPORTED unchanged at 8,407) | `NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md` |
 
 ### 10.3 Tests added
 
@@ -203,7 +205,7 @@ Local (box, head 05645e9f0): full M2 suite PASS (all standalone suites, busted, 
 
 ### 10.5 Limitations
 
-- Option A excludes 752 quests (8.2%) until v2.
+- Option A excludes 758 quests (8.3%) until v2.
 - v1 records lists per kind, not cross-kind position; quest 10503 (`killCreditObjectiveFirst`) is v1-representable but its "killCredit shown first" fact is not in v1.
 - The coverage tool counts compiled quests (9,159); the M0 log counts 9,158 `questData` records before compilation. The one-quest difference is unexplained (review item).
 - The new GitHub checks only run once the proposed workflow is activated; until then busted wrappers report pending in `ci.yml`.
