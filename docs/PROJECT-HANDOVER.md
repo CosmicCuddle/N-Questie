@@ -1,5 +1,11 @@
 # N-Questie — Development Handover
 
+## Latest safety review — 14 October 2026 (revision guard and Hillsbrad candidates)
+
+**Revision safeguard:** Grok's draft [PR #12](https://github.com/CosmicCuddle/N-Questie/pull/12) contains a CI-only revision-bump guard. The lead workstream activated its proposed GitHub Actions workflow **in a separate draft [PR #14](https://github.com/CosmicCuddle/N-Questie/pull/14)**, without modifying #12's head or runtime cache implementation. **[GitHub revision guard run 38569424455](https://github.com/CosmicCuddle/N-Questie/actions/runs/38569424455) PASSED** including seven synthetic tests. Existing inherited CI on that branch still needs PR #4; no PR merged or released. This guard will only protect other development branches *once coordinated and integrated*; its isolated green run does not retroactively cover #13.
+
+**Hillsbrad quest investigation:** Quest IDs 566 (WANTED: Baron Vardus) and 567 (Dangerous!) have world `MinLevel=35/19` respectively versus inherited Questie 17/17. Nominal quest levels agree (40/28); gameobject starters (1763/2008), ender NPC 2215 and objective ID targets already match. No conditions row explicitly containing quest ID 566 or 567 was found in 17,701 exported condition rows, but IP/module or object/recipient conditions still need review. **Do not add these to the automatic correction stack yet.** See [HILLSBRAD-WANTED-QUESTS-REVIEW.md](HILLSBRAD-WANTED-QUESTS-REVIEW.md).
+
 ## Latest coordination checkpoint — 14 October 2026 (PR #13 + Grok integration)
 
 **Please read [COLLABORATION-INTEGRATION-STATUS.md](COLLABORATION-INTEGRATION-STATUS.md) before making additional changes**; it is the current cross-developer ownership, PR ancestry, CI truth and rollout gate. Source-verified existing quest **level** corrections now total **28**, staged as **8 Dustwallow (#7) + 11 early-game (#8) + 9 Duskwood/Wetlands chain quests (#13)**. The last nine are documented in [CLASSIC-CHAIN-LEVEL-AUDIT.md](CLASSIC-CHAIN-LEVEL-AUDIT.md). PR #13's dedicated Lua 5.1/source tests passed [38567305494](https://github.com/CosmicCuddle/N-Questie/actions/runs/38567305494); inherited unit tests still fail because #4 is independent and unmerged.
