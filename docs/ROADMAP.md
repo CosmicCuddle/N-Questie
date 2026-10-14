@@ -137,3 +137,4 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 - [ ] M2–M5 as per the design document.
 - [x] M0 combined with PR #8 on `feat/nq-validation-m0-pr8-integration-2026-10-14`: 19 level corrections + 1203 + 2001, compiled round trip, 4 negative fixtures (NQ-VALIDATION-M0.md §9).
 - [x] Revision safeguard layer 1 (CI-only bump check) on `feat/nq-revision-bump-guard-2026-10-14`; layer 2 fingerprint deferred.
+- [x] M1 — quest objective validation rules (report only) on `feat/nq-validation-m1-objectives-2026-10-14`: 22 catalogued rules, 20 synthetic fixtures, quest 1203 confirmed mismatch on real stock data ([NQ-VALIDATION-M1.md](NQ-VALIDATION-M1.md)). Draft, unmerged. PR #13's chain corrections are not yet covered by the M0 allow-list (coordinated separately).
