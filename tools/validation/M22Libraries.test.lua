@@ -14,6 +14,7 @@ describe("N-Questie M2.2 libraries", function()
         { "SafeWrite tests pass", "tests/test_nquestie_m2_safe_write.lua" },
         { "effective schema standalone tests pass", "tests/test_nquestie_m2_effective_schema.lua" },
         { "objective order (killCreditObjectiveFirst) tests pass", "tests/test_nquestie_m2_order.lua" },
+        { "harness version pin (1.2.0)", "tests/test_nquestie_harness_version.lua" },
     }) do
         if available then
             it(t[1], function() assert.is_true(runs(t[2])) end)

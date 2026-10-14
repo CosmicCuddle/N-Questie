@@ -36,6 +36,8 @@ for i, r in ipairs(doc.quests) do
     check(got == expect[r.ID], "quest " .. r.ID .. ": got '" .. got .. "'")
 end
 local p = doc.provenance
+check(p.harnessVersion == "1.2.0", "harnessVersion 1.2.0 (kill-credit ordering protection)")
+check(p.harness == "validate-335", "harness validate-335")
 check(p.m0Checks == 232, "m0Checks 232")
 check(p.correctionCount == 28, "correctionCount 28")
 check(p.nQuestieDataRevision >= 1, "revision")
