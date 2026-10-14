@@ -238,3 +238,15 @@ Added docs/NQ-INTEGRATION-PLAN.md and tools/validation/integration/test_inventor
 A local throwaway merge of #44 + #40 + #45 + #46 (never pushed) found two
 union conflicts (DEVELOPMENT-LOG, M22Libraries); the inventory check passed
 (36 test files, 22 suite steps, 10 busted entries) and the full M2 suite passed.
+## 14 Oct 2026, night: M2.3 publication corrections (round 4)
+
+- Correction: earlier notes and my round-3 report said the bundle is published
+  with "temp + fsync + link". That was wrong. tools/validation/SafeWrite.lua
+  has no fsync(2): it closes, reads back and hard-links. The documented
+  guarantee is now atomic visibility and no-clobber only; power-loss
+  durability is not provided and is an open item needing a future approved
+  implementation. The draft's simulated `fsync` step is renamed `closeTemp`.
+- PublishBundle now fails closed: ValidateBundle revalidates the outer and
+  inner schemas, closed keys, codes, the m1Supported rule and reconciliation,
+  and recomputes a tamper digest recorded by BuildBundle. 17 tamper cases,
+  nothing written on rejection. Contract draft: 185 checks.
