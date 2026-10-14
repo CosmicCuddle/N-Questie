@@ -1,5 +1,5 @@
 -- DRAFT tests for the proposed M2.3 contracts: selection protocol (executed),
--- report, rejection diagnostic and aggregate formats. No engine, no server
+-- report, aggregate, bundle and stderr-code formats. No engine, no server
 -- data, no file output. Lua 5.1.
 local R = dofile("tools/validation/draft/M23ReportDraft.lua")
 local D = dofile("tools/validation/draft/EffectiveSchemaV2Draft.lua")
