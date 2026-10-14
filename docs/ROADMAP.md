@@ -1,5 +1,14 @@
 # N-Questie — Development Roadmap
 
+## Immediate status — 14 October 2026 (PR #8 / external M0)
+
+- [x] Curate 11 early-zone existing-quest level fixes into [draft PR #8](https://github.com/CosmicCuddle/N-Questie/pull/8), stacked on PR #7, with Lua 5.1 and public database-source guards.
+- [x] Verify PR #8's initial dedicated overlay workflow [38562858874](https://github.com/CosmicCuddle/N-Questie/actions/runs/38562858874) passed.
+- [ ] Wait for Grok's independent M0 real 3.3.5a database-loading validation in a **separate draft PR**; review and integrate only with maintainer approval.
+- [ ] Coordinate repair for the independent PR #4 inherited test harness and #2/#3 document ancestry, then re-run **combined** CI before any merge.
+- [ ] Back up installed addon and SavedVariables before later manually authorized in-game testing of PR #6, #7 and #8 corrections.
+- [ ] Continue private all-server discrepancy triage and IP-specific gating checks; no bulk replacements from the 270 candidate list.
+
 **Updated:** 13 October 2026  
 **Baseline:** forked `divial28/Questie-335`, branch `335`, upstream addon v9.5.1.  
 **Status:** First custom quest 2001's tested visual marker lifecycle PASSED in-game. PR #3's approved offline generator has additional safeguards pending latest CI. PR #4's standalone inherited full CI is PASS but not integrated. No merges or releases authorized.
