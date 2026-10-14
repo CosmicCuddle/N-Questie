@@ -82,6 +82,50 @@ reject "reject public checkout input path" "$(pwd -P)/tests/fixtures/m2_input/qu
 ln -s "$(pwd -P)/tests/fixtures/m2_input/quest1203_single_synthetic.lua" "$T/public-symlink.lua"
 reject "reject symlink to a public synthetic fixture" "$T/public-symlink.lua" "must resolve outside the public checkout"
 reject "reject nonexistent input path" "$T/does-not-exist.lua" "input rejected"
+
+# A private symlink pointing to a protected canonical target is permitted,
+# but only if the actual target is the one validated and subsequently read.
+ln -s "$T/valid.lua" "$T/valid-alias.lua"
+out=$(run "$T/valid-alias.lua"); code=$?
+[ "$code" -eq 0 ] && [[ "$out" == *"PASS: quest 1203 M2.1 schema"* ]] \
+    && [[ "$out" != *"$T"* ]] && ok "accept stable symlink to protected private target" \
+    || bad "stable protected symlink was refused"
+
+# Deterministic synthetic symlink-switch check:
+# first realpath returns a protected invalid private target, but the symlink
+# is redirected to a public valid fixture before Input.LoadFile. Resolving
+# the original symlink twice would incorrectly PASS. The canonical target
+# verified for owner/mode must remain the source that we read.
+cp "$T/valid.lua" "$T/private-invalid.lua"
+sed -i 's/ID = 1203,/ID = 1204,/' "$T/private-invalid.lua"
+ln -s "$T/private-invalid.lua" "$T/race-alias.lua"
+mkdir -m 700 "$T/fake-realpath-bin"
+cat > "$T/fake-realpath-bin/realpath" <<'RACE_REALPATH'
+#!/bin/sh
+target=$("$NQ_RACE_REALPATH_BIN" "$@") || exit 1
+if [ "$3" = "$NQ_RACE_LINK" ] && [ ! -e "$NQ_RACE_MARK" ]; then
+    ln -sfn "$NQ_RACE_PUBLIC" "$NQ_RACE_LINK" || exit 1
+    : > "$NQ_RACE_MARK"
+fi
+printf '%s\n' "$target"
+RACE_REALPATH
+chmod 700 "$T/fake-realpath-bin/realpath"
+RACE_REALPATH_BIN=$(command -v realpath)
+out=$(NQ_RACE_REALPATH_BIN="$RACE_REALPATH_BIN" \
+    NQ_RACE_LINK="$T/race-alias.lua" \
+    NQ_RACE_PUBLIC="$(pwd -P)/tests/fixtures/m2_input/quest1203_single_synthetic.lua" \
+    NQ_RACE_MARK="$T/race-was-triggered" \
+    PATH="$T/fake-realpath-bin:$PATH" \
+    lua5.1 cli/check-private-1203.lua "$T/race-alias.lua" 2>&1); code=$?
+if [ "$code" -ne 0 ] && [[ "$out" == *"not exactly quest 1203"* ]] \
+    && [[ "$out" != *"PASS:"* ]] && [[ "$out" != *"$T"* ]] \
+    && [ -e "$T/race-was-triggered" ] \
+    && [ "$(realpath -e -- "$T/race-alias.lua")" = "$(pwd -P)/tests/fixtures/m2_input/quest1203_single_synthetic.lua" ]; then
+    ok "symlink retarget after vetting cannot substitute a public valid quest file"
+else
+    bad "symlink retarget was not safely rejected (exit $code; output: $out)"
+fi
+
 out=$(NQ_M2_INPUT="$T/valid.lua" lua5.1 cli/check-private-1203.lua 2>&1); code=$?
 [ "$code" -eq 0 ] && [[ "$out" == *"PASS: quest 1203"* ]] && ok "optional environment input works" || bad "optional env input"
 
