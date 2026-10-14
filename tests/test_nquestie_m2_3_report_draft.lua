@@ -136,7 +136,7 @@ local function fakeFs(failAt)
         if failAt == "partialTemp" then st.temps.t1 = c:sub(1, 10); return nil end
         st.temps.t1 = c; return "t1"
     end
-    function fs.fsync() return failAt ~= "fsync" end
+    function fs.closeTemp() return failAt ~= "closeTemp" end
     function fs.link(t, p)
         if failAt == "link" or failAt == "crashBeforeLink" then return false end
         if st.files[p] then return false end
@@ -146,7 +146,7 @@ local function fakeFs(failAt)
     return fs, st
 end
 local function ser(b) return "BUNDLE:" .. b.schema .. ":" .. #b.report.rows end
-for _, fp in ipairs({ "writeTemp", "partialTemp", "fsync", "link", "crashBeforeLink" }) do
+for _, fp in ipairs({ "writeTemp", "partialTemp", "closeTemp", "link", "crashBeforeLink" }) do
     local fs, fst = fakeFs(fp)
     local okp, code = R.PublishBundle(bundle, "out.lua", fs, ser, OPT)
     ok(not okp and code == "REJECTED_UNSAFE_OUTPUT" and fst.files["out.lua"] == nil, "1B failure at " .. fp .. ": no published file")
@@ -162,6 +162,49 @@ do
        "1B crash after link: final complete, stray temp left for documented cleanup")
 end
 ok(not R.PublishBundle({ schema = "x" }, "o2.lua", fakeFs(nil), ser, OPT), "1B only a validated bundle can be published")
+
+-- Round 4: PublishBundle revalidates everything and fails closed.
+ok(R.ValidateBundle(bundle, OPT), "4B built bundle revalidates")
+local function rejected(b, label)
+    local fs, fst = fakeFs(nil)
+    local writes = 0
+    local wt = fs.writeTemp
+    fs.writeTemp = function(c) writes = writes + 1; return wt(c) end
+    local okp, code = R.PublishBundle(b, "t.lua", fs, function(x) return tostring(x.schema) end, OPT)
+    ok(not okp and code == "REJECTED_UNSAFE_OUTPUT" and writes == 0 and fst.files["t.lua"] == nil and next(fst.temps) == nil,
+       "4B " .. label .. ": rejected, nothing written")
+end
+local function tamper(f) local b = R.BuildBundle(copy(base), copy(agg0), OPT); f(b); return b end
+-- consistent edit to the report after build: still valid, so only the digest catches it
+rejected(tamper(function(x) row(x.report, 1203).m1Classes = { "EXPECTED_REPRESENTATION_DIFF", "EXPECTED_REPRESENTATION_DIFF" } end),
+    "inner report modified after build (still schema-valid, digest catches it)")
+do
+    local tb = tamper(function(x) row(x.report, 1203).m1Classes = { "EXPECTED_REPRESENTATION_DIFF", "EXPECTED_REPRESENTATION_DIFF" } end)
+    ok(R.ValidateReport(tb.report, OPT) and R.ValidateAggregate(tb.aggregate, tb.report, OPT), "4B that tamper is invisible to schema checks alone")
+end
+rejected(tamper(function(x) x.aggregate.outcome.CONFIRMED_MATCH = 2; x.aggregate.outcome.NEEDS_MANUAL_REVIEW = 0 end), "aggregate modified after build")
+rejected(tamper(function(x) x.aggregate.selectedCount = 9 end), "count mismatch")
+rejected(tamper(function(x) x.report.schema = "nq-m2-3-reportX" end), "invalid inner report schema")
+rejected(tamper(function(x) x.aggregate.schemaVersion = 2 end), "invalid inner aggregate schema")
+rejected(tamper(function(x) x.aggregate = nil end), "missing aggregate")
+rejected(tamper(function(x) x.report = nil end), "missing report")
+rejected(tamper(function(x) x.digest = nil end), "missing digest")
+rejected(tamper(function(x) x.note = "x" end), "extra bundle field")
+rejected(tamper(function(x) x.report.comment = "x" end), "extra report field")
+rejected(tamper(function(x) row(x.report, 1203).label = "x" end), "extra row field")
+rejected(tamper(function(x) x.aggregate.questIds = { 1203 } end), "extra aggregate field")
+rejected(tamper(function(x) x.private = false end), "bundle not private")
+rejected(tamper(function(x) row(x.report, 2001).m1Supported = "unknown" end), "forged CONFIRMED outcome without m1Supported=true")
+rejected(tamper(function(x) local r0 = row(x.report, 2001); r0.m1Supported = nil end), "CONFIRMED outcome with m1Supported removed")
+rejected(tamper(function(x) row(x.report, 2001).exportStatus = "REJECTED_PAIRING" end), "rejection code as a row status")
+rejected({ schema = "nq-m2-3-bundle", schemaVersion = 1, private = true, report = { schema = "nq-m2-3-report" }, aggregate = {} },
+    "hand-made bundle with invalid inner pair (never built)")
+do
+    local ub = tamper(function() end)
+    ub.digest = R.Digest(ub.report, ub.aggregate)
+    local fs, fst = fakeFs(nil)
+    ok(R.PublishBundle(ub, "ok.lua", fs, ser, OPT) and fst.files["ok.lua"] ~= nil, "4B untampered rebuilt bundle still publishes")
+end
 
 -- Aggregate
 local agg = { schema = "nq-m2-3-aggregate", schemaVersion = 1, reasonVocabVersion = 1, selectedCount = 8,
