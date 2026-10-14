@@ -134,6 +134,22 @@ archiveOut=$(lua5.1 cli/check-private-1203.lua "$T/with-archive.lua" --archive 2
 [ "$archiveCode" -ne 0 ] && [[ "$archiveOut" == *"invalid arguments"* ]] \
     && ok "reject incomplete archive argument" || bad "incomplete archive argument accepted"
 
+# Fail-closed subprocess status: a sha256sum executable may print a
+# plausible valid digest then exit unsuccessfully. Never trust stdout alone.
+mkdir -m 700 "$T/fake-hash-bin"
+cat > "$T/fake-hash-bin/sha256sum" <<'FALSEHASH'
+#!/bin/sh
+printf '%s  -\n' "$NQ_TEST_FALSE_DIGEST"
+exit 17
+FALSEHASH
+chmod 700 "$T/fake-hash-bin/sha256sum"
+archiveOut=$(NQ_TEST_FALSE_DIGEST="$digest" PATH="$T/fake-hash-bin:$PATH" \
+    lua5.1 cli/check-private-1203.lua "$T/with-archive.lua" --archive "$T/source-archive.zip" 2>&1); archiveCode=$?
+[ "$archiveCode" -ne 0 ] && [[ "$archiveOut" == *"source archive SHA-256 unavailable"* ]] \
+    && [[ "$archiveOut" != *"$digest"* ]] && [[ "$archiveOut" != *"$T"* ]] \
+    && ok "reject plausible hash stdout from failed sha256sum process" \
+    || bad "failed sha256sum stdout was trusted"
+
 [ -f "$T/with-archive.lua" ] && [ -f "$T/source-archive.zip" ] \
     && [ "$(stat -c %a "$T/source-archive.zip")" = 600 ] \
     && ok "synthetic input and source bytes remained untouched" || bad "synthetic source/input changed"
