@@ -1,5 +1,13 @@
 # N-Questie — Development Roadmap
 
+## Next integration gates — 14 October 2026
+
+- [x] Activate Grok's reviewed CI-only cache revision-bump guard via separate draft [PR #14](https://github.com/CosmicCuddle/N-Questie/pull/14) without editing Grok's PR #12; first [revision guard CI 38569424455 PASS](https://github.com/CosmicCuddle/N-Questie/actions/runs/38569424455).
+- [x] Privately investigate Hillsbrad quest 566/567 static `MinLevel`, GO starters, NPC turn-ins and target IDs. Document as *candidate differences only* in [HILLSBRAD-WANTED-QUESTS-REVIEW.md](HILLSBRAD-WANTED-QUESTS-REVIEW.md).
+- [ ] Revisit 566/567 only after effective 3.3.5a record checks and IP/object/recipient conditions review; no auto-patching based on raw minimum levels.
+- [ ] Coordinate PR #12/14 revision guard into a reviewed integration branch containing the **28** quest-level changes (#7/#8/#13), Grok's M0 harness and PR #4 Busted fix. A green isolated guard run is not combined CI.
+- [ ] Continue Grok's independently assigned M1 objective-validation development, and preserve private source data, separate branches and maintainer merge/release approval.
+
 ## Latest multi-developer milestone — 14 October 2026
 
 - [x] Stage **nine** source-verified Duskwood Mor'Ladim / Wetlands Nek'rosh chain level corrections in [draft PR #13](https://github.com/CosmicCuddle/N-Questie/pull/13), stacked on #8; objective, chain, starter/ender and GO metadata unchanged. See [Classic chain audit](CLASSIC-CHAIN-LEVEL-AUDIT.md).
