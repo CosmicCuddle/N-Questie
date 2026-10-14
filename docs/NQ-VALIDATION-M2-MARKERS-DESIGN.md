@@ -53,37 +53,80 @@ Date: 14 October 2026. Source read: this repository at the #39/#41/#42 stack (Qu
 
 ## 3. Marker record (proposed `nq-m2-markers` v1)
 
-One record per quest, derived from the same compiled data, structural IDs plus Questie's own spawn coordinates **as stored**. Nothing computed, nothing invented.
+One record per quest, derived from the compiled data. Every coordinate is Questie's own stored value, copied exactly (no conversion, rounding, clustering or deduplication). Nothing is invented.
 
 ```
-{ ID, starters = { {type, id} }, finishers = { {type, id} },
-  objectives = { { position, kind, targets = { {type, id, via = "direct"|"killCredit"|"itemSource"|"extraRef"} } } },
-  extraObjectives = { { position, objectiveIndex, icon, targets = {...}, customSpawnZones = {...} } },
-  locations = { [ "type:id" ] = { [zoneID] = { {x, y}, ... } } }   -- copied from npcDB/objectDB spawns only
-}
+{ ID,
+  starters  = { {type, id} }, finishers = { {type, id} },
+  objectives = { { position, kind, targets = { {type, id, via, sourceKind?, path?} } } },
+  extraObjectives = { { position, objectiveIndex, icon,
+                        refs = { {type, id, refIndex} },        -- all refs, compiled order
+                        displayRef = {type, id} | nil,          -- = refs[1]; Questie's Type/Id
+                        customSpawns = { { zone, pins = { {x, y, pinIndex} } } } } },  -- raw extraObjectives[1]
+  points = { { origin, ownerId?, extraPosition?, zone, x, y, pinIndex } },
+  waypoints = { { npcId, zone, path } } }
 ```
 
-`locations` keeps Questie's percent coordinates exactly as stored; no conversion, rounding or clustering. Waypoints are listed separately and never used as spawn evidence.
+**Origins.** `points[*].origin` is one of:
+
+| Origin | Source | Owner |
+|---|---|---|
+| `db_npc` | `npcDB` `spawns` of the NPC | `ownerId` = NPC ID |
+| `db_object` | `objectDB` `spawns` of the object | `ownerId` = object ID |
+| `custom_extra` | the raw custom `spawns` table of an extra objective (`extraObjectives[n][1]`), including spawn-only entries with no refs and `objectiveIndex = 0` | `extraPosition` = n; no DB owner |
+
+`pinIndex` is the 1-based position of the point in its source list (per owner and zone, or per extra and zone), so two pins in the same zone stay distinct and traceable. Every custom pin must appear exactly once in `points` with identical x/y, and every `custom_extra` point must match a pin. Zone-only custom data is rejected.
+
+**First reference vs merged spawns.** Questie takes `Type`/`Id` from the first reference only but draws the spawns of all references. The record keeps both: `displayRef` (must equal `refs[1]`) and the full `refs` list with their DB points.
+
+**Waypoints** come from `npcKeys.waypoints` and are kept only in `waypoints`. They are never points and never spawn evidence.
+
+**Item source categories.** An item objective's targets keep their category from `itemDB` and the relationship path:
+
+| `sourceKind` | itemDB field | Target type | Note |
+|---|---|---|---|
+| `npcDrop` | `npcDrops` (2) | monster | loot icon at runtime |
+| `objectDrop` | `objectDrops` (3) | object | object icon at runtime |
+| `vendor` | `vendors` (14) | monster | Questie draws vendors with the loot icon; the category is kept anyway |
+| `itemDrop` | `itemDrops` (4) | item | Questie's spawn-list code skips item-type sources (anti-recursion), so these are recorded but not drawn |
+
+`path` = `{ objective item ID, ..., source ID }`. Item sources are never flattened into direct kill targets.
 
 ## 4. Comparison with AzerothCore (location level)
 
-Server records must come from a separately verified M2.1-style private export (`creature`, `gameobject` spawn rows, map, zone, position, phase mask, spawn mask; `creature_queststarter/questender`, `gameobject_queststarter/questender`; loot templates for item sources). Rules:
+### 4.1 Map bounds and coordinate frames (maintainer decision, 14 October 2026)
+
+- Questie stores **zone percentages** (0-100 of a zone map, keyed by AreaTable zone ID, converted at draw time through `ZoneDB:GetUiMapIdByAreaId`). AzerothCore stores **world coordinates** per map. They are never assumed equal.
+- Map bounds come from verified 3.3.5a client map data (WorldMapArea bounds) and Questie's existing coordinate systems, cross-checked against independently verified locations (for example a starter NPC whose position is confirmed in game and in the server table).
+- Until a bounds table passes that cross-check, `transformVerified = false` and every location result is NEEDS_MANUAL_REVIEW.
+- The 1.0 zone-percent tolerance is **provisional**, an investigation parameter only. Results inside or outside it are `WITHIN_PROVISIONAL_TOLERANCE` / `OUTSIDE_PROVISIONAL_TOLERANCE`, never confirmed and never used to correct data automatically.
+
+### 4.2 Rules
+
+Server records must come from a separately verified private export (`creature`, `gameobject` spawn rows with map, zone, position, phase mask, spawn mask; queststarter/questender tables; loot and vendor tables for item sources).
 
 | Rule | Detail |
 |---|---|
-| No active-spawn assumption | a server spawn row is "present", not "active". Activity depends on phase, game event, pooling, conditions, scripts; unknown activity never confirms. |
-| Coordinate frame | server world coordinates must be converted to the Questie zone percent frame with a separately verified map-bounds table; until that table is verified, location checks stay NEEDS_MANUAL_REVIEW. |
-| Tolerance | a Questie point matches a server spawn when within a stated tolerance in zone percent (proposed 1.0); tolerance is a reviewed parameter, not a guess at the moment of comparison. |
-| Missing on server | Questie point with no server spawn of that ID in the zone → finding, NEEDS_MANUAL_REVIEW (could be phase, event, pooled or removed). |
-| Missing in Questie | server spawn with no Questie point → finding, informational unless the target is the only source of the objective. |
-| Phases | server `phaseMask` recorded; Questie 3.3.5a has no phase data, so phased spawns are never claimed to match or mismatch without manual evidence. |
-| Conditions, IP | the IP (Individual Progression) module and `conditions` rows can hide spawns or quests; recorded as evidence items exactly as in M2.3 (`ip`, `conditions`); unknown → review. No assumption about which progression stage a player is in. |
-| Starters/enders | compared as ID sets against the queststarter/questender tables; this is structural, not location. |
+| No active-spawn assumption | a server spawn row is "present", not "active". Activity depends on phase, game event, pooling, conditions, scripts. |
+| Unknown never decides | unknown phase, conditions, IP or spawn activity, or an unverified transform, gives NEEDS_MANUAL_REVIEW, never a positional match or mismatch |
+| Missing on server | Questie point with no server spawn of that owner in the zone → NEEDS_MANUAL_REVIEW (phase, event, pool or removed) |
+| Missing in Questie | server spawn with no Questie point → informational |
+| Custom pins | compared only with verified area triggers or scripted positions when such evidence exists; otherwise NEEDS_MANUAL_REVIEW |
+| Phases, conditions, IP | recorded as evidence items as in M2.3; no assumption about a player's progression stage |
+| Starters/enders | compared as ID sets (structural, not location) |
 
-Outcomes reuse the M2.3 axes (export status + comparison outcome) per marker group, so no new status vocabulary is introduced.
+Draft: `LocationResult` (tested) has no confirmed outcome at all.
+
+### 4.3 Three separate results for markers (A6)
+
+Structure (IDs and origins), location (§4.1-4.2) and in-game lifecycle (appears, updates, disappears; roadmap M2.5 QA) are reported as three separate results. Existing quest 2001 observations are partial lifecycle QA, not proof of every spawn. Marker tooltip **text** belongs to the separate text/tooltip QA lane (correction workflow §7), not to this format.
+
+### 4.4 Synthetic tests
+
+`tests/fixtures/m2_markers_draft/markers_synthetic.lua` (invented IDs, zones and coordinates) and `tests/test_nquestie_m2_markers_draft.lua` (39 checks): A1 spawn-only custom pins (loss, rounding, invention, zone-only, collapsed index), A2 mixed refs and pins (displayRef, relabelling), A3 waypoints separate, A4 item source categories and paths, A5 unknown phase/conditions/IP/activity and unverified transform never decide; no confirmed location result exists.
 
 ## 5. Limitations and approval gates
 
-- Needs a verified map-bounds table and a private spawn export; neither exists.
+- Needs a verified map-bounds table (§4.1) and a private spawn export; neither exists.
 - In-game behaviour (icon limit, clustering, minimap edges, completion removal) can only be checked in game (roadmap M2.5 QA).
 - A marker exporter, the server spawn export and the comparison each need separate maintainer approval.

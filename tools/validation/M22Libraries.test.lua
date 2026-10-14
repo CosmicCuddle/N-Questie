@@ -17,6 +17,7 @@ describe("N-Questie M2.2 libraries", function()
         { "v2 DRAFT prototype tests pass (design only)", "tests/test_nquestie_m2_effective_v2_draft.lua" },
         { "v2 exporter acceptance DRAFT tests pass (spec only)", "tests/test_nquestie_m2_v2_acceptance.lua" },
         { "M2.3 contract DRAFT tests pass (design only)", "tests/test_nquestie_m2_3_report_draft.lua" },
+        { "nq-m2-markers DRAFT tests pass (design only)", "tests/test_nquestie_m2_markers_draft.lua" },
     }) do
         if available then
             it(t[1], function() assert.is_true(runs(t[2])) end)
