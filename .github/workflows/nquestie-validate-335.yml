@@ -1,0 +1,47 @@
+# M0 review-only CI workflow, maintained separately from the validation source PR.
+# Public Questie data and synthetic fault fixtures only; no secrets or server access.
+name: N-Questie 3.3.5a effective DB validation (M0)
+
+# Runs the real Questie-335.toc load, correction and compile path as a
+# 3.3.5a client and checks the approved N-Questie corrections plus
+# unrelated-data preservation. Public data and synthetic fixtures only.
+# Depends on PR #4 for the inherited Busted job, not for this workflow.
+
+on:
+  push:
+    branches:
+      - "335"
+      - "feat/**"
+  pull_request:
+
+jobs:
+  validate-335:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Install Lua 5.1
+        uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: "5.1"
+
+      - name: Install LuaRocks
+        uses: leafo/gh-actions-luarocks@v4
+
+      - name: Install bit32
+        run: luarocks install bit32
+
+      - name: Parse harness with Lua 5.1
+        run: luac -p cli/validate-335.lua tests/fixtures/validate335/*.lua
+
+      - name: Validate effective 3.3.5a Questie DB with all 28 reviewed level corrections
+        env:
+          NQ_VALIDATE_EXPECT_LEVEL_COUNT: '28'
+        run: lua cli/validate-335.lua
+
+      - name: Negative tests (synthetic faults must fail the harness)
+        env:
+          LUA: lua
+        run: bash tests/test_validate_335_fixtures.sh

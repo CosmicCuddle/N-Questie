@@ -1,0 +1,215 @@
+# N-Questie — Development Handover
+
+## Latest integration — 14 October 2026: Grok M1 + 28 quest corrections
+
+**Read first:** [INTEGRATION-M1-28QUEST-2026-10-14.md](INTEGRATION-M1-28QUEST-2026-10-14.md) is the latest cross-developer test/source handover.
+
+**[Draft PR #20](https://github.com/CosmicCuddle/N-Questie/pull/20)** is a separate child of source-reviewed [PR #19](https://github.com/CosmicCuddle/N-Questie/pull/19) / full 28-level [PR #16](https://github.com/CosmicCuddle/N-Questie/pull/16). It copies only Grok's public, safer M1 rule engine/fixtures/docs/CI from [PR #18](https://github.com/CosmicCuddle/N-Questie/pull/18) and adds Grok's two real-quest-1203 M1 assertions to the **existing strict 28-quest M0 validator**. It does not edit Grok's branch, runtime corrections, TOC or cache revision. M1's initial [GitHub run 38580760515](https://github.com/CosmicCuddle/N-Questie/actions/runs/38580760515) passed 29 scenarios, 25 rule IDs and 31 Busted tests. **All five workflows subsequently passed on combined head `4470f3657483dfcdee08a080f22f258f6c1a51bd`:** [M1](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451391), [M0](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451396), [overlay](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451217), [revision](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451165) and [inherited CI](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451178). The compiled validator preserves 82,431 quest fields (0 mismatches) and rejects five synthetic failures; see [full handover](INTEGRATION-M1-28QUEST-2026-10-14.md). New docs-only commits require their own CI reruns. This is not approval to merge or install.
+
+**Grok's updated M1 fixes:** `killCreditComplete` alone is no longer proof of NPC mismatch; verified KillCredit rows for both creatures, one-to-one leftover match and scriptedCredit explicitly false are needed. Multiple unmatched target sets require manual review; three flags support `"unknown"`. These are report-only classifications, never an instruction to edit quests. Grok independently completed final negative fixtures, Python and temporary PR #4 Busted checks for #18.
+
+**M2 remains planned only.** The lead local-only objective intake adapter has privately read quests 1203/2001; it is not in GitHub. The final M2 schema/effective record export/batch reporter are owned by Grok and not implemented yet. No full private report, server/client changes, merges/releases or public SQL.
+
+## Latest private objective intake checkpoint — 14 October 2026
+
+**New lead workstream:** [draft PR #19](https://github.com/CosmicCuddle/N-Questie/pull/19) adds [M2-PRIVATE-OBJECTIVE-INTAKE-HANDOVER.md](M2-PRIVATE-OBJECTIVE-INTAKE-HANDOVER.md) **documentation only** on top of the 28-quest/CI integration branch #16. A standalone, local-only Python 3 extractor was built and passed **12 synthetic tests**, plus a private read-only pilot with quest **1203** (required item 3853 ×1) and **2001** (targets 1868 ×8, 1869 ×8 and selected creature KillCredit rows). Generated private data and exporter source **remain outside public GitHub**. The script always writes `killCreditComplete=false` and three explicit `"unknown"` flags for conditions/IP/scripted credit, with private SHA256/date provenance; it cannot assert character eligibility or confirmed NPC credit completeness.
+
+**Grok review:** [draft PR #18](https://github.com/CosmicCuddle/N-Questie/pull/18) addresses M1 kill-credit coverage and ambiguous multi-target correspondence; M1-specific GitHub tests passed, inherited full suite is still ungreen on that separate branch without #4, and Grok explicitly has outstanding local QA checks. Lead supplied the interface/privacy boundaries in a PR #18 coordination comment. **Do not start bulk M2 or claim Grok's three remaining QA checks completed until confirmed.**
+
+**Next:** Agree final Grok-owned M2.1 strict input schema and M2.2 compiled effective-record export; then adapt the private exporter **locally** and test a single quest before evaluating 24 item/151 NPC candidate differences. No server/client/character changes, merges, releases or private-data publication authorised.
+
+## Latest combined integration checkpoint — 14 October 2026
+
+**READ FIRST:** [INTEGRATION-28-QUEST-VALIDATION-2026-10-14.md](INTEGRATION-28-QUEST-VALIDATION-2026-10-14.md) documents [draft PR #16](https://github.com/CosmicCuddle/N-Questie/pull/16), a **new testing-only branch** from PR #13 that includes independent public M0 validator (#11), workflow (#10), CI-only revision guard (#12/#14), and inherited unit-test shim (#4) without modifying any contributor's original PR branches.
+
+**Verified on GitHub:** M0 [run 38571850030](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850030) **passed 230 checks** on all **28** corrected quest levels, checked **82,431** compiled quest values with **0 mismatches**, and rejected five synthetic faults. The revision guard passed seven self-tests [run 38571850279](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850279). More importantly, the four latest reviewed combined workflows were **all green on the same PR #16 head**: [M0 38573190612](https://github.com/CosmicCuddle/N-Questie/actions/runs/38573190612), [revision guard 38573190572](https://github.com/CosmicCuddle/N-Questie/actions/runs/38573190572), [overlay 38573190614](https://github.com/CosmicCuddle/N-Questie/actions/runs/38573190614) and [inherited full CI 38573190617](https://github.com/CosmicCuddle/N-Questie/actions/runs/38573190617). The latter passed Busted, LuaCheck and WotLK/Era/SoD validators with publication skipped. None of these constitute in-game QA or merge approval.
+
+**Still unresolved:** PR #2/#3 documentation ancestry gap, IP/condition and locale testing, approved game-client backup/QA, maintainer review. The private offline `acore_world.zip` and full audit workbook remain private; no installed addon, SavedVariables, live realm data, PR bases, releases or collection changes.
+
+## Latest safety review — 14 October 2026 (revision guard and Hillsbrad candidates)
+
+**Revision safeguard:** Grok's draft [PR #12](https://github.com/CosmicCuddle/N-Questie/pull/12) contains a CI-only revision-bump guard. The lead workstream activated its proposed GitHub Actions workflow **in a separate draft [PR #14](https://github.com/CosmicCuddle/N-Questie/pull/14)**, without modifying #12's head or runtime cache implementation. **[GitHub revision guard run 38569424455](https://github.com/CosmicCuddle/N-Questie/actions/runs/38569424455) PASSED** including seven synthetic tests. Existing inherited CI on that branch still needs PR #4; no PR merged or released. This guard will only protect other development branches *once coordinated and integrated*; its isolated green run does not retroactively cover #13.
+
+**Hillsbrad quest investigation:** Quest IDs 566 (WANTED: Baron Vardus) and 567 (Dangerous!) have world `MinLevel=35/19` respectively versus inherited Questie 17/17. Nominal quest levels agree (40/28); gameobject starters (1763/2008), ender NPC 2215 and objective ID targets already match. No conditions row explicitly containing quest ID 566 or 567 was found in 17,701 exported condition rows, but IP/module or object/recipient conditions still need review. **Do not add these to the automatic correction stack yet.** See [HILLSBRAD-WANTED-QUESTS-REVIEW.md](HILLSBRAD-WANTED-QUESTS-REVIEW.md).
+
+## Latest coordination checkpoint — 14 October 2026 (PR #13 + Grok integration)
+
+**Please read [COLLABORATION-INTEGRATION-STATUS.md](COLLABORATION-INTEGRATION-STATUS.md) before making additional changes**; it is the current cross-developer ownership, PR ancestry, CI truth and rollout gate. Source-verified existing quest **level** corrections now total **28**, staged as **8 Dustwallow (#7) + 11 early-game (#8) + 9 Duskwood/Wetlands chain quests (#13)**. The last nine are documented in [CLASSIC-CHAIN-LEVEL-AUDIT.md](CLASSIC-CHAIN-LEVEL-AUDIT.md). PR #13's dedicated Lua 5.1/source tests passed [38567305494](https://github.com/CosmicCuddle/N-Questie/actions/runs/38567305494); inherited unit tests still fail because #4 is independent and unmerged.
+
+**Grok collaboration:** External validation M0 was delivered in draft #9; workflow enabled in independent draft #10 with successful real-GitHub M0 run [38565400913](https://github.com/CosmicCuddle/N-Questie/actions/runs/38565400913). Grok opened combined 19-quest validation draft #11 and independent CI-only cache guard draft #12. **PR #13's nine additional quest IDs are not covered by that 19-quest integration yet.** Their expected values were supplied in a coordination comment on PR #11. All PRs remain draft or open and unmerged; installed game client, SavedVariables and live server untouched.
+
+## Current continuation — 14 October 2026: early-zone quest corrections, draft PR #8
+
+**New:** [draft PR #8](https://github.com/CosmicCuddle/N-Questie/pull/8) is stacked on PR #7 and proposes **11 additional early-game existing-quest level/minimum-level corrections** (IDs **98, 126, 169, 180, 249, 256, 304, 398, 442, 895, 6284**). All values were cross-checked against the private offline `acore_world` quest templates and the earlier literal-correction audit. Only `requiredLevel` and/or `questLevel` fields are emitted, using source-value guards; other quest metadata stays unchanged. Cache revision 3→4, with synthetic Lua 5.1 tests and an original-source regression. See [EARLY-QUEST-LEVEL-AUDIT.md](EARLY-QUEST-LEVEL-AUDIT.md). **Scoped CI run 38562858874 passed**; inherited CI still requires independent PR #4 integration and is not proof of the final combined build.
+
+**Grok collaboration:** The maintainer assigned Grok independent correction-pipeline/integration review followed by M0 (effective 3.3.5a Questie database validation) **on their own branch**. Grok supplied `REVIEW-2026-10-14.md` and `VALIDATION-DESIGN-2026-10-14.md` to the maintainer. Reviewer reports that PR #6/#7 corrections work in a real mocked 335 initialization/compile path, but highlights high-priority absent real-pipeline CI, independent PR #4 CI harness repair, a nine-commit docs ancestry gap between #2/#3, cache revision guard weakness, and custom loader's possibility of replacing future base records. These remain recommendations requiring coordinated PR review; no merges or fixes have been authorized.
+
+**Branch ownership:** This PR #8 edits curated early-zone levels, tests and its own docs only. Grok owns the proposed separate 335 validation harness and objective-validation framework. No private world SQL, full audit workbook, credentials, server mutations, installed addon edits, SavedVariables replacement, tags or releases allowed. In-game QA for new PR #8 changes not yet performed.
+
+## Collaboration checkpoint — 14 October 2026
+
+**Second-reviewer coordination:** The maintainer plans to invite Grok as a collaborating reviewer. The public handoff and defined work boundaries are in [EXTERNAL-COLLABORATION-REVIEW-BRIEF.md](EXTERNAL-COLLABORATION-REVIEW-BRIEF.md). Assign **read-only integration review** of stacked PRs #2/#3/#5/#6/#7 and independent CI fix #4 first; focus on Questie correction registration, database decode timing, cache revision, multiple overlay composition, and Lua 5.1 test fidelity. The existing-quest source audit, approved corrections and private world data stay with the main development workflow.
+
+Any suggested implementation must be a **separately coordinated draft PR**, with tests and clear change ownership. Do not upload the private SQL/Excel audit, silently edit another contributor's branch, merge, release or modify the installed addon/live server without maintainer approval.
+
+**Project:** N-Questie  
+**Maintainer:** CosmicCuddle  
+**Established:** 13 October 2026  
+**Repository:** https://github.com/CosmicCuddle/N-Questie  
+**Default/source branch:** `335`  
+**Fork parent:** https://github.com/divial28/Questie-335  
+**Client:** World of Warcraft 3.3.5a (`## Interface: 30300`)  
+**Inherited addon identity:** `Questie-335.toc`, display title `Questie-335`, upstream version `9.5.1`  
+
+## Current verified intake — 14 October 2026 (installed quest file + full server audit)
+
+**Installed file verified:** Maintainer uploaded the working addon's `Database/Wotlk/wotlkQuestDB.lua`. Its git blob is `abbf2831b6d6b54b5d9383ba2c3e5cce5147379d`, identical to the N-Questie repository's original WotLK quest source. No installed version discrepancy.
+
+**Private all-server audit completed:** 9,525 server quest templates versus 9,086 original Questie entries; 439 server-only IDs, most unlinked/unused/NYI, with only 18 *plausibly linked* non-placeholder quests needing eligibility review. Initial raw level mismatches: 139 nominal, 150 minimum across 259 unique quests. After literal inherited correction-layer approximation: **270** unique level candidate IDs (148 nominal, 154 minimum, overlapping). Of 1,484 raw item differences, **1,460** match Questie's separate `sourceItemId` representation; **24** require follow-up. Additional NPC/GO and chain mismatches are candidates, not accepted fixes.
+
+**PRIVATE handover artifact:** A seven-tab Excel workbook of candidate mismatches was generated for the maintainer inside the conversation. Do not push that file, the private original SQL ZIP, full data JSON or per-record full audit into public GitHub. Aggregate methodology and caveats are documented in `docs/FULL-SERVER-QUEST-AUDIT-CHECKPOINT.md`.
+
+**Next:** Review the 24 unresolved item cases and 18 linked missing quests; triage high-impact early-zone level candidates; test server IP/condition gate behavior separately. Keep PR #6 and PR #7 draft, unmerged, not released. Maintain backups before future client QA.
+
+## Latest handover — 14 October 2026 (private database re-upload analyzed)
+
+**Private source is now available in this conversation:** The maintainer uploaded acore_world.zip, an offline HeidiSQL export. It was inspected read-only locally; 9,525 unique quest templates. Keep the original SQL/ZIP private and OFF GitHub.
+
+**Confirmed quest 1203 issue:** Existing WotLK Questie levels match server (required 30, nominal 35), but inherited Questie has Razorspine's Sword (33110) while server requires one Moonsteel Broadsword (3853) and the corresponding item objective text. [Draft PR #6](https://github.com/CosmicCuddle/N-Questie/pull/6) stages an item/text-only guarded correction without changing levels, questgivers or prerequisite.
+
+**Dustwallow pass:** 134 server quests under QuestSortID 15, 126 present in stock WotLK Questie; 8 missing require classification. Eight existing level mismatches were source-verified and stage through [draft PR #7](https://github.com/CosmicCuddle/N-Questie/pull/7). Thirty-two item-ID candidates include quest 1203; 31 require closer source semantics review. See [Dustwallow audit](docs/DUSTWALLOW-QUEST-AUDIT.md). Scoped PR #6 Lua 5.1 checks passed; PR #7 dedicated CI still requires checking when run concludes.
+
+**Next:** Expand to all-zone comparisons, never patch candidate item objectives blindly; check IP stage/conditions and verify in-game on an eligible character after backups. Source-guarded corrections must preserve Questie objective metadata outside the approved fields. All PRs #1–#7 remain unmerged; #2–#7 draft (PR #1 is foundation open). No release or collection update authorized.
+
+## Historical checkpoint: original PR #5 audit
+
+## Existing-quest mismatch audit — draft PR #5 (14 October 2026)
+
+**First reported correction:** Quest 1203 **Jarl Needs a Blade**. Public Questie WotLK generated record: required level 30, nominal quest level 35. No direct literal numeric `requiredLevel` or `questLevel` correction for ID 1203 was found in the checked Classic/TBC/WotLK quest fix modules. This is **not** proof of the user's server values: the original private world ZIP from the earlier conversation is not currently accessible here.
+
+**New workflow:** [Draft PR #5](https://github.com/CosmicCuddle/N-Questie/pull/5), stacked on PR #3, adds `tools/audit_world_quest_levels.py` and `docs/EXISTING-QUEST-LEVEL-AUDIT.md` for a streaming, read-only comparison between selected/all world quest-level fields and static Questie WotLK level records plus literal correction layers. It refuses publishing its private report into the GitHub checkout and never connects to the world server. Synthetic tests initially passed [scoped run 38551948617](https://github.com/CosmicCuddle/N-Questie/actions/runs/38551948617); a newer source-baseline test still needs CI confirmation.
+
+**Next user action:** Request re-upload of the **private acore_world.zip** in chat (not GitHub). Analyze quest 1203 and all mismatches offline; do not invent level replacements. Flag changes arising from IP/module conditions separately from numeric database differences. Only create explicit field-level corrections after review. All PRs remain unmerged; installed addon/SavedVariables/character state remain untouched.
+
+## Existing-quest correction scope — 14 October 2026
+
+The maintainer confirmed that **incorrect inherited WotLK quest information must be repaired too**, especially outdated quest levels and red/green difficulty colours on the Naxxramas AzerothCore server with Individual Progression. This is now explicitly tracked in `docs/ROADMAP.md` as **Phase 2A — Corrections for existing WotLK quests**.
+
+Technical finding: `Modules/Libs/QuestieLib.lua` colours quests by the effective `questLevel` compared with `QuestiePlayer.GetPlayerLevel()` via `PrintDifficultyColor` and `GetTbcLevel`; `MinLevel` / `requiredLevel` is a separate eligibility gate. IP era availability may need module-specific interpretation beyond static quest data.
+
+Implementation must start with a **private read-only Questie-vs-server discrepancy report** (server source plus effective Questie corrections), then an **approved field-level** correction overlay that preserves other fields. Do not replace full existing quest records merely to fix a level, infer a green colour from the IP era, access server progression, publish the raw SQL export, or change installed addons. Add regression tests and staged in-game QA; PR review/merge/release gates remain unchanged.
+
+## Most recent verified state — 14 October 2026 (supersedes historical checkpoints below)
+
+- **In-game quest 2001 visual marker lifecycle: PASS.** Available starter, Ravenclaw Servant/Champion objective pin tooltips, completed turn-in indicator and post-hand-in marker disappearance confirmed by maintainer. Existing Questie installation/regression tests also passed 5/5. Individual kill-counter transitions and exact active NPC spawn-coordinate alignment not independently tested.
+- **PR #3 (this branch):** Offline reviewed JSON → Lua generator now protects existing generated quests against accidental removal, requiring explicit `--approve-removal-quest` approval and a revision increase for replacements. Test file includes synthetic partial-import regression. The latest commits need fresh dedicated CI results. Earlier [run 38547219011](https://github.com/CosmicCuddle/N-Questie/actions/runs/38547219011) passed before the newest removal safeguard.
+- **PR #4 (independent `335` CI fixture):** [run 38549456997](https://github.com/CosmicCuddle/N-Questie/actions/runs/38549456997) **all inherited checks PASS**: LuaCheck, Busted, WotLK/Era/SoD validators. This has **not** been integrated with PR #2/#3; combined CI still requires testing.
+- All PRs remain **unmerged** (PR #2/#3/#4 are draft). Neither the full private world export nor raw review JSON has been published. Installed addon and SavedVariables are unchanged by this development. No live DB changes, release or N-Addon-Collection update authorized.
+- **Next:** Obtain clean CI for the latest PR #3 changes, then plan an additional source-verified quest (especially missing NPC/gameobject spawn mapping) without guessing coordinates; integrate test-only CI improvements only after separate review.
+
+## Earlier new-chat entry point — historical context
+
+## Latest verified state — 14 October 2026 (new-chat entry point)
+
+**Maintainer in-game QA STEP 1: PASS — five out of five.** User installed the PR-only N-Questie test addon and explicitly confirmed:
+1. **PASS:** N-Questie appears in the character-selection AddOns list.
+2. **PASS:** The addon loads with no Lua errors.
+3. **PASS:** Normal Questie quest icons remain visible on the world map.
+4. **PASS:** Normal quest objective icons remain visible on the minimap.
+5. **PASS:** Questie settings and existing preferences are retained.
+
+**Meaning:** Preliminary addon compatibility and regression smoke checks passed **in game**. **Not tested yet:** actual custom quest 2001 starter, kill-objective and ender markers. The user has **not** stated a qualifying Horde character or completion of prerequisite 437. Do not call that test passed and do not infer backup completion unless confirmed.
+
+**Development PRs:** [#1 foundation](https://github.com/CosmicCuddle/N-Questie/pull/1) open/unmerged against `335`; [#2 quest overlay](https://github.com/CosmicCuddle/N-Questie/pull/2) **draft**, stacked on the #1 branch, unmerged. The baseline branch `335` still has original Questie-335. The last feature revision *before this documentation-only QA note* was `0976bce5c3ec96bb3a4b5114b2ad71e5bfdcabba`. A code/PR recheck is required before any merge/release.
+
+**Automated checks:** [dedicated N-Questie run 38461711184](https://github.com/CosmicCuddle/N-Questie/actions/runs/38461711184) passed Lua 5.1 parsing, mocked quest/NPC correction, scoped Python exporter fixture tests, TOC checks and QA package assembly. **Inherited upstream CI run 38461710869 failed**, with Busted upstream tests starting without `QuestieCompat` (verify current logs before claiming the failure is exclusively upstream). Both results must remain visible; not all CI passed. Temporary QA artifact `N-Questie-335-PR-TestBuild`, ID `11846520352`, from that successful run (expiry 27 October 2026).
+
+**Next user-facing step:**
+- Thank the maintainer for five passes; continue to **Step 2 — one custom quest**. Ask whether a genuinely eligible Horde test character (quest 437 done) can reach **quest 2001 Ravenclaw Cleanup** in Silverpine Forest.
+- If yes: check starter at Shadow Priest Allister NPC 2121, kill-target map/minimap positions for Ravenclaw Servants (1868) and Champions (1869), then turn-in at NPC 2121. Keep normal quest icons as a comparison. Test only through ordinary in-game gameplay.
+- If not: use the private acore_world-derived audit to choose a safer, accessible custom quest; **do not change player progress, database or GM state just to test**.
+- After the first verified custom quest, review and fix the remaining inherited CI issue and implement scalable read-only import for more quests, including NPC/object coordinates and special quest conditions.
+
+**Permissions and safety:** Maintainer permits publication of *curated* quest IDs, names, NPCs, objectives and map coordinates. Full `acore_world.zip`, server metadata and connection information stay private, **never on public GitHub**. The private export may need to be reattached in a new chat; do not assume its bytes are automatically in the repo. Back up the existing `Questie-335` addon folder plus account/character Questie SavedVariables before any future installed test build. Preserve upstream authorship/licence, folder and TOC names, existing settings and rollback. Do not merge, tag, publish a release or update N-Addon-Collection without explicit maintainer approval.
+
+## Purpose
+
+Maintain a Naxxramas-server-specific Questie fork and make it straightforward to add or correct map and minimap markers for custom AzerothCore quests. The first milestone is reliable quest starter and ender markers; objective markers follow only when their world locations and underlying Questie record types are known.
+
+**Priority:** Keep existing Questie working while building a *small, reviewable custom data overlay*. Never hand-edit thousands of generated WotLK records for each server change.
+
+## Verified starting point
+
+- `CosmicCuddle/N-Questie` was created on 13 October 2026 as a fork of `divial28/Questie-335`; the copied/default branch is `335`.
+- Initial `335` head: `13c958005c0e3b27e3ef0ea3472998fa522a11a5`.
+- The original `Questie-335.toc` registers `QuestieConfig` and `QuestieConfigCharacter` as SavedVariables, targets `30300`, loads the WotLK quest/NPC/object/item databases, then the correction modules.
+- `Database/questDB.lua`, `npcDB.lua`, and `objectDB.lua` define symbolic field keys. `Database/Corrections/QuestieCorrections.lua` merges existing Classic/TBC/WotLK corrections during database initialization.
+- The quest and spawn data are related but distinct: quest start/turn-in references use NPC/object IDs; spawn coordinates belong to the corresponding NPC/object records. **A quest ID alone does not establish an icon location.**
+- Compiled/cached Questie database state may require a supported recompile/refresh after adding overlay entries; determine exact invalidation behavior in code before implementing a loader.
+- The inherited GitHub Actions workflow includes Lua 5.1 and database validation stages, but it has **not been accepted as a passing N-Questie run**. CI and in-game testing must be recorded separately.
+- The original README currently refers to the previous upstream fork and the installed addon folder `Questie-335`. Preserve compatible installed folder/TOC names initially, even though the GitHub repository is called **N-Questie**.
+
+## Working rules
+
+1. **Back up first:** Before any test installation, close WoW and back up the current working `Interface/AddOns/Questie-335/` directory (or the exact installed Questie folder) and the Questie SavedVariables for the account/character. Keep the baseline ZIP for rollback.
+2. **Scope controls:** Make addon changes only in this repository/feature branch. Do not change live AzerothCore world/characters/auth databases, custom quests, quest flags or NPC placements without separate explicit approval.
+3. **Read-only server data:** Use a narrowly scoped, read-only export from the AzerothCore `world` DB to author custom quest records. Do not request credentials or whole database dumps. Confirm actual table names and schema before drafting SQL queries.
+4. **Quest IDs and positions:** Never invent quest IDs, NPC IDs, gameobject IDs, coordinates, availability, phases or map conversions. Validate map-specific coordinates before showing markers.
+5. **Client compatibility:** Lua 5.1 / WoW 3.3.5a only. Respect `QuestieLoader`, correction application order, existing database compilation and marker filtering. Do not quietly change existing quest records or progression gating.
+6. **Fork attribution:** Preserve upstream history, credits, and all inherited licence/third-party notices. Complete a licence and redistribution review before any public download or release; no custom origin claims.
+7. **Repository practices:** One focused topic per PR, source/QA distinctions explicit, with development log, test evidence and rollback. Do not merge, tag or update N-Addon-Collection until maintainer authorizes it.
+8. **Accessibility:** Short, clear walkthroughs, readable map markers/tooltips and a simple repeatable import workflow.
+
+## Roadmap and working files
+
+- [ROADMAP.md](ROADMAP.md): phased milestones and acceptance gates.
+- [CUSTOM-QUEST-DATA-DESIGN.md](CUSTOM-QUEST-DATA-DESIGN.md): proposed overlay, source fields, map-coordinate requirements.
+- [TESTING.md](TESTING.md): safe read-only test sequence and expected observations.
+- [DEVELOPMENT-LOG.md](DEVELOPMENT-LOG.md): decisions and evidence.
+
+## First deliverable
+
+1. Receive **one real quest ID** for a quest that currently has missing or wrong icons; optionally NPC/gameobject ID and spawn evidence.
+2. Query/inspect `quest_template`, quest starter/ender relationships, NPC/gameobject templates and spawn records **read-only**; reconcile with this server's actual schema and phasing.
+3. Prove one quest starter and ender icon, using the existing correction architecture with the smallest possible code change and minimal regression tests.
+4. Extend to objectives and batch import only after the first quest passes in-game.
+
+The first documentation PR is **foundation only**. It does not implement or install a new custom quest overlay.
+
+## Continue development in a new chat
+
+> Continue N-Questie on https://github.com/CosmicCuddle/N-Questie (branch `335`). Read docs/PROJECT-HANDOVER.md, ROADMAP.md, CUSTOM-QUEST-DATA-DESIGN.md, TESTING.md and DEVELOPMENT-LOG.md; check current PRs and state. Prioritize a small, non-destructive server-specific quest overlay and a reproducible read-only quest import. Request the example quest ID and only the necessary world-DB records. Preserve WoW 3.3.5a, the installed Questie addon identity, upstream credits, backups and PR-based testing. Update the handover after each milestone.
+
+## Current development state — 13 October 2026 (supersedes foundation-only status)
+
+**Open PRs:**
+- [PR #1](https://github.com/CosmicCuddle/N-Questie/pull/1), base `335`: documentation/handover only.
+- **Draft** [PR #2](https://github.com/CosmicCuddle/N-Questie/pull/2), base PR #1 branch: isolated first custom quest overlay, selected-quest read-only exporter, regression tests and PR-only QA package.
+
+**Curated quest 2001:** `Ravenclaw Cleanup` (Silverpine Forest). The private `world` export supplies NPC 2121 as giver/ender, prerequisite quest 437, and kill targets 1868 and 1869 (eight kills each). Those NPCs already have zone 130 coordinates in Questie's WotLK NPC records, so the overlay only adds quest data and missing reverse NPC links without making up spawn positions.
+
+**Implementation in draft PR #2:** `Compat/NQuestieCustomQuestData.lua` and `Compat/NQuestieCustomQuestLoader.lua` are loaded through the existing `Questie-335.toc`. `Modules/QuestieInit.lua` uses a custom data revision to force a normal compiled-DB refresh on changed records. The README preserves upstream attribution; the addon folder/TOC name and original Questie SavedVariables remain intact. A test-only in-game title/version distinguishes the fork.
+
+**Automated QA:** [GitHub Actions run 38461484026](https://github.com/CosmicCuddle/N-Questie/actions/runs/38461484026) **passed** the dedicated Lua 5.1 parser, mock Questie corrections, SQL/ZIP Python test fixtures, TOC paths and temporary single-addon package. The artifact is `N-Questie-335-PR-TestBuild`; expires 27 October 2026. This **does not establish in-game pin functionality** or comprehensive upstream CI compatibility. The inherited workflow has separate lint/validator jobs; record those outcomes separately.
+
+**Privacy:** Maintainer approved publicly including *curated* server quest IDs, NPCs, objectives and coordinates. Do **not** upload the entire `acore_world.zip`, server connection details, or uncontrolled exports. The full SQL was only read locally.
+
+**Next action:** Back up the existing Questie folder and both Questie SavedVariables. Then, when the maintainer is ready, install the reviewed **PR-only** test build and verify quest 2001's starter, kill objective and turn-in markers in Silverpine on an eligible Horde character with prerequisite quest 437. Do not mutate server/character progression for testing. Use [QUEST-2001-SMOKE-TEST.md](QUEST-2001-SMOKE-TEST.md). After that, implement reviewed-JSON to Lua generation, added/new NPC spawn mapping and progressively expand to further server-specific quests. Neither PR has been merged; no release has been published.
+
+
+## 14 October 2026 — New stacked draft generator PR (next continuation)
+
+- [Draft PR #3 — Reviewed JSON-to-Lua generator](https://github.com/CosmicCuddle/N-Questie/pull/3) is stacked on draft PR #2, **not merged**. It adds a local-only conversion program, synthetic tests, CI coverage and an importer guide. The complete private SQL ZIP and review JSON remain off public GitHub.
+- Source reviewed quest IDs and verified-existing NPC ID sets must be supplied explicitly; do not assume generated Lua implies live quest availability, map-coordinate correctness or Individual Progression unlocks.
+- **Step 1 remains PASS 5/5. Step 2 remains NOT TESTED.** Continue actual quest 2001 (Ravenclaw Cleanup) starter / NPC kills / turn-in in-game only when a legitimately eligible character exists. No progression changes just for testing.
+- PR #3 automation results must be checked separately from PR #2's last passing scoped run and inherited CI failures. No PR merge, release, live database changes or addon collection change without maintainer approval.
+
+
+- 2026-10-14: M2.1 branch feat/nq-validation-m2.1-input-schema-2026-10-14. See docs/NQ-VALIDATION-M2.1-INPUT-SCHEMA.md. Private exporter stays local (PR #19 handover); adapter gaps are listed in that doc §8. M2.2 is design-only.
+- 2026-10-14: PR #21 schema v1 is final. The exporter compatibility checklist is in docs/NQ-VALIDATION-M2.1-INPUT-SCHEMA.md §12. Windows/macOS without GNU realpath reject all paths (fail closed).
+- 2026-10-14: M2.2 Step 1 branch: docs/NQ-VALIDATION-M2.2-STEP1-EFFECTIVE-SCHEMA.md. nq-m2-input v1 unchanged. Steps 2-6 still need approval.
+- 2026-10-14: M2 roadmap added (docs/NQ-VALIDATION-M2-ROADMAP.md) on the Step 1 branch. Steps 2-6 and M2.3 not started.
+- 2026-10-14: private/ guard added on ci/nq-private-untracked-guard-2026-10-14 (stacked on PR #22). Dedicated step is a proposed diff only (no workflow scope).
+- 2026-10-14: M2.2 handover: docs/NQ-VALIDATION-M2.2-HANDOVER.md (PR order #24 -> #26 -> #27 -> #28 -> #29, results, limitations, review items). M2.3 not started.
+- 2026-10-14: M2.2 Option A follow-up: coverage (#33), pilot and v2 design (#34). See docs/NQ-VALIDATION-M2.2-HANDOVER.md §10. v1 frozen; v2 exporter and M2.3 not started.
+- 2026-10-14: M2.2 order check (#36), quest ID set (#37), CI integration with #35 (#38), final v2 design (#39 draft). See handover §11.

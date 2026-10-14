@@ -1,0 +1,45 @@
+# Proposed (NOT active). Dedicated CI for the M2.1 input schema.
+# To activate, Michael copies this file to .github/workflows/nquestie-m2-input-schema.yml.
+# Synthetic fixtures only; no private server data. Symlink tests create and remove
+# their own temporary files at run time.
+name: N-Questie M2.1 input schema
+
+on:
+  push:
+    branches:
+      - "feat/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  m2-input-schema:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+      - name: Install Lua 5.1 and busted
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lua5.1 liblua5.1-0-dev luarocks
+          sudo luarocks --lua-version=5.1 install busted
+      - name: Check the path resolver is GNU realpath
+        run: realpath -e -- / && realpath --version | head -1
+      - name: Parse M2.1 files with Lua 5.1
+        run: >
+          luac5.1 -p tools/validation/InputSchema.lua tools/validation/InputSchema.test.lua
+          tools/validation/fixtures/input_cases.lua tools/validation/fixtures/input_parse_cases.lua
+          cli/validate-m2-input.lua tests/test_nquestie_m2_input_schema.lua
+          tests/test_nquestie_m2_input_paths.lua tests/fixtures/m2_input/*.lua
+      - name: Standalone schema and parser tests
+        run: lua5.1 tests/test_nquestie_m2_input_schema.lua
+      - name: Path and symlink safety tests (temporary files only)
+        run: lua5.1 tests/test_nquestie_m2_input_paths.lua
+      - name: Busted spec (M1 + M2.1)
+        run: busted -p ".test.lua" tools/validation
+      - name: CLI accepts the synthetic example
+        run: lua5.1 cli/validate-m2-input.lua "$GITHUB_WORKSPACE/tests/fixtures/m2_input/valid_selected_quests.lua"
+      - name: Confirm no private files are tracked
+        run: test -z "$(git ls-files private/)"
