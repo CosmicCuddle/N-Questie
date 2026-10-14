@@ -48,7 +48,7 @@ r, e = mutate(function(d) local o = q(d, 11652).objectives; o[1], o[2] = o[2], o
 ok(not r and has(e, "out of Questie objective order"), "R4 11652 in slot order rejected (Questie reverses)")
 r, e = mutate(function(d) local x = q(d, 10503); local o = x.objectives; o[1], o[2] = o[2], o[1]; o[1].position = 1; o[2].position = 2 end)
 ok(not r and has(e, "out of Questie objective order"), "R4 10503 default order rejected when killCreditFirst")
-r, e = mutate(function(d) local x = q(d, 10503); x.killCreditFirst = false end)
+r = mutate(function(d) local x = q(d, 10503); x.killCreditFirst = false end)
 ok(not r, "R4 killCreditFirst flag must agree with the order")
 r, e = mutate(function(d) local x = q(d, 10503); x.m1Status = "SUPPORTED"; x.m1Reasons = {} end)
 ok(not r and has(e, "no false SUPPORTED"), "R9 reordered quest never M1 SUPPORTED")

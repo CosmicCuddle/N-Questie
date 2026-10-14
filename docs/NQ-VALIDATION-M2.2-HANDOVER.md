@@ -243,7 +243,14 @@ Local (box, head 05645e9f0): full M2 suite PASS (all standalone suites, busted, 
 
 ### 11.3 CI evidence
 
-CI_EVIDENCE_2
+All six workflows passed on the same commit (push and pull_request).
+
+| PR | Commit | Runs (push / pull_request) |
+|---|---|---|
+| #38 | d58a4b89d | M2 framework 38608529464 / 38608546193; M0 38608529458 / 38608546132; M1 38608529490 / 38608546181; overlay 38608529370 / 38608546190; CI 38608529438 / 38608546135; revision guard 38608546242 |
+| #39 | 1d94a50aa | M2 framework 38608874203 / 38608884344; M0 38608873961 / 38608884405; M1 38608873997 / 38608884318; overlay 38608874098 / 38608884566; CI 38608874061 / 38608884388; revision guard 38608884287 |
+
+Links: `https://github.com/CosmicCuddle/N-Questie/actions/runs/<id>`. The #38 M2 framework log shows the full suite executing (busted 151 successes including the order tests, export integration 25, coverage integration 26 with the 8,401 / 758 and ID-set pins). The v2 draft test count in that run is 33 (the 57-check version is on #39). Local on #39: full M2 suite PASS.
 
 ### 11.4 Outstanding
 
