@@ -1,5 +1,13 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Quest 2001 objective tooltips verified in-game
+
+**Evidence:** Maintainer screenshots of normal and Shift-modified objective marker tooltips for active Ravenclaw Cleanup (2001). Both list 0/8 Ravenclaw Servants and 0/8 Ravenclaw Champions; Shift view identifies the NPC names and level ranges (Servant 13–14, Champion 14–15). **PASS:** quest 2001 objective marker tooltip associations, both NPC objective names, and displayed quest-log progress counts. Normal and modifier tooltip modes work.
+
+**Limits:** Screenshot evidence does not establish that every plotted NPC coordinate matches current server spawns, that counts increment after kills, or that a completed quest displays a turn-in marker. No live database or character progression was edited by development.
+
+**Next:** Confirm actual target locations and normal kill progress, then complete quest normally and inspect Shadow Priest Allister's turn-in marker. Preserve QA build and SavedVariables; no merge or release without approval.
+
 ## 14 October 2026 — Quest 2001 first in-game marker evidence
 
 **Maintainer evidence:** Screenshots show Ravenclaw Cleanup (2001) as Available in Shadow Priest Allister's Questie map tooltip and visible map markers around The Sepulcher / nearby objective area. **PASS:** quest is discoverable in Questie's available-quest presentation; initial map marker rendering is visible. These are stronger observations than the earlier installation-only checks.
