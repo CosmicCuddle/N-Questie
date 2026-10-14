@@ -20,6 +20,14 @@ AzerothCore and server modules can modify existing WotLK quests. Questie's inher
 - **User reports that this quest is incorrect on the Naxxramas server.**
 - **Server's actual QuestLevel/MinLevel values are not yet verified in the current chat.** We cannot claim a fix or prescribe a changed level before checking the private world export and in-game behaviour.
 
+### Important second discrepancy to investigate
+
+Quest 1203 changed its required item between pre-2.3 Classic and WotLK:
+- **Original Classic:** Moonsteel Broadsword.
+- **Later WotLK:** Razorspine's Sword (item 33110 in the inherited Questie quest record).
+
+These are public historical variants; **do not infer which one the Naxxramas world database currently implements.** The first audit tool checks *level fields only*, not item objectives. Extend the audit later to server RequiredItemId/Count and Questie item objective slots, respecting correction layers and scripted/item-drop behavior. Do not automatically replace quest objectives from a public Classic website.
+
 ## Run the read-only audit
 
 1. Keep your original offline HeidiSQL \`acore_world.zip\` or SQL file **outside** the publicly cloned N-Questie directory. Make a private backup first.
