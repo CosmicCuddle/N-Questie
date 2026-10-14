@@ -185,3 +185,4 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 - 2026-10-14: M2.2 Step 1 (effective schema nq-m2-effective v1, validator only) on feat/nq-validation-m2.2-step1-effective-schema-2026-10-14, stacked on PR #22. No export logic. Write-race review in the M2.2 design doc §6b.
 - 2026-10-14: docs/NQ-VALIDATION-M2-ROADMAP.md: full M2.2–M2.5 technical roadmap (framework ours, data and corrections the lead developer's).
 - 2026-10-14: private/ tracking guard (tests/check_no_tracked_private.sh) runs in CI via the M2.1 path test on the ci/nq-private-untracked-guard branch; a dedicated workflow step is proposed in docs/proposed-workflows/nquestie-private-untracked-guard.diff.
+- 2026-10-14: M2.2 Steps 2-6 in draft PRs #26-#29 (snapshot, safe writer, harness export, tests and proposed CI). v1 cannot represent 752/9159 quests; decision pending. See docs/NQ-VALIDATION-M2.2-HANDOVER.md.

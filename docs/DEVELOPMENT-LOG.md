@@ -1,5 +1,19 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — M2.2 Steps 2–6: effective export framework (draft PRs #26–#29)
+
+- **Source evidence:** The public compiled 3.3.5a Questie database through `cli/validate-335.lua`. No private data.
+- **Change:**
+  - #26 merges #25 into #24 (no rebase).
+  - #27 adds the snapshot and the safe writer.
+  - #28 adds the opt-in harness export and provenance.
+  - #29 adds the suite runner, the proposed CI and docs.
+  - Report-only. No runtime addon, SQL or SavedVariables change.
+- **Tests:** 46 snapshot, 36 writer, 22 provenance and 25 real-DB integration checks. M0 still has 232 checks and 82,431 fields with 0 mismatches. In-game: **not run** (not applicable).
+- **Finding:** v1 cannot represent 752 of 9,159 quests. They are refused, and the schema decision is pending.
+- **Rollback:** Close the draft PRs. Nothing is merged.
+- **Next:** Decide v2 or out of scope, activate the proposed CI, then M2.3 planning review.
+
 ## 14 October 2026 — Grok M1 safety fixes reviewed and combined on PR #20
 
 Reviewed Grok's [draft PR #18](https://github.com/CosmicCuddle/N-Questie/pull/18), including 29 synthetic M1 scenarios, 25 rules, stricter NPC KillCredit evidence, no positional pairing of multiple unmatched objectives, and tri-state conditions/IP/script signals. Grok reported four negative fixtures correctly rejected, local Busted 49 successes with a temporary PR #4 test repair, and 28 Python tests across four tool files. Their own original branch remains unmerged with a known inherited CI failure due to absent #4.
