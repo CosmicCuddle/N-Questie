@@ -1,5 +1,13 @@
 # N-Questie — Development Handover
 
+## Current continuation — 14 October 2026: early-zone quest corrections, draft PR #8
+
+**New:** [draft PR #8](https://github.com/CosmicCuddle/N-Questie/pull/8) is stacked on PR #7 and proposes **11 additional early-game existing-quest level/minimum-level corrections** (IDs **98, 126, 169, 180, 249, 256, 304, 398, 442, 895, 6284**). All values were cross-checked against the private offline `acore_world` quest templates and the earlier literal-correction audit. Only `requiredLevel` and/or `questLevel` fields are emitted, using source-value guards; other quest metadata stays unchanged. Cache revision 3→4, with synthetic Lua 5.1 tests and an original-source regression. See [EARLY-QUEST-LEVEL-AUDIT.md](EARLY-QUEST-LEVEL-AUDIT.md). **Scoped CI run 38562858874 passed**; inherited CI still requires independent PR #4 integration and is not proof of the final combined build.
+
+**Grok collaboration:** The maintainer assigned Grok independent correction-pipeline/integration review followed by M0 (effective 3.3.5a Questie database validation) **on their own branch**. Grok supplied `REVIEW-2026-10-14.md` and `VALIDATION-DESIGN-2026-10-14.md` to the maintainer. Reviewer reports that PR #6/#7 corrections work in a real mocked 335 initialization/compile path, but highlights high-priority absent real-pipeline CI, independent PR #4 CI harness repair, a nine-commit docs ancestry gap between #2/#3, cache revision guard weakness, and custom loader's possibility of replacing future base records. These remain recommendations requiring coordinated PR review; no merges or fixes have been authorized.
+
+**Branch ownership:** This PR #8 edits curated early-zone levels, tests and its own docs only. Grok owns the proposed separate 335 validation harness and objective-validation framework. No private world SQL, full audit workbook, credentials, server mutations, installed addon edits, SavedVariables replacement, tags or releases allowed. In-game QA for new PR #8 changes not yet performed.
+
 ## Collaboration checkpoint — 14 October 2026
 
 **Second-reviewer coordination:** The maintainer plans to invite Grok as a collaborating reviewer. The public handoff and defined work boundaries are in [EXTERNAL-COLLABORATION-REVIEW-BRIEF.md](EXTERNAL-COLLABORATION-REVIEW-BRIEF.md). Assign **read-only integration review** of stacked PRs #2/#3/#5/#6/#7 and independent CI fix #4 first; focus on Questie correction registration, database decode timing, cache revision, multiple overlay composition, and Lua 5.1 test fidelity. The existing-quest source audit, approved corrections and private world data stay with the main development workflow.
@@ -158,3 +166,14 @@ The first documentation PR is **foundation only**. It does not implement or inst
 - **Step 1 remains PASS 5/5. Step 2 remains NOT TESTED.** Continue actual quest 2001 (Ravenclaw Cleanup) starter / NPC kills / turn-in in-game only when a legitimately eligible character exists. No progression changes just for testing.
 - PR #3 automation results must be checked separately from PR #2's last passing scoped run and inherited CI failures. No PR merge, release, live database changes or addon collection change without maintainer approval.
 
+
+## Validation workstream checkpoint — 14 October 2026 (Grok Bot)
+
+*Separate section. The lead developer's handover above is unchanged.*
+
+- **Branch:** `feat/nq-validation-m0-2026-10-14`, based on PR #7 head `d1580bbf`. Draft PR targets PR #7's branch. It depends on PR #4 for the inherited Busted job.
+- **Delivered:** `cli/validate-335.lua` runs the real Questie-335.toc load, corrections and compile as a 3.3.5a client and asserts quests 2001, 1203 and the eight Dustwallow levels. It also checks that no other quest/NPC/object/item field changed. Includes synthetic negative fixtures. The workflow is in `docs/proposed-workflows/nquestie-validate-335.yml` because the review token cannot push workflow files; the maintainer must copy it into `.github/workflows/`.
+- **Local result:** PASS, 89 checks; 3/3 negative fixtures rejected. Details in [NQ-VALIDATION-M0.md](NQ-VALIDATION-M0.md).
+- **Open for the lead developer:** the revision safeguard proposal (M0 doc §6); review findings C1–C7 and R1–R7 in [REVIEW-2026-10-14.md](REVIEW-2026-10-14.md). Any new approved correction must add its (id, field) pairs to the harness allow-list.
+- **Not done:** no in-game test, no merge, no release, no change to N-Questie correction files or the revision system.
+- **Update, combined with PR #8:** branch `feat/nq-validation-m0-pr8-integration-2026-10-14` (PR #10 + PR #8) passes locally: 181 checks, 19 level corrections, compiled round trip 0 mismatches, 4/4 negative fixtures. PR #8 values match the maintainer table. A CI-only revision bump check is on `feat/nq-revision-bump-guard-2026-10-14`. Still unresolved and only documented: #2/#3 ancestry, #4 not merged. See NQ-VALIDATION-M0.md §9.

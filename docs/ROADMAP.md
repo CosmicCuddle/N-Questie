@@ -1,5 +1,14 @@
 # N-Questie — Development Roadmap
 
+## Immediate status — 14 October 2026 (PR #8 / external M0)
+
+- [x] Curate 11 early-zone existing-quest level fixes into [draft PR #8](https://github.com/CosmicCuddle/N-Questie/pull/8), stacked on PR #7, with Lua 5.1 and public database-source guards.
+- [x] Verify PR #8's initial dedicated overlay workflow [38562858874](https://github.com/CosmicCuddle/N-Questie/actions/runs/38562858874) passed.
+- [ ] Wait for Grok's independent M0 real 3.3.5a database-loading validation in a **separate draft PR**; review and integrate only with maintainer approval.
+- [ ] Coordinate repair for the independent PR #4 inherited test harness and #2/#3 document ancestry, then re-run **combined** CI before any merge.
+- [ ] Back up installed addon and SavedVariables before later manually authorized in-game testing of PR #6, #7 and #8 corrections.
+- [ ] Continue private all-server discrepancy triage and IP-specific gating checks; no bulk replacements from the 270 candidate list.
+
 **Updated:** 13 October 2026  
 **Baseline:** forked `divial28/Questie-335`, branch `335`, upstream addon v9.5.1.  
 **Status:** First custom quest 2001's tested visual marker lifecycle PASSED in-game. PR #3's approved offline generator has additional safeguards pending latest CI. PR #4's standalone inherited full CI is PASS but not integrated. No merges or releases authorized.
@@ -117,3 +126,14 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 - [ ] Keep NPC spawn accuracy and special objective/GO handling as separate source-verified milestones; do not interpret syntactically valid Lua as working pins.
 - [ ] Investigate inherited Busted suite initialization independently of successful scoped overlay tests.
 
+
+## Validation workstream (Grok Bot) — added 14 October 2026
+
+*Separate workstream. Does not change the phases above.* Design: [VALIDATION-DESIGN-2026-10-14.md](VALIDATION-DESIGN-2026-10-14.md). Review: [REVIEW-2026-10-14.md](REVIEW-2026-10-14.md).
+
+- [x] M0 — 3.3.5a effective-DB validation harness `cli/validate-335.lua`, preservation allow-list, negative fixtures, proposed CI workflow (needs a maintainer to add it under .github/workflows) ([NQ-VALIDATION-M0.md](NQ-VALIDATION-M0.md)). Draft PR stacked on #7, unmerged.
+- [ ] Agree the cache revision safeguard with the lead developer (proposal in the M0 doc §6).
+- [ ] M1 — effective-record JSON export and rule-catalogue fixtures.
+- [ ] M2–M5 as per the design document.
+- [x] M0 combined with PR #8 on `feat/nq-validation-m0-pr8-integration-2026-10-14`: 19 level corrections + 1203 + 2001, compiled round trip, 4 negative fixtures (NQ-VALIDATION-M0.md §9).
+- [x] Revision safeguard layer 1 (CI-only bump check) on `feat/nq-revision-bump-guard-2026-10-14`; layer 2 fingerprint deferred.

@@ -31,3 +31,9 @@ releases/
 #Log files
 *.log
 *.bak
+
+# N-Questie: private server exports and generated full-data reports (never commit)
+private/
+*.validation.json
+*.validation.csv
+validation-report*
