@@ -1,5 +1,17 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — First known existing-quest mismatch and offline audit PR #5
+
+**Maintainer report:** Jarl Needs a Blade displays incorrect quest information in the customised AzerothCore / Individual Progression environment; remaining differences should be discovered through systematic comparison.
+
+**Verified public-source fact:** Quest 1203 (Jarl Needs a Blade, Dustwallow Marsh) has `requiredLevel = 30` and `questLevel = 35` in the inherited WotLK Questie Lua data. Direct examination of the stock Classic/TBC/WotLK numeric level correction tables found no entry for quest 1203. **The private current-world quest 1203 fields were not available to inspect in this chat**, so no replacement level has been asserted.
+
+**Change:** Created [draft PR #5](https://github.com/CosmicCuddle/N-Questie/pull/5), stacked on PR #3. Added `tools/audit_world_quest_levels.py`, synthetic private-format tests and a dedicated import/QA guide. It scans an *offline* HeidiSQL ZIP/SQL export, compares `MinLevel` and `QuestLevel` against base Questie plus literal corrections and produces a **private review report outside the repository**. Can include quest 1203 explicitly or audit all quest IDs. Zero live database/character/addon mutations.
+
+**Tests:** Scoped workflow [38551948617](https://github.com/CosmicCuddle/N-Questie/actions/runs/38551948617) passed synthetic audit fixtures and all existing overlay/generator checks on the earlier PR #5 commit. A further test was added against the real public Questie source file; its latest CI requires confirmation. **No private full-database comparison completed yet.**
+
+**Limit:** Static corrections differ from runtime/individual-progression state. Field-level changes will require separate source verification, review, tests and game confirmation. No merge, release, Addon Collection edit or database upload authorized.
+
 ## 14 October 2026 — Existing-quest correction scope formally added
 
 **Request:** Repair existing WotLK quest entries modified by the Naxxramas server and progression modules, including incorrect quest levels, colours, objectives and availability; not just missing custom quests.

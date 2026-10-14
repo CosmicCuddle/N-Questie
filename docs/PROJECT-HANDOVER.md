@@ -9,6 +9,14 @@
 **Client:** World of Warcraft 3.3.5a (`## Interface: 30300`)  
 **Inherited addon identity:** `Questie-335.toc`, display title `Questie-335`, upstream version `9.5.1`  
 
+## Existing-quest mismatch audit — draft PR #5 (14 October 2026)
+
+**First reported correction:** Quest 1203 **Jarl Needs a Blade**. Public Questie WotLK generated record: required level 30, nominal quest level 35. No direct literal numeric `requiredLevel` or `questLevel` correction for ID 1203 was found in the checked Classic/TBC/WotLK quest fix modules. This is **not** proof of the user's server values: the original private world ZIP from the earlier conversation is not currently accessible here.
+
+**New workflow:** [Draft PR #5](https://github.com/CosmicCuddle/N-Questie/pull/5), stacked on PR #3, adds `tools/audit_world_quest_levels.py` and `docs/EXISTING-QUEST-LEVEL-AUDIT.md` for a streaming, read-only comparison between selected/all world quest-level fields and static Questie WotLK level records plus literal correction layers. It refuses publishing its private report into the GitHub checkout and never connects to the world server. Synthetic tests initially passed [scoped run 38551948617](https://github.com/CosmicCuddle/N-Questie/actions/runs/38551948617); a newer source-baseline test still needs CI confirmation.
+
+**Next user action:** Request re-upload of the **private acore_world.zip** in chat (not GitHub). Analyze quest 1203 and all mismatches offline; do not invent level replacements. Flag changes arising from IP/module conditions separately from numeric database differences. Only create explicit field-level corrections after review. All PRs remain unmerged; installed addon/SavedVariables/character state remain untouched.
+
 ## Existing-quest correction scope — 14 October 2026
 
 The maintainer confirmed that **incorrect inherited WotLK quest information must be repaired too**, especially outdated quest levels and red/green difficulty colours on the Naxxramas AzerothCore server with Individual Progression. This is now explicitly tracked in `docs/ROADMAP.md` as **Phase 2A — Corrections for existing WotLK quests**.
