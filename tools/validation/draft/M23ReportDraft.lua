@@ -3,13 +3,13 @@
 -- files, never runs M1 and never writes anything. It checks
 --   * the selection protocol (PreflightSplit, PlanSelection) on synthetic
 --     ID sets, so the batch-rejection and status rules are executable;
---   * the private report, rejection diagnostic and aggregate formats.
+--   * the private report, the aggregate, the bundle and the fixed stderr codes.
 -- Rules: docs/NQ-VALIDATION-M2.3-DESIGN.md. Lua 5.1.
 local M = { DRAFT = true }
 
 -- Report export statuses (successful report only).
 M.EXPORT_STATUS = { ABSENT_FROM_EFFECTIVE_DB = true, UNSUPPORTED_BY_SCHEMA_VERSION = true, EXPORTED = true }
--- Batch rejection codes: appear only in the private rejection diagnostic,
+-- Batch rejection codes: appear only as fixed stderr lines (nq-m2-3: CODE),
 -- never in a report. REJECTED_MALFORMED_INPUT is batch-level only.
 M.REJECTION = { REJECTED_MALFORMED_INPUT = true, REJECTED_DUPLICATE_ID = true, REJECTED_PAIRING = true,
     REJECTED_MEMBERSHIP = true, REJECTED_SELECTION_MISMATCH = true, REJECTED_MANIFEST_INCOMPLETE = true,
