@@ -189,6 +189,11 @@ function M.OutcomeAllowed(row)
     return false
 end
 
+-- Closed key sets: extra fields are rejected (no free text, no private extras).
+local REPORT_KEYS = { schema = 1, schemaVersion = 1, private = 1, selected = 1, rows = 1 }
+local ROW_KEYS = { questId = 1, exportStatus = 1, m1Supported = 1, m1Classes = 1, representationDiff = 1,
+    evidence = 1, outcome = 1, reasons = 1 }
+
 function M.ValidateReport(doc, opts)
     guard(opts)
     local errs = {}
@@ -196,6 +201,7 @@ function M.ValidateReport(doc, opts)
     if type(doc) ~= "table" then return false, { "report: table required" } end
     if doc.schema ~= "nq-m2-3-report" or doc.schemaVersion ~= 1 then err("schema/schemaVersion") end
     if doc.private ~= true then err("private: must be true") end
+    for k in pairs(doc) do if not REPORT_KEYS[k] then err("report: field not allowed: " .. tostring(k)) end end
     local okSel, se = M.CheckIdList(doc.selected, "selected")
     if not okSel then for _, x in ipairs(se) do err(x) end end
     if type(doc.rows) ~= "table" then err("rows required"); return false, errs end
@@ -203,6 +209,8 @@ function M.ValidateReport(doc, opts)
     for _, id in ipairs(type(doc.selected) == "table" and doc.selected or {}) do sel[id] = true end
     for i, r in ipairs(doc.rows) do
         local w = "rows[" .. i .. "]"
+        if type(r) ~= "table" then err(w .. ": table required"); r = {} end
+        for k in pairs(r) do if not ROW_KEYS[k] then err(w .. ": field not allowed: " .. tostring(k)) end end
         if not (isId(r.questId) and sel[r.questId]) then err(w .. ".questId: not a selected ID") end
         if seen[r.questId] then err(w .. ": quest " .. tostring(r.questId) .. " appears twice") end
         seen[r.questId] = true
@@ -260,24 +268,97 @@ end
 
 -- Atomic publication (design section 7a): report and aggregate travel as ONE
 -- bundle file, published by a single no-clobber install. `fs` is an injected
--- set of primitives so failure and crash points can be simulated in tests;
--- the production engine would pass SafeWrite (temp file + fsync + link(2)).
--- fs = { writeTemp(content) -> tmp|nil, fsync(tmp) -> ok, link(tmp, final) -> ok, unlink(tmp) -> ok, exists(final) -> bool }
+-- set of primitives so failure and crash points can be simulated in tests.
+--
+-- Guarantee, stated precisely:
+--   * implemented and tested: atomic VISIBILITY (a reader sees no file or the
+--     complete file, never a partial one) and NO-CLOBBER (link(2) fails if the
+--     final name exists). The shared tools/validation/SafeWrite.lua provides
+--     both today (temp file, close, read-back, `ln` without -f).
+--   * NOT guaranteed and NOT implemented: power-loss DURABILITY. SafeWrite
+--     calls no fsync(2) on the file or the directory, so after a power cut
+--     the final name may be missing or point at an incomplete file. This is
+--     an open item that needs a future, separately approved implementation.
+-- fs = { writeTemp(content) -> tmp|nil, closeTemp(tmp) -> ok, link(tmp, final) -> ok,
+--        unlink(tmp) -> ok, exists(final) -> bool }
+-- closeTemp is the close/read-back step only; it does not imply durability.
+
+-- Deterministic canonical text of a value (sorted keys), used for the digest.
+local function canon(v)
+    local t = type(v)
+    if t == "table" then
+        local keys = {}
+        for k in pairs(v) do keys[#keys + 1] = k end
+        table.sort(keys, function(x, y)
+            if type(x) == type(y) then return x < y end
+            return type(x) < type(y)
+        end)
+        local parts = {}
+        for _, k in ipairs(keys) do parts[#parts + 1] = canon(k) .. "=" .. canon(v[k]) end
+        return "{" .. table.concat(parts, ",") .. "}"
+    elseif t == "string" then return string.format("%q", v)
+    else return tostring(v) end
+end
+-- Tamper digest: two independent 31-bit polynomial hashes over the canonical
+-- text (pure Lua 5.1, no bit library). It detects any change made after
+-- BuildBundle; it is NOT cryptographic and is never written to stderr.
+local function digest(report, aggregate)
+    local s = canon({ report = report, aggregate = aggregate })
+    local h1, h2, m = 7, 11, 2147483647
+    for i = 1, #s do
+        local c = s:byte(i)
+        h1 = (h1 * 31 + c) % m
+        h2 = (h2 * 131 + c + i) % m
+    end
+    return string.format("d1:%d:%d:%d", #s, h1, h2)
+end
+M.Digest = digest
+
+local BUNDLE_KEYS = { schema = 1, schemaVersion = 1, private = 1, report = 1, aggregate = 1, digest = 1 }
+
 function M.BuildBundle(report, aggregate, opts)
     guard(opts)
     local ok1, e1 = M.ValidateReport(report, opts)
     if not ok1 then return nil, e1 end
     local ok2, e2 = M.ValidateAggregate(aggregate, report, opts)
     if not ok2 then return nil, e2 end
-    return { schema = "nq-m2-3-bundle", schemaVersion = 1, private = true, report = report, aggregate = aggregate }
+    return { schema = "nq-m2-3-bundle", schemaVersion = 1, private = true, report = report, aggregate = aggregate,
+        digest = digest(report, aggregate) }
 end
+
+-- Full revalidation of a bundle: outer schema, closed keys, both inner parts
+-- (schemas, closed codes, m1Supported rule, reconciliation per status,
+-- outcome and reason) and the digest recorded at BuildBundle.
+function M.ValidateBundle(bundle, opts)
+    guard(opts)
+    if type(bundle) ~= "table" then return false, { "bundle: table required" } end
+    local errs = {}
+    for k in pairs(bundle) do if not BUNDLE_KEYS[k] then errs[#errs + 1] = "bundle: field not allowed: " .. tostring(k) end end
+    if bundle.schema ~= "nq-m2-3-bundle" or bundle.schemaVersion ~= 1 then errs[#errs + 1] = "bundle schema" end
+    if bundle.private ~= true then errs[#errs + 1] = "bundle: private must be true" end
+    if bundle.report == nil or bundle.aggregate == nil then
+        errs[#errs + 1] = "bundle: report and aggregate both required"
+        return false, errs
+    end
+    local ok1, e1 = M.ValidateReport(bundle.report, opts)
+    if not ok1 then for _, x in ipairs(e1) do errs[#errs + 1] = x end end
+    local ok2, e2 = M.ValidateAggregate(bundle.aggregate, bundle.report, opts)
+    if not ok2 then for _, x in ipairs(e2) do errs[#errs + 1] = x end end
+    if type(bundle.digest) ~= "string" or bundle.digest ~= digest(bundle.report, bundle.aggregate) then
+        errs[#errs + 1] = "bundle: digest mismatch (modified after BuildBundle)"
+    end
+    return #errs == 0, errs
+end
+
+-- Fail closed: nothing is written unless the whole bundle revalidates.
 function M.PublishBundle(bundle, finalPath, fs, serialise, opts)
     guard(opts)
-    if type(bundle) ~= "table" or bundle.schema ~= "nq-m2-3-bundle" then return false, "REJECTED_UNSAFE_OUTPUT" end
+    local okv = M.ValidateBundle(bundle, opts)
+    if not okv then return false, "REJECTED_UNSAFE_OUTPUT" end
     if fs.exists(finalPath) then return false, "REJECTED_UNSAFE_OUTPUT" end
     local tmp = fs.writeTemp(serialise(bundle))
     if not tmp then return false, "REJECTED_UNSAFE_OUTPUT" end
-    if not fs.fsync(tmp) then fs.unlink(tmp); return false, "REJECTED_UNSAFE_OUTPUT" end
+    if not fs.closeTemp(tmp) then fs.unlink(tmp); return false, "REJECTED_UNSAFE_OUTPUT" end
     if not fs.link(tmp, finalPath) then fs.unlink(tmp); return false, "REJECTED_UNSAFE_OUTPUT" end
     fs.unlink(tmp) -- a failure here leaves a stray temp beside a complete final file
     return true

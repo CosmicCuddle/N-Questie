@@ -216,3 +216,16 @@ The maintainer installed the temporary N-Questie QA addon and reported **five ex
 - **Tests:** Automated and in-game outcomes, stating **not run** where appropriate.
 - **Rollback:** Addon/SavedVariables backup and commit revert steps.
 - **Next:** Highest-priority unresolved item.
+
+## 14 Oct 2026, night: M2.3 publication corrections (round 4)
+
+- Correction: earlier notes and my round-3 report said the bundle is published
+  with "temp + fsync + link". That was wrong. tools/validation/SafeWrite.lua
+  has no fsync(2): it closes, reads back and hard-links. The documented
+  guarantee is now atomic visibility and no-clobber only; power-loss
+  durability is not provided and is an open item needing a future approved
+  implementation. The draft's simulated `fsync` step is renamed `closeTemp`.
+- PublishBundle now fails closed: ValidateBundle revalidates the outer and
+  inner schemas, closed keys, codes, the m1Supported rule and reconciliation,
+  and recomputes a tamper digest recorded by BuildBundle. 17 tamper cases,
+  nothing written on rejection. Contract draft: 185 checks.

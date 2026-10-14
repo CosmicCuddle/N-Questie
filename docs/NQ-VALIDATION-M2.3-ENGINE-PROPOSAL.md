@@ -21,7 +21,8 @@ The frozen M2.1 server record carries `hasConditions`, `ipGated`, `scriptedCredi
 | # | Contract | Draft evidence |
 |---|---|---|
 | A | CONFIRMED_MATCH / CONFIRMED_MISMATCH (and every outcome except M1_UNSUPPORTED_BY_RULES) need `m1Supported == true` exactly; M1_UNSUPPORTED_BY_RULES needs `false` and no findings; any other value makes the row invalid | negative tests for nil, false, "unknown", "true", 1, table, for both CONFIRMED outcomes |
-| B | report and aggregate are published as one bundle file in one no-clobber install; no rejection or partial file ever | simulated failure at each boundary and crash before/after link |
+| B | report and aggregate are published as one bundle file in one no-clobber install; no rejection or partial file ever; `PublishBundle` revalidates the whole bundle (outer and inner schemas, closed keys and codes, `m1Supported` rule, reconciliation) and the `BuildBundle` digest before any write | simulated failure at each boundary and crash before/after link; 17 tamper cases on built or hand-made bundles, each rejected with nothing written |
+| B2 | guarantee is atomic visibility plus no-clobber only. Power-loss durability is **not** provided: existing SafeWrite has no `fsync(2)`. Durability is an open item for a future approved implementation (file fsync, directory sync where supported, crash-durability tests) | documented; `closeTemp` test step models a failed close only |
 | C | a v1 batch whose preflight request is empty is rejected with `REJECTED_V1_SELECTION_EMPTY_AFTER_PREFLIGHT`; such selections need a full v2 export; v1 unchanged | matrix S18 (unsupported-only), S19 (absent-only), S20 (same selection with v2) |
 | D | rejection output is only `nq-m2-3: <CODE>` lines on stderr with codes from a closed list; no paths, IDs, records or fingerprints | every code accepted; IDs, paths, sha256, hex runs, unknown codes, extra lines rejected |
 
@@ -39,9 +40,9 @@ No workflow file edits; tests are wired through `run_m2_suite.sh` and the busted
 
 ## 4. Steps
 
-1. Promote the draft validators, selection protocol, stderr contract and bundle publication (no behaviour change; existing 165 checks kept).
+1. Promote the draft validators, selection protocol, stderr contract and bundle publication (no behaviour change; existing 185 checks kept).
 2. Engine core: validation order (§2 of the design), pairing, preflight split, membership, per-quest M1 call, outcome assignment with `OutcomeAllowed` as an internal assertion.
-3. Output: deep-compare inputs before and after; build report and aggregate; `BuildBundle` (both validated and reconciled); `PublishBundle` through SafeWrite (temp + fsync + `link(2)` no-clobber). Two separate file writes are never used.
+3. Output: deep-compare inputs before and after; build report and aggregate; `BuildBundle` (both validated and reconciled); `PublishBundle` (full revalidation and digest check first, fail closed) through SafeWrite (temp file + close + read-back + `link(2)`: atomic visibility and no-clobber; no fsync, so no power-loss durability). Two separate file writes are never used.
 4. CLI and its tests.
 5. First private pilot (lead only): quest 1203 alone, after the lead's genuine Lua 5.1 validation of the real file. Only a pass/fail line and counts are shared.
 
@@ -56,6 +57,7 @@ No workflow file edits; tests are wired through `run_m2_suite.sh` and the busted
 | 1203 synthetic | v1 effective vs synthetic server 1203 → EXPORTED / EXPECTED_REPRESENTATION_DIFF, never CONFIRMED |
 | Unknown evidence | any unknown item → never CONFIRMED_* |
 | Full-ID coverage | synthetic server file listing all 9,159 IDs with public-derived values against a v2 test export → exactly one row each; 758 rows `m1Supported = false` |
+| Durability | not claimed; any future fsync work is a separate approved change with its own tests |
 | CI | all six workflows green on the exact head SHA; real data never in CI |
 
 ## 6. Stopped / no-go list
@@ -66,6 +68,7 @@ No workflow file edits; tests are wired through `run_m2_suite.sh` and the busted
 
 ## 7. Approval gates
 
+0. Gate on the round 4 corrections (no durability claim; fail-closed `PublishBundle`) being reviewed by the lead.
 1. Maintainer approves this proposal.
 2. Draft PR reviewed on its exact head with six green workflows.
 3. Separate approval for the first private 1203 run (lead's machine only).
