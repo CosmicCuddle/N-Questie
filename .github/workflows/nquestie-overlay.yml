@@ -23,6 +23,7 @@ jobs:
           luac5.1 -p Compat/NQuestieCustomQuestLoader.lua
           luac5.1 -p Compat/NQuestieExistingQuestCorrections.lua
           luac5.1 -p Compat/NQuestieReviewedQuestLevelCorrections.lua
+          luac5.1 -p Compat/NQuestieReviewedEarlyQuestLevels.lua
           luac5.1 -p Modules/QuestieInit.lua
       - name: Run custom-quest overlay regression
         run: lua5.1 tests/test_nquestie_overlay.lua
