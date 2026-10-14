@@ -1,5 +1,15 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Combined correction and validation branch PR #16
+
+Created a **separate testing-only** branch `integration/nquestie-28quest-full-ci-2026-10-14` on top of source-reviewed correction draft #13. Copied M0 Lua 5.1 validator and synthetic fixtures from Grok's draft #11, M0 workflow (#10), Grok's independent revision guard (#12/#14), and the independent inherited Busted fixture repair (#4). None of the original heads was edited or merged.
+
+Expanded strict M0 `LEVEL_CORRECTIONS` and per-field allow-list with the nine Duskwood/Wetlands IDs (225,227,228,229,231,473,464,465,474). Enforced `NQ_VALIDATE_EXPECT_LEVEL_COUNT=28` in the review-only workflow. Added a fifth negative fault: quest 225 minimum level deliberately changed from reviewed 28 to 29; harness must refuse it.
+
+[Run 38571850030](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850030) **M0 PASS:** 28 staged level corrections, 230 assertions, 82,431 compiled quest field values with zero mismatches, and five negative tests rejected as expected. Twenty-two inherited runtime overrides do not shadow the corrected IDs. The independently copied guard lost its executable permission, so its self-test script was made mode-independent by explicitly invoking `bash "$SCRIPT"`. [Revision CI 38571850279](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850279) then **passed** seven self-tests. Busted and LuaCheck passed on the integrated inherited CI run, with other validation jobs still subject to final confirmation.
+
+The new [integration handover](INTEGRATION-28-QUEST-VALIDATION-2026-10-14.md) records source ownership, test provenance, outstanding PR #2/#3 doc ancestry, backup/manual QA requirements, and no merge/release permission. Private world SQL and full comparison remain outside public GitHub.
+
 ## 14 October 2026 — Revision guard CI enablement and Hillsbrad quest analysis
 
 - Reviewed Grok's independently owned draft PR #12 CI-only correction revision guard: `cli/check-revision-bump.sh`, seven synthetic regression cases and proposed workflow. No runtime revision changes.

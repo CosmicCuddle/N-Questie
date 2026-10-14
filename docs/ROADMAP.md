@@ -1,5 +1,17 @@
 # N-Questie — Development Roadmap
 
+## Combined 28-quest test milestone — 14 October 2026
+
+- [x] Create [draft PR #16](https://github.com/CosmicCuddle/N-Questie/pull/16), new testing-only branch from #13 integrating M0, the CI revision guard and the inherited test fixture repair without touching existing PR branches.
+- [x] Extend strict M0 allow-list and pre/post/compiled-readback assertions to **all 28** reviewed quest level corrections; maintain exact per-field permissions.
+- [x] [GitHub M0 validation 38571850030 PASS](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850030): 230 checks, 82,431 compiled fields, zero mismatches; five negative fixtures rejected, including a bad quest 225 minimum.
+- [x] [GitHub revision guard 38571850279 PASS](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850279) after making test invocation independent of copied executable-file bits.
+- [x] Verify the same PR #16 source head had **all four GitHub checks green**: [M0 38573190612](https://github.com/CosmicCuddle/N-Questie/actions/runs/38573190612), [revision 38573190572](https://github.com/CosmicCuddle/N-Questie/actions/runs/38573190572), [overlay 38573190614](https://github.com/CosmicCuddle/N-Questie/actions/runs/38573190614), [full inherited CI 38573190617](https://github.com/CosmicCuddle/N-Questie/actions/runs/38573190617). Newer documentation commits require rerun as usual; green CI is not permission to merge.
+- [ ] Resolve PR #2/#3 nine-document-commit ancestry gap with a coordinated, separately approved plan; keep quest 2001 QA evidence.
+- [ ] Do not merge or release until maintainer authorises the order, backups and game-client tests for markers, prerequisites, cache persistence, IP stage and locale.
+
+**Full integration handover:** [INTEGRATION-28-QUEST-VALIDATION-2026-10-14.md](INTEGRATION-28-QUEST-VALIDATION-2026-10-14.md).
+
 ## Next integration gates — 14 October 2026
 
 - [x] Activate Grok's reviewed CI-only cache revision-bump guard via separate draft [PR #14](https://github.com/CosmicCuddle/N-Questie/pull/14) without editing Grok's PR #12; first [revision guard CI 38569424455 PASS](https://github.com/CosmicCuddle/N-Questie/actions/runs/38569424455).
