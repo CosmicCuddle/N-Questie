@@ -103,7 +103,7 @@ Goal: compare one private server file (`nq-m2-input` v1) with one effective Ques
 1. Validate the three inputs independently. Any failure rejects the **whole batch**: no report and no partial output.
 2. Check pairing between the effective export and the manifest. Any difference rejects the batch.
 3. Membership consistency: every effective-export quest is REPRESENTABLE in the manifest, and no quest is both exported and UNSUPPORTED. Any contradiction rejects the batch.
-4. For each server-selected quest, assign exactly **one export status**: `ABSENT_FROM_EFFECTIVE_DB`, `UNSUPPORTED_BY_SCHEMA_VERSION`, `EXPORTED` or `REJECTED_MALFORMED_INPUT`.
+4. For each server-selected quest, assign exactly **one export status**: `ABSENT_FROM_EFFECTIVE_DB` (not in the full manifest), `UNSUPPORTED_BY_SCHEMA_VERSION` or `EXPORTED`. A manifest-REPRESENTABLE quest missing from the selected export rejects the batch (selection mismatch). `REJECTED_MALFORMED_INPUT` exists only in the private rejection diagnostic, never in a report.
 5. For `EXPORTED` quests only, assign **at most one comparison outcome**: `M1_UNSUPPORTED_BY_RULES`, `NEEDS_MANUAL_REVIEW`, `EXPECTED_REPRESENTATION_DIFF`, `CONFIRMED_MATCH` or `CONFIRMED_MISMATCH`. Records with v2 `m1Status = UNSUPPORTED_BY_RULES` get `M1_UNSUPPORTED_BY_RULES` and are never passed to M1 for confirmation. Unknown IP, conditions, KillCredit completeness or scripts never confirm.
 6. Inputs are deep-compared before and after; any change aborts with no report.
 7. Write the private report and aggregate only through SafeWrite to private paths. If anything fails, nothing is written.

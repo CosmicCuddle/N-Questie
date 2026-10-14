@@ -159,10 +159,11 @@ Two separate axes per server-selected quest. Nothing is filtered silently: every
 
 | Status | Meaning |
 |---|---|
-| `ABSENT_FROM_EFFECTIVE_DB` | not in the compiled Questie DB (ID set pinned, see the quest ID set doc) |
-| `UNSUPPORTED_BY_SCHEMA_VERSION` | in the DB, but the effective file's schema version cannot represent it; reason codes from the paired coverage manifest |
+| `ABSENT_FROM_EFFECTIVE_DB` | not in the **full** paired coverage manifest (all 9,159 compiled IDs; completeness proven by count and ID-list sha256 pin). Never inferred from a selected export alone. |
+| `UNSUPPORTED_BY_SCHEMA_VERSION` | in the manifest as UNSUPPORTED and the effective file's schema version cannot represent it (v1); reason codes from the manifest |
 | `EXPORTED` | represented in the effective file |
-| `REJECTED_MALFORMED_INPUT` | the server record failed validation (a malformed file stops the whole batch) |
+
+A successful report has only these three statuses. `REJECTED_MALFORMED_INPUT` is **not** a report status: any malformed input rejects the whole batch, and the code appears only in the private rejection diagnostic (batch-level). A manifest-REPRESENTABLE quest that the selected export does not contain is a whole-batch **selection mismatch**, not ABSENT. Final details: `docs/NQ-VALIDATION-M2.3-DESIGN.md` (stacked PR).
 
 **M1 outcome** (only for `EXPORTED`)
 

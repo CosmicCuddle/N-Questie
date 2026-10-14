@@ -1,33 +1,64 @@
--- SYNTHETIC M2.3 negative/positive batch matrix (DRAFT). Each case states the
--- input condition and the required engine result. "reject" means whole-batch
--- rejection: no report, no aggregate, no partial output. Used by the draft
--- test to check the matrix is complete and self-consistent; it is the
--- acceptance list for a future engine.
+-- SYNTHETIC executable M2.3 protocol matrix (DRAFT). Every case with
+-- `run` is executed by tests/test_nquestie_m2_3_report_draft.lua through a
+-- draft validator; `expect` is the required result. Cases marked
+-- designAssertion = true describe engine behaviour that cannot be executed
+-- without an engine (they are counted separately and NOT claimed as tests).
+-- Synthetic manifest: 6 quests, complete. Public IDs are labels only.
+local manifest = { complete = true, expectedCount = 6, quests = {
+    [1203] = { status = "REPRESENTABLE", reasons = {} },
+    [2001] = { status = "REPRESENTABLE", reasons = {} },
+    [498] = { status = "REPRESENTABLE", reasons = {} },
+    [11142] = { status = "UNSUPPORTED", reasons = { "DUPLICATE_OBJECT", "EXTRA_CREATURE_REF" } },
+    [10503] = { status = "UNSUPPORTED", reasons = { "KILLCREDIT_FIRST_REORDER" } },
+    [25199] = { status = "UNSUPPORTED", reasons = { "DUPLICATE_CREATURE" } },
+} }
+local function m(f) local c = { complete = manifest.complete, expectedCount = manifest.expectedCount, quests = {} }
+    for k, v in pairs(manifest.quests) do c.quests[k] = v end; if f then f(c) end; return c end
 return {
-    { id = "B01", input = "server", condition = "server file fails M2.1 validation (any provenance field missing)", result = "reject" },
-    { id = "B02", input = "server", condition = "server provenance carries a git commit", result = "reject" },
-    { id = "B03", input = "effective", condition = "unknown schemaVersion", result = "reject" },
-    { id = "B04", input = "effective", condition = "v2 file fails v2 validation (kill credit not reversed)", result = "reject" },
-    { id = "B05", input = "effective", condition = "sourceDirty true", result = "reject" },
-    { id = "B06", input = "manifest", condition = "manifest aggregate does not reconcile", result = "reject" },
-    { id = "B07", input = "pairing", condition = "manifest commit differs from export commit", result = "reject" },
-    { id = "B08", input = "pairing", condition = "correction fingerprint or modules differ", result = "reject" },
-    { id = "B09", input = "pairing", condition = "harness version differs", result = "reject" },
-    { id = "B10", input = "membership", condition = "exported quest listed UNSUPPORTED in manifest", result = "reject" },
-    { id = "B11", input = "membership", condition = "manifest REPRESENTABLE quest missing from v1 export", result = "reject" },
-    { id = "B12", input = "membership", condition = "export and manifest quest counts differ", result = "reject" },
-    { id = "B13", input = "server", condition = "duplicate quest ID in server file", result = "reject" },
-    { id = "B14", input = "all", condition = "input changed during run (deep compare)", result = "reject" },
-    { id = "B15", input = "output", condition = "output path unsafe or exists", result = "reject" },
-    { id = "Q01", input = "quest", condition = "1203 v1 effective vs server", result = "EXPORTED/EXPECTED_REPRESENTATION_DIFF" },
-    { id = "Q02", input = "quest", condition = "server quest not in effective DB", result = "ABSENT_FROM_EFFECTIVE_DB" },
-    { id = "Q03", input = "quest", condition = "v1 export, quest unsupported (11142 duplicate)", result = "UNSUPPORTED_BY_SCHEMA_VERSION" },
-    { id = "Q04", input = "quest", condition = "v1 export, kill-credit-first quest (10503)", result = "UNSUPPORTED_BY_SCHEMA_VERSION" },
-    { id = "Q05", input = "quest", condition = "v2 export, M1-unsupported (25199 duplicates)", result = "EXPORTED/M1_UNSUPPORTED_BY_RULES" },
-    { id = "Q06", input = "quest", condition = "server record malformed for one quest", result = "REJECTED_MALFORMED_INPUT" },
-    { id = "Q07", input = "quest", condition = "no findings, KillCredit evidence unknown", result = "EXPORTED/NEEDS_MANUAL_REVIEW" },
-    { id = "Q08", input = "quest", condition = "no findings, IP/conditions/scripts unknown", result = "EXPORTED/NEEDS_MANUAL_REVIEW" },
-    { id = "Q09", input = "quest", condition = "no findings, all evidence complete", result = "EXPORTED/CONFIRMED_MATCH" },
-    { id = "Q10", input = "quest", condition = "M1 finding, all evidence complete", result = "EXPORTED/CONFIRMED_MISMATCH" },
-    { id = "Q11", input = "quest", condition = "v2, kill-credit-first order differs from server order", result = "EXPORTED/NEEDS_MANUAL_REVIEW" },
+    manifest = manifest,
+    cases = {
+        -- selection protocol (PlanSelection)
+        { id = "S01", run = "plan", server = { 1203 }, manifest = m(), export = { schemaVersion = 1, ids = { 1203 } },
+          expect = { { 1203, "EXPORTED" } } },
+        { id = "S02", run = "plan", server = { 1203 }, manifest = m(), export = { schemaVersion = 1, ids = { 2001 } },
+          expect = "REJECTED_SELECTION_MISMATCH", note = "1203 representable but selected export holds only 2001: not ABSENT" },
+        { id = "S03", run = "plan", server = { 999999 }, manifest = m(), export = { schemaVersion = 1, ids = {} },
+          expect = { { 999999, "ABSENT_FROM_EFFECTIVE_DB" } }, note = "absent from the complete manifest" },
+        { id = "S04", run = "plan", server = { 999999 }, manifest = m(function(c) c.complete = false end), export = { schemaVersion = 1, ids = {} },
+          expect = "REJECTED_MANIFEST_INCOMPLETE", note = "absence not provable" },
+        { id = "S05", run = "plan", server = { 999999 }, manifest = m(function(c) c.quests[498] = nil end), export = { schemaVersion = 1, ids = {} },
+          expect = "REJECTED_MANIFEST_INCOMPLETE", note = "manifest count below its pinned size" },
+        { id = "S06", run = "plan", server = { 1203, 11142 }, manifest = m(), export = { schemaVersion = 1, ids = { 1203 } },
+          expect = { { 1203, "EXPORTED" }, { 11142, "UNSUPPORTED_BY_SCHEMA_VERSION" } }, note = "mixed selection, preflight split" },
+        { id = "S07", run = "plan", server = { 1203, 11142 }, manifest = m(), export = { schemaVersion = 1, ids = { 1203, 11142 } },
+          expect = "REJECTED_MEMBERSHIP", note = "v1 export claims an unsupported quest" },
+        { id = "S08", run = "plan", server = { 1203 }, manifest = m(), export = { schemaVersion = 1, ids = { 1203, 2001 } },
+          expect = "REJECTED_SELECTION_MISMATCH", note = "export holds more than the preflight request" },
+        { id = "S09", run = "plan", server = { 1203, 1203 }, manifest = m(), export = { schemaVersion = 1, ids = { 1203 } },
+          expect = "REJECTED_DUPLICATE_ID" },
+        { id = "S10", run = "plan", server = { 1203, 0 }, manifest = m(), export = { schemaVersion = 1, ids = { 1203 } },
+          expect = "REJECTED_DUPLICATE_ID", note = "invalid ID" },
+        { id = "S11", run = "plan", server = { 1203 }, manifest = m(), export = { schemaVersion = 1, ids = { 1203, 1203 } },
+          expect = "REJECTED_DUPLICATE_ID", note = "duplicate in export" },
+        { id = "S12", run = "plan", server = { 1203 }, manifest = m(), export = { schemaVersion = 3, ids = { 1203 } },
+          expect = "REJECTED_MALFORMED_INPUT", note = "unknown export version" },
+        { id = "S13", run = "plan", server = { 1203 }, manifest = m(), export = { schemaVersion = 1, ids = { 777 } },
+          expect = "REJECTED_MEMBERSHIP", note = "exported quest not in manifest" },
+        { id = "S14", run = "plan", server = { 11142, 25199 }, manifest = m(),
+          export = { schemaVersion = 2, ids = { 1203, 2001, 498, 11142, 10503, 25199 } },
+          expect = { { 11142, "EXPORTED" }, { 25199, "EXPORTED" } }, note = "v2 holds unsupported quests (m1Supported false)" },
+        { id = "S15", run = "plan", server = { 11142 }, manifest = m(), export = { schemaVersion = 2, ids = { 11142 } },
+          expect = "REJECTED_SELECTION_MISMATCH", note = "v2 export must be complete" },
+        { id = "S16", run = "plan", server = { 1203 }, manifest = m(function(c) c.quests[11142] = { status = "UNSUPPORTED", reasons = { "quest-11142-private-label" } } end),
+          export = { schemaVersion = 1, ids = { 1203 } }, expect = "REJECTED_MALFORMED_INPUT", note = "manifest reason outside vocabulary" },
+        { id = "S17", run = "plan", server = { [1] = 1203, [3] = 2001 }, manifest = m(), export = { schemaVersion = 1, ids = { 1203 } },
+          expect = "REJECTED_DUPLICATE_ID", note = "sparse server selection" },
+        -- preflight split (mixed selection protocol)
+        { id = "P01", run = "split", server = { 11142, 1203, 999999, 2001, 10503 }, manifest = m(),
+          expect = { v1Request = { 1203, 2001 }, unsupported = { 10503, 11142 }, absent = { 999999 } } },
+        -- engine-only behaviour, not executable here
+        { id = "D01", designAssertion = true, condition = "an input changes during the run (deep compare)", expect = "REJECTED_INPUT_CHANGED" },
+        { id = "D02", designAssertion = true, condition = "output path unsafe or already exists", expect = "REJECTED_UNSAFE_OUTPUT" },
+        { id = "D03", designAssertion = true, condition = "M1 results inside M2.3 equal direct M1 calls", expect = "equal" },
+    },
 }
