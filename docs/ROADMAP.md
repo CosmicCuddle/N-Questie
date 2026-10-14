@@ -1,5 +1,16 @@
 # N-Questie — Development Roadmap
 
+## Latest multi-developer milestone — 14 October 2026
+
+- [x] Stage **nine** source-verified Duskwood Mor'Ladim / Wetlands Nek'rosh chain level corrections in [draft PR #13](https://github.com/CosmicCuddle/N-Questie/pull/13), stacked on #8; objective, chain, starter/ender and GO metadata unchanged. See [Classic chain audit](CLASSIC-CHAIN-LEVEL-AUDIT.md).
+- [x] Run current PR #13 scoped Lua 5.1 / original-Questie level baseline regressions: [38567305494 PASS](https://github.com/CosmicCuddle/N-Questie/actions/runs/38567305494).
+- [x] Record Grok-owned draft #11 (integrated M0 covering **19** level corrections) and draft #12 (CI-only revision guard); keep Grok branch ownership intact.
+- [ ] Expand M0 to the **28** level corrections across #7/#8/#13 in a separately coordinated draft integration PR. Do **not** disable strict unchanged-field checks.
+- [ ] Resolve independent inherited fixture repair #4 and the #2→#3 docs ancestry conflict, then validate combined GitHub CI.
+- [ ] Back up original installed Questie and SavedVariables before any approved in-game QA. No merges/releases until authorised.
+
+**Current cross-developer status:** [COLLABORATION-INTEGRATION-STATUS.md](COLLABORATION-INTEGRATION-STATUS.md). Raw private world data and full mismatch workbook remain outside public GitHub.
+
 ## Immediate status — 14 October 2026 (PR #8 / external M0)
 
 - [x] Curate 11 early-zone existing-quest level fixes into [draft PR #8](https://github.com/CosmicCuddle/N-Questie/pull/8), stacked on PR #7, with Lua 5.1 and public database-source guards.
