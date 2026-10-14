@@ -140,6 +140,8 @@ def main(argv=None):
     parser.add_argument("--approved-quest", type=int, action="append", required=True)
     parser.add_argument("--verified-npc", type=int, action="append", required=True,
                         help="NPC with independently verified Questie map positions")
+    parser.add_argument("--approve-removal-quest", type=int, action="append", default=[],
+                        help="Explicitly approve removal of an existing generated quest ID")
     parser.add_argument("--revision", type=int, required=True, help="Increment when curated records change")
     parser.add_argument("--output", type=Path, required=True, help="Generated Lua destination")
     parser.add_argument("--overwrite", action="store_true",
@@ -158,9 +160,24 @@ def main(argv=None):
         current = re.search(r"(?m)^    revision = ([0-9]+),$", existing)
         if not current or args.revision <= int(current.group(1)):
             parser.error("New revision must be higher than existing generated revision")
+        # A partial import must never silently remove existing curated quests.
+        existing_ids = [int(id_text) for id_text in re.findall(
+            r"(?m)^        \\[([0-9]+)\\] = \\{$", existing
+        )]
+        if not existing_ids or len(existing_ids) != len(set(existing_ids)):
+            parser.error("Cannot safely identify existing generated quest IDs")
     with args.review.open(encoding="utf-8") as source:
         document = json.load(source)
     content = generate(document, args.approved_quest, args.verified_npc, args.revision)
+    requested = {record["id"] for record in document["quests"]}
+    removals = set(args.approve_removal_quest)
+    if args.output.exists():
+        missing = set(existing_ids) - requested
+        if missing != removals:
+            parser.error("Quest removals must be explicitly and exactly approved: "
+                         + ", ".join(str(qid) for qid in sorted(missing)))
+    elif removals:
+        parser.error("Removal approval supplied without an existing generated file")
     args.output.write_text(content, encoding="utf-8")
     print("Generated curated Lua records for", len(document["quests"]), "approved quests.")
     print("Review the diff before any public commit; never commit the private JSON.")
