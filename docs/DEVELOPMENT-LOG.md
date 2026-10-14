@@ -1,5 +1,15 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Importer deletion protection and isolated CI repair
+
+**Latest verified gameplay (from draft PR #2):** Maintainer screenshots confirmed quest 2001 available at Shadow Priest Allister; Ravenclaw Servant/Champion kill-objective tooltips; completed turn-in state; and maintainer directly confirmed the quest marker disappears after normal hand-in. First custom quest visual-marker lifecycle **PASS**; exact active-spawn accuracy and individual kill-progress increments were not separately proven.
+
+**PR #3 development:** The reviewed JSON-to-Lua generator now rejects overwriting an existing generated file if previously curated quest IDs would disappear, unless *each* removal is explicitly named using `--approve-removal-quest`. It also requires a higher data revision, refuses unrelated Lua outputs, and verifies exact approved quest/NPC ID sets. A synthetic test exercises partial-update refusal, wrong approval refusal and intentional removal. **Latest edited PR #3 code requires new CI verification.** The successful earlier [dedicated N-Questie run 38547219011](https://github.com/CosmicCuddle/N-Questie/actions/runs/38547219011) predates this safety follow-up.
+
+**Independent CI repair PR #4:** [Full inherited CI run 38549456997](https://github.com/CosmicCuddle/N-Questie/actions/runs/38549456997) **PASS**: LuaCheck, Busted unit tests, Era/SoD/WotLK database validators; publication skipped appropriately. That success belongs to [draft PR #4](https://github.com/CosmicCuddle/N-Questie/pull/4) based on `335` and does not prove combined PR #2/#3/#4 CI.
+
+**Safety/next:** Continue offline import validation and investigate safe source-verified second quest; do not publish original `acore_world.zip` or private JSON. Keep all PRs draft/unmerged, preserve installed addon and SavedVariables, and do not update N-Addon-Collection or release without approval.
+
 ## 14 October 2026 — Reviewed quest JSON-to-Lua generator (draft PR #3)
 
 **Reason:** Reduce repetitive manual Lua editing when adding curated custom Naxxramas quests, without exposing the private acore_world export or guessing NPC spawn coordinates.
