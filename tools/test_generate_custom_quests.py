@@ -100,6 +100,37 @@ class GeneratorTests(unittest.TestCase):
                                             approved=[2002, 2001],
                                             verified=[1869, 2121, 1868]))
 
+    def test_cli_requires_explicit_removal_approval(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            review = directory / "private.json"
+            output = directory / "curated.lua"
+            full = reviewed(quest(), quest(2002))
+            review.write_text(json.dumps(full), encoding="utf-8")
+            args = ["--review", str(review), "--approved-quest", "2001",
+                    "--approved-quest", "2002", "--verified-npc", "2121",
+                    "--verified-npc", "1868", "--verified-npc", "1869",
+                    "--revision", "2", "--output", str(output)]
+            generator.main(args)
+            initial = output.read_text(encoding="utf-8")
+            # Simulates a mistaken partial export containing only the new/current quest.
+            review.write_text(json.dumps(reviewed(quest())), encoding="utf-8")
+            partial_args = [argument for argument in args]
+            partial_args.remove("2002")
+            partial_args[partial_args.index("--revision") + 1] = "3"
+            with self.assertRaises(SystemExit):
+                generator.main(partial_args + ["--overwrite"])
+            self.assertEqual(initial, output.read_text(encoding="utf-8"))
+            # Incorrect approvals are rejected too.
+            with self.assertRaises(SystemExit):
+                generator.main(partial_args + ["--overwrite", "--approve-removal-quest", "2003"])
+            self.assertEqual(initial, output.read_text(encoding="utf-8"))
+            generator.main(partial_args + ["--overwrite", "--approve-removal-quest", "2002"])
+            final = output.read_text(encoding="utf-8")
+            self.assertIn("[2001] = {", final)
+            self.assertNotIn("[2002] = {", final)
+            self.assertIn("revision = 3", final)
+
     def test_cli_never_overwrites_existing_file_by_default(self):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
