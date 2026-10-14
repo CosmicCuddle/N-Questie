@@ -55,3 +55,11 @@
 ## Out of scope until specifically requested
 
 No auto-complete quests, server quest edits, account/character DB edits, progress unlock commands, live SQL sync from WoW, automatic client-server API, or silent mass replacement of vanilla quest icons.
+
+## Active follow-up — 14 October 2026
+
+- [ ] Verify Step 2 in game: quest 2001 starter, kill NPC markers 1868/1869 and NPC 2121 turn-in; preserve normal icon behavior. An eligible quest 437-complete Horde character is required; otherwise pick a genuinely available alternative.
+- [ ] Review and test [stacked draft PR #3](https://github.com/CosmicCuddle/N-Questie/pull/3): offline reviewed-JSON → curated Lua generation with explicit quest/NPC approval. **Code proposed, not merged or released; CI result pending inspection.**
+- [ ] Keep NPC spawn accuracy and special objective/GO handling as separate source-verified milestones; do not interpret syntactically valid Lua as working pins.
+- [ ] Investigate inherited Busted suite initialization independently of successful scoped overlay tests.
+
