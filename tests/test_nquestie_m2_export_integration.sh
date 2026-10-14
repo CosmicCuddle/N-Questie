@@ -38,12 +38,12 @@ out=$(NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 NQ_EXPORT_FORCE=1 NQ_EXPORT_EFFECTIVE_OU
 if [ $code -eq 0 ] && grep -q "questCount = 1," "$T/eff.lua"; then ok "NQ_EXPORT_FORCE=1 replaces the export"; else bad "force replace (code $code)"; fi
 
 # 4. Selection from a validated nq-m2-input file
-"$LUA" -e '
+NQ_SEL_OUT="$T/sel.lua" "$LUA" -e '
 local X = dofile("tools/validation/EffectiveExport.lua")
 local I = dofile("tools/validation/InputSchema.lua")
 local d = assert(I.ParseString(io.open("tests/fixtures/m2_input/valid_selected_quests.lua"):read("*a")))
 d.quests = { d.quests[1] }; d.provenance.questCount = 1
-local f = io.open(arg[1], "w"); f:write(X.Serialize(d)); f:close()' "$T/sel.lua"
+local f = io.open(os.getenv("NQ_SEL_OUT"), "w"); f:write(X.Serialize(d)); f:close()'
 out=$(NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 NQ_EXPORT_EFFECTIVE_OUT="$T/fromsel.lua" NQ_EXPORT_SELECTION="$T/sel.lua" run "$LUA" cli/validate-335.lua); code=$?
 if [ $code -eq 0 ] && grep -q "ID = 1203," "$T/fromsel.lua"; then ok "selection from an nq-m2-input file"; else bad "selection file (code $code)"; fi
 
