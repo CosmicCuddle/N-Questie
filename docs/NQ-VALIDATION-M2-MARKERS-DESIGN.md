@@ -88,7 +88,7 @@ One record per quest, derived from the compiled data. Every coordinate is Questi
 | `npcDrop` | `npcDrops` (2) | monster | loot icon at runtime |
 | `objectDrop` | `objectDrops` (3) | object | object icon at runtime |
 | `vendor` | `vendors` (14) | monster | Questie draws vendors with the loot icon; the category is kept anyway |
-| `itemDrop` | `itemDrops` (4) | item | Questie's spawn-list code skips item-type sources (anti-recursion), so these are recorded but not drawn |
+| `itemDrop` | `itemDrops` (4) | item | `QuestieDB:GetItem` does not add itemDrops to `Sources` (only npcDrops, vendors, objectDrops), and the spawn-list `item` function also skips item-type sources; recorded but not drawn |
 
 `path` = `{ objective item ID, ..., source ID }`. Item sources are never flattened into direct kill targets.
 
