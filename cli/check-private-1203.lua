@@ -31,6 +31,34 @@ if resolved == root or resolved:sub(1, #root + 1) == root .. "/" then
     os.exit(1)
 end
 
+-- Require operator-private Linux ownership and permissions BEFORE reading
+-- any contents. Check the resolved target, not the symlink's visible mode.
+-- We deliberately require an immediate parent directory 0700 and file 0600
+-- rather than silently accepting public-readable private source data.
+local function shellQuote(s)
+    return "'" .. s:gsub("'", "'\\''") .. "'"
+end
+local function capture(cmd)
+    local ok, h = pcall(io.popen, cmd .. " 2>/dev/null")
+    if not ok or not h then return nil end
+    local output = h:read("*a")
+    h:close()
+    return output and output:match("^(.-)\n?$")
+end
+local uid = capture("id -u")
+local function secureStat(p, expectedMode, expectedType)
+    local s = capture("stat -c '%u %a %F' -- " .. shellQuote(p))
+    if not s or not uid or not uid:match("^%d+$") then return false end
+    local owner, mode, kind = s:match("^(%d+) (%d+) (.+)$")
+    return owner == uid and mode == expectedMode and kind == expectedType
+end
+local parent = resolved:match("^(.*)/[^/]+$") or "/"
+if not secureStat(parent, "700", "directory")
+    or not (secureStat(resolved, "600", "regular file") or secureStat(resolved, "600", "regular empty file")) then
+    io.stderr:write("FAIL: private input permissions refused; require current-user-owned 0700 folder and 0600 regular file\n")
+    os.exit(1)
+end
+
 -- Run from repository root, as with cli/validate-m2-input.lua.
 local doc = Input.LoadFile(path or "", ".")
 if not doc then
