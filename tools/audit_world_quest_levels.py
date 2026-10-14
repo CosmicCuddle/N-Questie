@@ -245,6 +245,10 @@ def main(argv=None):
         ap.error("Review file exists; explicit --overwrite required")
     root = args.questie_root
     raw, skipped = parse_questie_raw((root / QUESTIE_RAW).read_text(encoding="utf-8"))
+    if skipped:
+        raise ValueError("Unparsed Questie source record(s) at line(s): " +
+                         ", ".join(map(str, skipped[:12])) +
+                         "; refusing a potentially incomplete audit")
     corrections = []
     for path in LEVEL_FIXES:
         fixes, unknown = parse_static_level_fixes((root / path).read_text(encoding="utf-8"))
