@@ -30,6 +30,9 @@ ignore = {
     "631", -- Line is too long
 }
 globals = {
+    -- Known WoW 3.3.5a/addon UI globals absent from static lint discovery
+    "WorldMapFrameTitle",
+    "QuestLogScrollFrameScrollBar",
     "----> GlobalAPI",
     "AbandonQuest",
     "AbandonSkill",
