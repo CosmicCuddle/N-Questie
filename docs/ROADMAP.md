@@ -39,6 +39,18 @@
 
 ## Phase 2A — Corrections for existing WotLK quests (added 14 October 2026)
 
+**14 October checkpoint:** The maintainer supplied private acore_world.zip. Quest 1203 actual server levels equal stock Questie, but one Moonsteel Broadsword (3853) replaces inherited WotLK Razorspine's Sword (33110). Draft PR #6 proposes a narrow item/text correction. Of 134 Dustwallow server quests, eight confirmed numeric level disagreements are staged in guarded draft PR #7; 31 additional item discrepancy candidates remain unapproved for correction. See docs/DUSTWALLOW-QUEST-AUDIT.md.
+
+- [x] Read-only parse of 9,525 unique quest_template entries in the private offline export.
+- [x] Verify quest 1203 server item objective and its accurate already-matching levels; stage guarded item/text-only fix in PR #6.
+- [x] Review numeric levels for Dustwallow Marsh quests and stage eight guarded field-level corrections in PR #7.
+- [ ] Audit all other zones against effective 3.3.5a Questie data (including static correction layers).
+- [ ] Resolve ambiguous item objective and scripted quest data before publishing further corrections.
+- [ ] Verify IP era-specific quest conditions/gating and in-game marker/colour behaviour.
+- [ ] Maintain backup and final merge/release approval gates.
+
+## Phase 2A — Corrections for existing WotLK quests (added 14 October 2026)
+
 **Audit implementation status (draft [PR #5](https://github.com/CosmicCuddle/N-Questie/pull/5)):** A read-only offline scanner can compare all server quest level fields against generated Questie WotLK data and literal Classic/TBC/WotLK correction levels without exporting the server SQL to GitHub. Dedicated synthetic QA [run 38551948617](https://github.com/CosmicCuddle/N-Questie/actions/runs/38551948617) passed on an earlier PR #5 commit; more realistic source-baseline regression was added afterward and needs its own CI result.
 
 - [x] Identify user-reported example: **quest 1203 Jarl Needs a Blade**, stock Questie MinLevel 30, QuestLevel 35, no numeric correction for this ID in Classic/TBC/WotLK sources.
