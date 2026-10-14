@@ -13,7 +13,14 @@
 -- Optional environment:
 --   NQ_VALIDATE_FIXTURE=<file>  synthetic fault injection (tests/fixtures/validate335)
 --   NQ_VALIDATE_SKIP_COMPILE=1  stop after the correction checks (faster)
--- No private server data is read. Nothing is written to disk.
+-- Optional M2.2 effective export (off unless NQ_EXPORT_EFFECTIVE_OUT is set):
+--   NQ_EXPORT_EFFECTIVE_OUT=/abs/dir/file.lua  output (outside the checkout or private/)
+--   NQ_EXPORT_QUESTS="1203,2001"               explicit quest IDs, or
+--   NQ_EXPORT_SELECTION=/abs/input.lua          IDs from a validated nq-m2-input file
+--   NQ_EXPORT_FORCE=1                           replace an existing output file
+-- The export runs only after every M0 check has passed, needs a clean git
+-- checkout and NQ_VALIDATE_EXPECT_LEVEL_COUNT, and never changes the checks.
+-- No private server data is read. Without the export option nothing is written.
 require("cli.dump")
 
 WOW_PROJECT_ID = 11
@@ -388,6 +395,7 @@ local function loadCompatRegistry()
 end
 
 local loadErrors = {}
+local loadedFiles = {}
 local function loadTOC(file)
     local rfile = assert(io.open(file, "r"))
     for line in rfile:lines() do
@@ -397,7 +405,7 @@ local function loadTOC(file)
             local chunk, loadErr = loadfile(line)
             local ok, err = false, loadErr
             if chunk then ok, err = pcall(chunk, "Questie", {}) end
-            if not ok then loadErrors[line] = tostring(err) end
+            if not ok then loadErrors[line] = tostring(err) else loadedFiles[#loadedFiles + 1] = line end
             if line == "Modules/QuestieCompat.lua" then
                 loadCompatRegistry()
                 currentFile = "Compat/Corrections.lua"
@@ -413,7 +421,119 @@ end
 -------------------------------------------------------------------------------
 -- Main
 -------------------------------------------------------------------------------
+local HARNESS_VERSION = "1.1.0"
+
+-- M2.2 export options. Parsed and checked before M0 runs; nil when off.
+local function exportOptions()
+    local out = os.getenv("NQ_EXPORT_EFFECTIVE_OUT")
+    local ids, sel = os.getenv("NQ_EXPORT_QUESTS"), os.getenv("NQ_EXPORT_SELECTION")
+    if (out == nil or out == "") then
+        if (ids and ids ~= "") or (sel and sel ~= "") then
+            return nil, { "export: NQ_EXPORT_QUESTS/NQ_EXPORT_SELECTION given without NQ_EXPORT_EFFECTIVE_OUT" }
+        end
+        return false
+    end
+    local errs = {}
+    local Export = dofile("tools/validation/EffectiveExport.lua")
+    local root = io.popen("pwd -P"):read("*l")
+    if (ids and ids ~= "") == (sel and sel ~= "") then
+        errs[#errs + 1] = "export: give exactly one of NQ_EXPORT_QUESTS or NQ_EXPORT_SELECTION"
+    end
+    if os.getenv("NQ_VALIDATE_FIXTURE") and os.getenv("NQ_VALIDATE_FIXTURE") ~= "" then
+        errs[#errs + 1] = "export: not allowed together with NQ_VALIDATE_FIXTURE"
+    end
+    if os.getenv("NQ_VALIDATE_SKIP_COMPILE") == "1" then
+        errs[#errs + 1] = "export: needs the compiled database (unset NQ_VALIDATE_SKIP_COMPILE)"
+    end
+    if not tonumber(os.getenv("NQ_VALIDATE_EXPECT_LEVEL_COUNT") or "") then
+        errs[#errs + 1] = "export: NQ_VALIDATE_EXPECT_LEVEL_COUNT must be set so the correction count is asserted"
+    end
+    local list
+    if ids and ids ~= "" then
+        local e; list, e = Export.ParseIdList(ids)
+        for _, x in ipairs(e or {}) do errs[#errs + 1] = "export: " .. x end
+    elseif sel and sel ~= "" then
+        local Input = dofile("tools/validation/InputSchema.lua")
+        local doc, e = Input.LoadFile(sel, root)
+        if not doc then
+            for _, x in ipairs(e) do errs[#errs + 1] = "export: selection file: " .. x end
+        else
+            list = {}
+            for _, r in ipairs(doc.quests) do list[#list + 1] = r.ID end
+        end
+    end
+    if list then
+        local _, e = Export.CheckSelection(list)
+        for _, x in ipairs(e or {}) do errs[#errs + 1] = "export: " .. x end
+    end
+    local Writer = dofile("tools/validation/SafeWrite.lua")
+    local dest, why = Writer.CheckDestination(out, root)
+    if not dest then errs[#errs + 1] = "export: " .. why end
+    if #errs > 0 then return nil, errs end
+    return { out = out, ids = list, root = root, force = os.getenv("NQ_EXPORT_FORCE") == "1" }
+end
+
+-- Runs after every M0 check passed. Returns true or false, errors.
+local function runExport(opts, QuestieDB, Q, levelCount)
+    local Export = dofile("tools/validation/EffectiveExport.lua")
+    local Schema = dofile("tools/validation/EffectiveSchema.lua")
+    local Prov = dofile("tools/validation/ExportProvenance.lua")
+    local Writer = dofile("tools/validation/SafeWrite.lua")
+    local exists = function(id) return QuestieDB.QuestPointers[id] ~= nil end
+    local KEYS = { "requiredLevel", "questLevel", "objectives", "sourceItemId", "requiredSourceItems", "triggerEnd", "extraObjectives" }
+    local function rawState()
+        local t = {}
+        for _, id in ipairs(opts.ids) do
+            if exists(id) then for _, k in ipairs(KEYS) do t[#t + 1] = ser(normalize(Q(id, k))) end end
+        end
+        return table.concat(t, "\1")
+    end
+    local beforeState = rawState()
+    local records, errs = Export.Snapshot(Q, exists, opts.ids)
+    if not records then return false, errs end
+    if rawState() ~= beforeState then return false, { "export: compiled records changed during the snapshot" } end
+
+    local modules = {}
+    for _, f in ipairs(loadedFiles) do
+        if f:find("^Compat/NQuestie") then modules[#modules + 1] = f end
+    end
+    local tocInterface
+    for l in io.lines("Questie-335.toc") do
+        local v = l:match("^##%s*Interface:%s*(%d+)")
+        if v then tocInterface = tonumber(v) end
+    end
+    local _, _, _, build = GetBuildInfo()
+    local nq = rawget(_G, "NQuestieCustomQuestData")
+    local prov, perr = Prov.Collect(opts.root, modules, {
+        revision = type(nq) == "table" and nq.revision or nil,
+        correctionCount = levelCount,
+        expectedCorrectionCount = tonumber(os.getenv("NQ_VALIDATE_EXPECT_LEVEL_COUNT") or ""),
+        m0Checks = passes, tocInterface = tocInterface, buildInterface = build,
+        harnessVersion = HARNESS_VERSION,
+    })
+    if not prov then return false, perr end
+    prov.questCount = #records
+    local doc = Export.BuildDocument(records, prov)
+    local ok, verr = Schema.Validate(doc, { expectKind = "effective", expectCorrectionCount = levelCount })
+    if not ok then return false, verr end
+    local text = Export.Serialize(doc, "N-Questie effective Questie records (nq-m2-effective v1). Generated by\n" ..
+        "cli/validate-335.lua after all M0 checks passed. Public Questie data only.")
+    local parsed = Schema.ParseString(text)
+    if not parsed or not Schema.Validate(parsed) then return false, { "export: serialised output failed to re-parse" } end
+    local wok, where = Writer.WriteFile(opts.out, text, { repoRoot = opts.root, force = opts.force })
+    if not wok then return false, { "export: " .. where } end
+    local back, berr = Schema.LoadFile(where, opts.root, { expectKind = "effective", expectCorrectionCount = levelCount })
+    if not back then return false, berr end
+    return true, where
+end
+
 local function run()
+    local exportOpts, exportErr = exportOptions()
+    if exportOpts == nil then
+        for _, e in ipairs(exportErr) do print("\27[31m" .. e .. "\27[0m") end
+        print("\27[31m[validate-335] export refused before validation; nothing written\27[0m")
+        os.exit(1)
+    end
     print("\27[36m[validate-335] Loading Questie-335.toc as a 3.3.5a client\27[0m")
     loadTOC("Questie-335.toc")
 
@@ -691,6 +811,21 @@ local function run()
         os.exit(1)
     end
     print(string.format("\27[32m[validate-335] PASS: %d checks\27[0m", passes))
+
+    if exportOpts then
+        if os.getenv("NQ_VALIDATE_SKIP_COMPILE") == "1" or not snapshots.afterNormalized then
+            print("\27[31m[validate-335] export refused: compiled round trip did not run\27[0m")
+            os.exit(1)
+        end
+        local ok, res = runExport(exportOpts, QuestieLoader:ImportModule("QuestieDB"),
+            QuestieLoader:ImportModule("QuestieDB").QueryQuestSingle, levelCount)
+        if not ok then
+            for _, e in ipairs(res) do print("\27[31m" .. e .. "\27[0m") end
+            print("\27[31m[validate-335] EXPORT FAILED: nothing written\27[0m")
+            os.exit(1)
+        end
+        print("\27[32m[validate-335] effective export written: " .. #exportOpts.ids .. " quest(s) -> " .. res .. "\27[0m")
+    end
 end
 
 local ok, err = pcall(run)
