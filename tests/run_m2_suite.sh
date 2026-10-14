@@ -22,7 +22,8 @@ step "M2.2 coverage (synthetic)" "$LUA" tests/test_nquestie_m2_coverage.lua
 step "M2.2 objective order (killCreditObjectiveFirst)" "$LUA" tests/test_nquestie_m2_order.lua
 step "M2 v2 DRAFT prototype (design validation only)" "$LUA" tests/test_nquestie_m2_effective_v2_draft.lua
 step "M2 v2 exporter acceptance DRAFT (spec only)" "$LUA" tests/test_nquestie_m2_v2_acceptance.lua
-step "M2.3 report format DRAFT (design only)" "$LUA" tests/test_nquestie_m2_3_report_draft.lua
+step "M2.3 contract DRAFT (design only)" "$LUA" tests/test_nquestie_m2_3_report_draft.lua
+step "nq-m2-markers DRAFT (design only)" "$LUA" tests/test_nquestie_m2_markers_draft.lua
 step "pilot script syntax" bash -n tools/validation/run-m2-pilot.sh
 step "busted tools/validation" busted -p ".test.lua" tools/validation
 if [ "${NQ_M2_SKIP_INTEGRATION:-0}" != "1" ]; then
