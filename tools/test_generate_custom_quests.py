@@ -115,8 +115,18 @@ class GeneratorTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 generator.main(args)
             self.assertEqual(before, output.read_text(encoding="utf-8"))
-            generator.main(args + ["--overwrite"])
+            with self.assertRaises(SystemExit):
+                generator.main(args + ["--overwrite"])
             self.assertEqual(before, output.read_text(encoding="utf-8"))
+            revised = args.copy()
+            revised[revised.index("--revision") + 1] = "3"
+            generator.main(revised + ["--overwrite"])
+            self.assertIn("revision = 3", output.read_text(encoding="utf-8"))
+            output.write_text("-- unrelated Lua file\n", encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                generator.main(revised + ["--overwrite"])
+            self.assertEqual("-- unrelated Lua file\n",
+                             output.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
