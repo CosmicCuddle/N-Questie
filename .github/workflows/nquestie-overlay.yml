@@ -23,6 +23,7 @@ jobs:
           luac5.1 -p Compat/NQuestieCustomQuestLoader.lua
           luac5.1 -p Compat/NQuestieExistingQuestCorrections.lua
           luac5.1 -p Compat/NQuestieReviewedQuestLevelCorrections.lua
+          luac5.1 -p Compat/NQuestieReviewedEarlyQuestLevels.lua
           luac5.1 -p Modules/QuestieInit.lua
       - name: Run custom-quest overlay regression
         run: lua5.1 tests/test_nquestie_overlay.lua
@@ -30,6 +31,8 @@ jobs:
         run: lua5.1 tests/test_nquestie_existing_quest_1203.lua
       - name: Test verified Dustwallow quest-level changes (no private source)
         run: lua5.1 tests/test_nquestie_reviewed_dustwallow_levels.lua
+      - name: Test reviewed early-zone level patches (synthetic records only)
+        run: lua5.1 tests/test_nquestie_reviewed_early_quest_levels.lua
       - name: Test selected quest SQL export parser
         run: python3 tools/test_export_world_quests.py
       - name: Test reviewed JSON to Lua generation (offline, fail closed)
@@ -38,6 +41,8 @@ jobs:
         run: |
           python3 -m py_compile tools/audit_world_quest_levels.py
           python3 tools/test_audit_world_quest_levels.py
+      - name: Guard approved early quest IDs against changed public Questie source
+        run: python3 tools/test_reviewed_early_quest_sources.py
       - name: Verify 3.3.5a TOC integration
         run: |
           grep -Fq '## Interface: 30300' Questie-335.toc
@@ -45,6 +50,7 @@ jobs:
           grep -Fq 'Compat\NQuestieCustomQuestLoader.lua' Questie-335.toc
           grep -Fq 'Compat\NQuestieExistingQuestCorrections.lua' Questie-335.toc
           grep -Fq 'Compat\NQuestieReviewedQuestLevelCorrections.lua' Questie-335.toc
+          grep -Fq 'Compat\NQuestieReviewedEarlyQuestLevels.lua' Questie-335.toc
           grep -Fq 'nQuestieDataRevision' Modules/QuestieInit.lua
       - name: Assemble PR-only WoW 3.3.5a addon package
         if: github.event_name == 'pull_request'
@@ -64,6 +70,7 @@ jobs:
           test -s qa-package/Questie-335/Compat/NQuestieCustomQuestData.lua
           test -s qa-package/Questie-335/Compat/NQuestieExistingQuestCorrections.lua
           test -s qa-package/Questie-335/Compat/NQuestieReviewedQuestLevelCorrections.lua
+          test -s qa-package/Questie-335/Compat/NQuestieReviewedEarlyQuestLevels.lua
           echo "QA build only. Run in-game tests before merging or releasing." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload temporary N-Questie PR test build
         if: github.event_name == 'pull_request'

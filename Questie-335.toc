@@ -89,6 +89,7 @@ Compat\NQuestieCustomQuestData.lua
 Compat\NQuestieCustomQuestLoader.lua
 Compat\NQuestieExistingQuestCorrections.lua
 Compat\NQuestieReviewedQuestLevelCorrections.lua
+Compat\NQuestieReviewedEarlyQuestLevels.lua
 
 # Compiler
 Database\compiler.lua
