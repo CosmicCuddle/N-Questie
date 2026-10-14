@@ -66,6 +66,16 @@ printf '\nos.execute("touch %s/should-not-exist")\n' "$T" >> "$T/exec.lua"
 reject "reject executable Lua in private input" "$T/exec.lua" "input rejected"
 [ ! -e "$T/should-not-exist" ] && ok "untrusted Lua not executed" || bad "untrusted Lua was executed"
 
+# The real-data helper is stricter than the public synthetic schema parser:
+# readable-by-other-user inputs must never get a private-data PASS.
+chmod 644 "$T/valid.lua"
+reject "reject world-readable private input file" "$T/valid.lua" "private input permissions refused"
+chmod 600 "$T/valid.lua"
+mkdir -m 755 "$T/world-readable"
+cp -- "$T/valid.lua" "$T/world-readable/valid.lua"
+reject "reject world-readable private input directory" "$T/world-readable/valid.lua" "private input permissions refused"
+chmod 700 "$T/world-readable"
+
 reject "reject relative input path" "tests/fixtures/m2_input/quest1203_single_synthetic.lua" "input rejected"
 reject "reject public checkout input path" "$(pwd -P)/tests/fixtures/m2_input/quest1203_single_synthetic.lua" "must resolve outside the public checkout"
 ln -s "$(pwd -P)/tests/fixtures/m2_input/quest1203_single_synthetic.lua" "$T/public-symlink.lua"
