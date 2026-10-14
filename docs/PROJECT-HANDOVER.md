@@ -9,6 +9,18 @@
 **Client:** World of Warcraft 3.3.5a (`## Interface: 30300`)  
 **Inherited addon identity:** `Questie-335.toc`, display title `Questie-335`, upstream version `9.5.1`  
 
+## Latest handover — 14 October 2026 (private database re-upload analyzed)
+
+**Private source is now available in this conversation:** The maintainer uploaded acore_world.zip, an offline HeidiSQL export. It was inspected read-only locally; 9,525 unique quest templates. Keep the original SQL/ZIP private and OFF GitHub.
+
+**Confirmed quest 1203 issue:** Existing WotLK Questie levels match server (required 30, nominal 35), but inherited Questie has Razorspine's Sword (33110) while server requires one Moonsteel Broadsword (3853) and the corresponding item objective text. [Draft PR #6](https://github.com/CosmicCuddle/N-Questie/pull/6) stages an item/text-only guarded correction without changing levels, questgivers or prerequisite.
+
+**Dustwallow pass:** 134 server quests under QuestSortID 15, 126 present in stock WotLK Questie; 8 missing require classification. Eight existing level mismatches were source-verified and stage through [draft PR #7](https://github.com/CosmicCuddle/N-Questie/pull/7). Thirty-two item-ID candidates include quest 1203; 31 require closer source semantics review. See [Dustwallow audit](docs/DUSTWALLOW-QUEST-AUDIT.md). Scoped PR #6 Lua 5.1 checks passed; PR #7 dedicated CI still requires checking when run concludes.
+
+**Next:** Expand to all-zone comparisons, never patch candidate item objectives blindly; check IP stage/conditions and verify in-game on an eligible character after backups. Source-guarded corrections must preserve Questie objective metadata outside the approved fields. All PRs #1–#7 remain unmerged; #2–#7 draft (PR #1 is foundation open). No release or collection update authorized.
+
+## Historical checkpoint: original PR #5 audit
+
 ## Existing-quest mismatch audit — draft PR #5 (14 October 2026)
 
 **First reported correction:** Quest 1203 **Jarl Needs a Blade**. Public Questie WotLK generated record: required level 30, nominal quest level 35. No direct literal numeric `requiredLevel` or `questLevel` correction for ID 1203 was found in the checked Classic/TBC/WotLK quest fix modules. This is **not** proof of the user's server values: the original private world ZIP from the earlier conversation is not currently accessible here.
