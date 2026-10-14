@@ -1,5 +1,12 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Revision guard CI enablement and Hillsbrad quest analysis
+
+- Reviewed Grok's independently owned draft PR #12 CI-only correction revision guard: `cli/check-revision-bump.sh`, seven synthetic regression cases and proposed workflow. No runtime revision changes.
+- Activated its proposed workflow as a **separate draft [PR #14](https://github.com/CosmicCuddle/N-Questie/pull/14)** stacked on PR #12, leaving #12 untouched. Real [GitHub guard workflow 38569424455](https://github.com/CosmicCuddle/N-Questie/actions/runs/38569424455) **PASSED**; existing overlay checks passed; inherited Busted `unit-tests` remains failing without independent unmerged #4. No merge, release or production changes.
+- Investigated Hillsbrad quest 566 and 567 using the private offline world export and installed Questie source. Verified `MinLevel` discrepancy (566: Questie 17/server 35; 567: 17/19), while starter GO 1763/2008, ender NPC 2215, quest-level 40/28 and target item/NPC IDs match. Searched 17,701 exported `conditions` rows, found none directly referring to numeric quest IDs 566/567; other scripted conditions and IP state remain unknown. **No correction proposed or applied for these two** pending effective-DB/IP review. See [HILLSBRAD-WANTED-QUESTS-REVIEW.md](HILLSBRAD-WANTED-QUESTS-REVIEW.md).
+- Grok owns M1 objective validation independently; no edits to its PR branches. The private world archive and full comparison workbook remain off public GitHub.
+
 ## 14 October 2026 — Duskwood and Wetlands quest-chain level review
 
 Read-only verified the private AzerothCore world records, individual `PrevQuestID` links, creature/gameobject starters and enders, and original Questie level fields for Duskwood quests **225, 227, 228, 229, 231** and Wetlands quests **473, 464, 465, 474**. Quest 225's inherited TBC `requiredLevel=25` fix was explicitly included in the source comparison. No Questie quest objective, GO, NPC or chain field needs replacing in this narrow batch.
