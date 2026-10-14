@@ -56,3 +56,13 @@ python3 tools/generate_custom_quests.py \
 **Safety behavior:** the converter refuses unapproved quest IDs, missing or extra verified NPC IDs, malformed records, unsupported extra fields, duplicate IDs, unsafe quest names and overwriting an existing destination without explicit `--overwrite`. A successful conversion **does not prove** that quest availability, phases or spawn positions are correct. Kill counts in the source JSON are validated, but the addon objective records intentionally contain only NPC IDs; the WoW quest log supplies counts.
 
 **Future extension:** validated gameobject/item/script objectives and server-specific NPC map-coordinate mapping will require separate verified data and code, not guessed locations.
+
+### Protection against accidental loss of curated quests
+
+The generator treats its JSON input as the **complete desired set** of curated quests in the generated output, not merely as a list of new additions. When updating an existing generated file with `--overwrite`, it compares the older and newer quest IDs and rejects *any* missing old quest.
+
+If a quest genuinely should be removed, each missing ID must be explicitly approved with `--approve-removal-quest ID`. Extra removal approvals are rejected. A higher `--revision` is also required, and unrelated Lua files cannot be overwritten.
+
+**Adding a quest safely:** regenerate from a reviewed manifest containing **all previously curated quests plus the additional quest**, explicitly approve every included quest and verify all referenced NPC positions. First stage the result privately and review the Git diff. Never import a single-quest JSON over a previous multi-quest generated file without carrying forward older records.
+
+These safeguards operate on the *generated* Lua format. The existing original hand-curated `Compat/NQuestieCustomQuestData.lua` is intentionally not overwritten by the generator. Migration to generated data requires a separately reviewed staging/copy operation, including preservation of quest 2001 and the updated revision.
