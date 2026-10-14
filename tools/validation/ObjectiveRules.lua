@@ -44,14 +44,22 @@ M.RULES = {
         .. "them in requiredSourceItems/extraObjectives or omit them.",
     ["E-ORDER-TYPE"] = "Questie groups objectives by type (creature, object, item). The server's "
         .. "slot order differs only across types, which Questie's own ordering accounts for.",
-    ["M-ITEM-TARGET"] = "Same item objective slot, different item id on each side, and no "
-        .. "representation rule applies. Treat as a genuine data difference until reviewed.",
-    ["M-NPC-TARGET"] = "Same creature slot, different creature id, and the supplied KillCredit "
-        .. "data does not link them. Treat as a genuine data difference until reviewed.",
+    ["M-ITEM-TARGET"] = "Exactly one unmatched item on each side, and no representation rule "
+        .. "applies. Treat as a genuine data difference until reviewed.",
+    ["M-NPC-TARGET"] = "Exactly one unmatched creature on each side, verified KillCredit rows for "
+        .. "both show no link, and scripted credit is ruled out. Treat as a genuine data difference "
+        .. "until reviewed.",
+    ["R-ITEM-SET"] = "More than one item is unmatched on at least one side. The sets differ, "
+        .. "but no evidence links a particular server item to a particular Questie item.",
+    ["R-NPC-SET"] = "More than one creature is unmatched on at least one side. The sets differ, "
+        .. "but no evidence links a particular server creature to a particular Questie creature.",
+    ["C-UNKNOWN"] = "The converter marked conditions, Individual Progression gating or scripted "
+        .. "credit as unknown. Nothing that depends on it is confirmed.",
     ["R-ITEM-UNPAIRED"] = "An item appears on only one side. It may be a missing objective, an "
         .. "extra Questie objective, or a source item. A person must check the quest text.",
-    ["R-NPC-NOCREDIT"] = "Creature targets differ and creature_template KillCredit data was not "
-        .. "supplied, so a kill-credit relationship cannot be ruled out.",
+    ["R-NPC-NOCREDIT"] = "Creature targets differ, but verified creature_template KillCredit rows "
+        .. "are missing for at least one of them, coverage was not asserted, or scripted credit "
+        .. "was not ruled out. A kill-credit relationship cannot be excluded.",
     ["R-NPC-UNPAIRED"] = "A creature target appears on only one side.",
     ["R-GO-UNPAIRED"] = "A gameobject target appears on only one side. Questie sometimes models "
         .. "object use as a spell, event or extra objective.",
@@ -93,15 +101,42 @@ end
 -- Convert one quest_template-shaped row (flat column map, as an SQL export
 -- would produce) into the normalised server record used by M.Compare.
 -- Extra keys used by the validator (not quest_template columns):
---   KillCredit = {[creatureId] = {credit1, credit2}}  (from creature_template)
---   killCreditComplete = true when KillCredit covers every creature involved
---   hasConditions, ipGated, scriptedCredit (booleans from the reviewer)
+--   KillCredit = {[creatureId] = {credit1, credit2}}  (creature_template rows;
+--                an explicit {0, 0} means "verified: no kill credit")
+--   killCreditComplete = true is an assertion by the converter. It is NOT
+--                trusted on its own: every relevant creature must also have a
+--                well-formed KillCredit entry (see killCreditVerified).
+--   hasConditions, ipGated, scriptedCredit: true, false, or "unknown".
+--                Omitted means "not supplied" (treated like "unknown" for
+--                confirmation, but without an extra finding).
+local function triState(row, key, problems)
+    local v = row[key]
+    if v == nil then return nil end
+    if v == true or v == false or v == "unknown" then return v end
+    problems[#problems + 1] = key .. "=" .. tostring(v) .. " (expected true, false or \"unknown\")"
+    return nil
+end
+
 function M.FromQuestTemplateRow(row)
+    local problems = {}
     local s = { id = row.ID or row.Id or row.id, npcOrGo = {}, items = {}, itemDrops = {},
-                startItem = row.StartItem or 0, killCredit = row.KillCredit or {},
+                startItem = row.StartItem or 0, killCredit = {},
                 killCreditComplete = row.killCreditComplete == true,
-                hasConditions = row.hasConditions == true, ipGated = row.ipGated == true,
-                scriptedCredit = row.scriptedCredit == true, problems = {} }
+                hasConditions = triState(row, "hasConditions", problems),
+                ipGated = triState(row, "ipGated", problems),
+                scriptedCredit = triState(row, "scriptedCredit", problems),
+                problems = problems }
+    if row.KillCredit ~= nil and type(row.KillCredit) ~= "table" then
+        problems[#problems + 1] = "KillCredit is not a table"
+    end
+    for creature, credits in pairs(type(row.KillCredit) == "table" and row.KillCredit or {}) do
+        if isInt(creature) and creature > 0 and type(credits) == "table" and
+           isInt(credits[1]) and credits[1] >= 0 and isInt(credits[2]) and credits[2] >= 0 then
+            s.killCredit[creature] = { credits[1], credits[2] }
+        else
+            problems[#problems + 1] = "KillCredit[" .. tostring(creature) .. "] must be {credit1, credit2} with integers >= 0"
+        end
+    end
     for i = 1, 4 do
         local id, count = row["RequiredNpcOrGo" .. i] or 0, row["RequiredNpcOrGoCount" .. i] or 0
         if not isInt(id) or not isInt(count) or count < 0 or (id == 0 and count > 0) then
@@ -192,11 +227,17 @@ function M.Compare(server, questie)
             "Quest " .. qid .. " is in the server data but not in Questie's effective database. Use the reviewed import workflow.")
         return out
     end
-    if server.hasConditions then
+    for _, flag in ipairs({ "hasConditions", "ipGated", "scriptedCredit" }) do
+        if server[flag] == "unknown" then
+            finding(out, qid, "availability", C.UNSUPPORTED, { "C-UNKNOWN" },
+                "Quest " .. qid .. ": " .. flag .. " is marked unknown by the converter. Nothing that depends on it is confirmed.")
+        end
+    end
+    if server.hasConditions == true then
         finding(out, qid, "availability", C.UNSUPPORTED, { "C-COND" },
             "Quest " .. qid .. " has conditions rows. Availability and objective visibility are not validated.")
     end
-    if server.ipGated then
+    if server.ipGated == true then
         finding(out, qid, "availability", C.UNSUPPORTED, { "C-IP" },
             "Quest " .. qid .. " is gated by Individual Progression. Nothing here says whether a character can take it.")
     end
@@ -229,7 +270,7 @@ function M.Compare(server, questie)
                 finding(out, qid, "object", C.REVIEW, { "R-GO-AS-NPC" },
                     "Server slot " .. t.slot .. " is gameobject " .. go .. ", but Questie lists " .. go .. " as a creature objective.",
                     t.id, go)
-            elseif server.scriptedCredit then
+            elseif server.scriptedCredit == true then
                 finding(out, qid, "object", C.UNSUPPORTED, { "C-SCRIPT" },
                     "Gameobject " .. go .. " is not in Questie and credit is scripted on the server.", t.id, nil)
             else
@@ -279,28 +320,56 @@ function M.Compare(server, questie)
             stillUnmatched[#stillUnmatched + 1] = t
         end
     end
-    for i, t in ipairs(stillUnmatched) do
-        local other = extraCreatures[i]
-        if server.scriptedCredit then
+    -- Remaining creature differences. Correspondence between a server target
+    -- and a Questie creature is only claimed with explicit evidence:
+    --   (a) exactly one unmatched creature on each side, and
+    --   (b) verified KillCredit rows for BOTH creatures, and
+    --   (c) scriptedCredit explicitly false.
+    -- Anything else is reported without inventing a pairing.
+    local function idList(list, field)
+        local ids = {}
+        for _, v in ipairs(list) do ids[#ids + 1] = tostring(field and v[field] or v) end
+        return table.concat(ids, ", ")
+    end
+    if #stillUnmatched > 0 and server.scriptedCredit == true then
+        for _, t in ipairs(stillUnmatched) do
             finding(out, qid, "creature", C.UNSUPPORTED, { "C-SCRIPT" },
-                "Server creature " .. t.id .. " is credited by a script. Questie's " .. tostring(other) .. " cannot be checked offline.",
-                t.id, other)
-        elseif other and server.killCreditComplete then
+                "Server creature " .. t.id .. " is credited by a script. Questie's creature objectives (" ..
+                (#extraCreatures > 0 and idList(extraCreatures) or "none") .. ") cannot be checked offline.", t.id, nil)
+        end
+    elseif #stillUnmatched == 1 and #extraCreatures == 1 then
+        local t, other = stillUnmatched[1], extraCreatures[1]
+        local missing = {}
+        for _, id in ipairs({ t.id, other }) do
+            if not server.killCredit[id] then missing[#missing + 1] = id end
+        end
+        if #missing == 0 and server.killCreditComplete and server.scriptedCredit == false then
             finding(out, qid, "creature", C.CONFIRMED, { "M-NPC-TARGET" },
                 "Server requires creature " .. t.id .. " (slot " .. t.slot .. "); Questie lists creature " .. other ..
-                ". KillCredit data was supplied and does not link them.", t.id, other)
-        elseif other then
-            finding(out, qid, "creature", C.REVIEW, { "R-NPC-NOCREDIT" },
-                "Server requires creature " .. t.id .. "; Questie lists creature " .. other .. ". Supply creature_template KillCredit1/2 to decide.",
-                t.id, other)
+                ". Verified KillCredit rows for both creatures do not link them and credit is not scripted.", t.id, other)
         else
+            local why = {}
+            if #missing > 0 then why[#why + 1] = "no verified KillCredit row for creature(s) " .. table.concat(missing, ", ") end
+            if not server.killCreditComplete then why[#why + 1] = "KillCredit coverage not asserted complete" end
+            if server.scriptedCredit ~= false then why[#why + 1] = "scripted credit not ruled out" end
+            finding(out, qid, "creature", C.REVIEW, { "R-NPC-NOCREDIT" },
+                "Server requires creature " .. t.id .. "; Questie lists creature " .. other .. ". Not confirmed: " ..
+                table.concat(why, "; ") .. ".", t.id, other)
+        end
+    elseif #stillUnmatched > 0 and #extraCreatures > 0 then
+        finding(out, qid, "creature", C.REVIEW, { "R-NPC-SET" },
+            "Creature targets differ as sets. Server: {" .. idList(stillUnmatched, "id") .. "}; Questie: {" ..
+            idList(extraCreatures) .. "}. More than one unmatched creature, so no one-to-one replacement is claimed.",
+            idList(stillUnmatched, "id"), idList(extraCreatures))
+    else
+        for _, t in ipairs(stillUnmatched) do
             finding(out, qid, "creature", C.REVIEW, { "R-NPC-UNPAIRED" },
                 "Server creature " .. t.id .. " (slot " .. t.slot .. ") has no Questie creature or kill-credit objective.", t.id, nil)
         end
-    end
-    for i = #stillUnmatched + 1, #extraCreatures do
-        finding(out, qid, "creature", C.REVIEW, { "R-NPC-UNPAIRED" },
-            "Questie creature objective " .. extraCreatures[i] .. " is not a server RequiredNpcOrGo target.", nil, extraCreatures[i])
+        for _, id in ipairs(extraCreatures) do
+            finding(out, qid, "creature", C.REVIEW, { "R-NPC-UNPAIRED" },
+                "Questie creature objective " .. id .. " is not a server RequiredNpcOrGo target.", nil, id)
+        end
     end
 
     -- Items -------------------------------------------------------------------
@@ -341,12 +410,24 @@ function M.Compare(server, questie)
                 (q.sourceItems[id] and ("lists it in " .. q.sourceItems[id]) or "does not list it") .. ".", id, q.sourceItems[id] and id or nil)
         end
     end
-    if #unmatchedItems == #extraItems and #extraItems > 0 then
-        for i, t in ipairs(unmatchedItems) do
-            finding(out, qid, "item", C.CONFIRMED, { "M-ITEM-TARGET" },
-                "Server requires item " .. t.id .. " (RequiredItemId" .. t.slot .. "); Questie's item objective is " .. extraItems[i] ..
-                ". No representation rule explains the difference.", t.id, extraItems[i])
-        end
+    -- Correspondence between a server item and a Questie item is only
+    -- claimed when exactly one item is unmatched on each side. Source-item
+    -- relationships (StartItem, ItemDrop) were already resolved above.
+    local function itemIds(list, field)
+        local ids = {}
+        for _, v in ipairs(list) do ids[#ids + 1] = tostring(field and v[field] or v) end
+        return table.concat(ids, ", ")
+    end
+    if #unmatchedItems == 1 and #extraItems == 1 then
+        local t = unmatchedItems[1]
+        finding(out, qid, "item", C.CONFIRMED, { "M-ITEM-TARGET" },
+            "Server requires item " .. t.id .. " (RequiredItemId" .. t.slot .. "); Questie's only unmatched item objective is " ..
+            extraItems[1] .. ". No representation rule explains the difference.", t.id, extraItems[1])
+    elseif #unmatchedItems > 0 and #extraItems > 0 then
+        finding(out, qid, "item", C.REVIEW, { "R-ITEM-SET" },
+            "Item targets differ as sets. Server: {" .. itemIds(unmatchedItems, "id") .. "}; Questie: {" .. itemIds(extraItems) ..
+            "}. More than one unmatched item, so no one-to-one replacement is claimed.",
+            itemIds(unmatchedItems, "id"), itemIds(extraItems))
     else
         for _, t in ipairs(unmatchedItems) do
             finding(out, qid, "item", C.REVIEW, { "R-ITEM-UNPAIRED" },

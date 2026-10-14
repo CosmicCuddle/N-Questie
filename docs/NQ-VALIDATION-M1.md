@@ -147,3 +147,75 @@ GitHub CI results are recorded in the PR.
 ## 8. Next (M2, not started)
 
 A local converter from the private export to the row format under `private/`, an effective-record export from the M0 harness, then the first private classification run. Only aggregate counts will be published.
+
+## 10. Review fixes (2026-10-14)
+
+Status: Draft, report-only
+Branch: feat/nq-validation-m1-review-fixes-2026-10-14 (based on PR #17 head 460dbf304)
+Trigger: lead-developer technical review on PR #15
+
+### 10.1 Kill credit (review point 1)
+
+`killCreditComplete = true` is now only an assertion. On its own it no longer produces CONFIRMED_MISMATCH.
+
+M-NPC-TARGET is reported only when all of the following hold:
+
+| Condition | Required evidence |
+|---|---|
+| Unmatched creatures | Exactly one on the server side and one on the Questie side |
+| KillCredit rows | A well-formed `{credit1, credit2}` entry (integers >= 0, `{0, 0}` allowed) for both creatures |
+| Coverage | `killCreditComplete = true` |
+| Scripted credit | `scriptedCredit = false` (explicitly) |
+
+If any condition fails, the finding is R-NPC-NOCREDIT (NEEDS_MANUAL_REVIEW). The explanation names the missing creature rows and any other failed condition. A malformed KillCredit entry is reported as R-MALFORMED.
+
+### 10.2 Multiple unmatched targets (review point 2)
+
+Slot-position pairing has been removed. The only evidence accepted for a one-to-one correspondence is:
+
+1. Equal ids (match by id, not by slot).
+2. A representation rule: E-KC-TEMPLATE (creature_template KillCredit link), E-STARTITEM, E-SRCITEM, E-GO-SIGN.
+3. Elimination: after 1 and 2, exactly one target remains unmatched on each side of the same type (with the kill-credit conditions in 10.1 for creatures).
+
+When more than one target of a type is unmatched on either side and the other side is not empty, one set-level finding is reported. It lists both sets and does not pair them.
+
+| New rule | Class | Meaning |
+|---|---|---|
+| R-ITEM-SET | NEEDS_MANUAL_REVIEW | Item sets differ, no pairing claimed |
+| R-NPC-SET | NEEDS_MANUAL_REVIEW | Creature sets differ, no pairing claimed |
+| C-UNKNOWN | UNSUPPORTED | Converter marked a flag as `"unknown"` |
+
+Reordering alone is never a mismatch. Same ids in another order give only R-ORDER-WITHIN-TYPE, so item and NPC reorder fixtures both return no CONFIRMED finding.
+
+### 10.3 Tri-state flags (coordination point)
+
+`hasConditions`, `ipGated` and `scriptedCredit` accept `true`, `false` or `"unknown"`. If a flag is omitted, it is treated as not established. If a flag has any other value, it is reported as R-MALFORMED. A `"unknown"` value adds a C-UNKNOWN finding.
+
+### 10.4 New regression fixtures
+
+| Quest | Case | Result |
+|---|---|---|
+| 900999 | Reviewer repro: completeness flag, no KillCredit rows | R-NPC-NOCREDIT |
+| 900020 | KillCredit row missing for the server target | R-NPC-NOCREDIT |
+| 900021 | Rows complete, completeness not asserted | R-NPC-NOCREDIT |
+| 900022 | Rows complete, scriptedCredit "unknown" | R-NPC-NOCREDIT + C-UNKNOWN |
+| 900008 | Genuinely complete data (updated) | M-NPC-TARGET |
+| 900023 | Two items replaced by two items | R-ITEM-SET |
+| 900024 | Two items vs one item | R-ITEM-SET |
+| 900025 | Two creatures replaced, complete KillCredit | R-NPC-SET |
+| 900026 | Items reordered | R-ORDER-WITHIN-TYPE only |
+| 900013 | Creatures reordered (existing) | R-ORDER-WITHIN-TYPE only |
+| 900027 | Invalid flag and KillCredit row | R-MALFORMED |
+
+Quest 1203 against stock Questie is still CONFIRMED_MISMATCH (single unmatched item on each side). The effective N-Questie record is still EXPECTED_REPRESENTATION_DIFF.
+
+### 10.5 Results
+
+| Check | Result |
+|---|---|
+| tests/test_nquestie_objective_rules.lua | PASS, 29 fixtures, 25 rules all exercised |
+| busted tools/validation | 31 successes, 0 failures |
+| cli/validate-335.lua (NQ_VALIDATE_EXPECT_LEVEL_COUNT=19) | PASS, 183 checks |
+| tests/test_validate_335_fixtures.sh | PASS, 4 negative fixtures |
+| Other tests/test_nquestie_*.lua | PASS |
+| luacheck | 0 warnings / 0 errors |
