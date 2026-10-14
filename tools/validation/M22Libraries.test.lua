@@ -14,6 +14,8 @@ describe("N-Questie M2.2 libraries", function()
         { "SafeWrite tests pass", "tests/test_nquestie_m2_safe_write.lua" },
         { "effective schema standalone tests pass", "tests/test_nquestie_m2_effective_schema.lua" },
         { "objective order (killCreditObjectiveFirst) tests pass", "tests/test_nquestie_m2_order.lua" },
+        { "v2 DRAFT prototype tests pass (design only)", "tests/test_nquestie_m2_effective_v2_draft.lua" },
+        { "v2 exporter acceptance DRAFT tests pass (spec only)", "tests/test_nquestie_m2_v2_acceptance.lua" },
     }) do
         if available then
             it(t[1], function() assert.is_true(runs(t[2])) end)

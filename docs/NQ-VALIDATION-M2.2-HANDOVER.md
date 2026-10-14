@@ -271,4 +271,4 @@ Links: `https://github.com/CosmicCuddle/N-Questie/actions/runs/<id>`. The #38 M2
 
 **CI scope statement.** All CI results in this handover are synthetic or public-data results from GitHub Actions and the box. They are **not** validation of the lead developer's private 1203 M2.1 file, which still needs genuine Lua 5.1 validation in a trusted environment.
 
-CI on the final #39 head: CI_EVIDENCE_3
+CI on the final #39 head 2912fd20d (all success, run head SHA verified): M2 38612976383 (push) / 38612981491 (PR); M0 38612976277 / 38612981424; M1 38612975898 / 38612981533; overlay 38612975641 / 38612981485; CI 38612976342 / 38612981634; revision guard 38612981589 (PR only).
