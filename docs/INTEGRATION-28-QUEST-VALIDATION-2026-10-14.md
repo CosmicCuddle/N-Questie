@@ -41,7 +41,7 @@ This integration branch **does not add any further production quest correction**
 
 **Revision guard:** The initially copied guard script lacked an executable file-mode bit because of the GitHub content-copy method; the test runner invoked it as an executable and failed with status 126. The integration-only synthetic test runner now uses `bash "$SCRIPT" base` so results do not depend on that file-mode bit. After that correction, the [GitHub revision guard run 38571850279](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850279) **PASSED** all seven synthetic tests and the PR baseline check. The original Grok PR #12 remains untouched.
 
-**Inherited CI:** LuaCheck and Busted unit-tests passed on the same integration source run [38571850039](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850039) using the test-harness shim from PR #4. The remaining Era/SoD/WotLK validation jobs must also complete successfully before treating this branch as full-CI green.
+**Inherited CI:** The complete inherited [CI run 38571850039](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850039) **PASSED** on the source integration commit: LuaCheck, Busted unit tests and the Era, Season of Discovery and WotLK database validators all succeeded, with the tag-only publishing job appropriately skipped. This is source/test integration evidence, not a guarantee that later docs commits have the same status; check the latest PR #16 head.
 
 **Dedicated overlay checks:** [Run 38571850685](https://github.com/CosmicCuddle/N-Questie/actions/runs/38571850685) passed.
 
@@ -49,7 +49,7 @@ Be precise about which commit each workflow tested: GitHub automatically re-runs
 
 ## Remaining high-priority blockers
 
-1. **Unresolved #2/#3 documentation ancestry:** Grok identified nine missing QA/doc commits from PR #2 in PR #3's history. A future **separately approved** conflict-resolution step must preserve quest 2001 in-game QA notes and rerun all integration tests. This integration draft intentionally does NOT rewrite those branches.
+1. **Unresolved #2/#3 documentation ancestry:** GitHub compare independently confirms PR #2 has **nine commits** missing from PR #3's ancestry, affecting four documents. The most misleading conflict was the stale `NOT YET RUN` quest 2001 smoke-test text, which **has now been corrected in this integration branch** from PR #2's genuine in-game QA evidence. **This does not resolve the underlying Git history divergence.** See [PR2-PR3-ANCESTRY-RECONCILIATION-PLAN.md](PR2-PR3-ANCESTRY-RECONCILIATION-PLAN.md) for the proposed future approval-controlled reconciliation.
 2. **User-authorized in-game QA:** The headless M0 harness does not prove marker colour/visibility, UI text (including non-enUS localisation), locale, login cache persistence, IP stage eligibility, quest-chain gameplay or frame-split loading. Back up `Interface/AddOns/Questie-335` and `QuestieConfig`/`QuestieConfigCharacter` SavedVariables before any separately authorized QA build.
 3. **Grok's M1 objective validation:** Independent workstream continues; do not edit their M1 development branch or infer individual objective bugs from raw SQL ID differences.
 4. **Release approval:** Never merge any PR, move `335`, create tags/releases, change N-Addon-Collection or modify live AzerothCore/installed WoW files without the maintainer's explicit approval.
