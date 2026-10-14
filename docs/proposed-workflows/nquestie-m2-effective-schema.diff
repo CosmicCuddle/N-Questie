@@ -1,0 +1,17 @@
+# Proposed (NOT applied): run the M2.2 Step 1 standalone test in CI.
+# Against .github/workflows/nquestie-objective-rules.yml at PR #22 head 449b6f4a9.
+# Busted already covers EffectiveSchema.test.lua through the existing busted step.
+diff --git a/.github/workflows/nquestie-objective-rules.yml b/.github/workflows/nquestie-objective-rules.yml
+index 87f641769..a2575ff14 100644
+--- a/.github/workflows/nquestie-objective-rules.yml
++++ b/.github/workflows/nquestie-objective-rules.yml
+@@ -37,5 +37,9 @@ jobs:
+         run: lua5.1 tests/test_nquestie_m2_input_paths.lua
+       - name: Validate synthetic Python-exporter-v3 format through Grok M2.1
+         run: lua5.1 cli/validate-m2-input.lua "$GITHUB_WORKSPACE/tests/fixtures/m2_input/private_adapter_v3_synthetic.lua"
++      - name: M2.2 Step 1 effective schema (syntax + standalone)
++        run: |
++          luac5.1 -p tools/validation/EffectiveSchema.lua tools/validation/fixtures/effective_cases.lua tests/fixtures/m2_effective/*.lua
++          lua5.1 tests/test_nquestie_m2_effective_schema.lua
+       - name: Print synthetic report
+         run: lua5.1 cli/validate-objectives.lua
