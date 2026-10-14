@@ -1,6 +1,5 @@
-# Proposed (NOT active). Dedicated CI for M2.1 + M2.2.
-# The push token has no workflow scope. To activate, the lead developer copies
-# this file to .github/workflows/ in a CI-only PR, as with #22 and #25.
+# CI-only review activation: full M2 suite with coverage and draft-v2 design tests.
+# Uses public compiled Questie records and synthetic fixtures, never private inputs.
 # Public Questie data and synthetic fixtures only. Writes only to runner temp.
 name: N-Questie M2 validation framework (M2.1 + M2.2)
 

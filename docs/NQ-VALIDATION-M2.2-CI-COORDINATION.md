@@ -1,5 +1,7 @@
 # N-Questie M2.2 CI coordination: PR #30, PR #31 and the full M2 suite
 
+> **Superseded (14 October 2026):** the lead developer's PR #35 activated `.github/workflows/nquestie-m2-effective-export.yml`. That workflow is canonical. The proposed copy and the activation diff were removed on the integration branch to avoid duplication. The order tests (#36) run through the busted wrapper step of that workflow; the ID-set pins (#37) run inside its coverage integration step.
+
 Status: review notes for the lead developer. CI-only changes are yours to make; this branch contains no workflow edits.
 Date: 14 October 2026 (Europe/London)
 
