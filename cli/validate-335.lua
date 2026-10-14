@@ -145,17 +145,42 @@ local QK = { name = 1, startedBy = 2, finishedBy = 3, requiredLevel = 4, questLe
              requiredRaces = 6, objectivesText = 8, objectives = 10, preQuestGroup = 12,
              preQuestSingle = 13, exclusiveTo = 16, zoneOrSort = 17, questFlags = 23 }
 
--- questId = {before requiredLevel, before questLevel, after requiredLevel, after questLevel}
-local DUSTWALLOW = {
-    [1166] = {37, 41, 38, 43},
-    [1168] = {37, 41, 38, 43},
-    [1169] = {37, 41, 38, 43},
-    [1170] = {37, 41, 38, 43},
-    [1171] = {37, 41, 38, 43},
-    [1172] = {37, 41, 38, 45},
-    [1205] = {35, 41, 35, 45},
-    [1252] = {30, 35, 30, 40},
+-- questId = {before requiredLevel, before questLevel, after requiredLevel, after questLevel, source}
+-- Each quest has its own expected values (no shared fixtures).
+local LEVEL_CORRECTIONS = {
+    -- PR #7: Dustwallow Marsh (Compat/NQuestieReviewedQuestLevelCorrections.lua)
+    [1166] = {37, 41, 38, 43, "PR #7"},
+    [1168] = {37, 41, 38, 43, "PR #7"},
+    [1169] = {37, 41, 38, 43, "PR #7"},
+    [1170] = {37, 41, 38, 43, "PR #7"},
+    [1171] = {37, 41, 38, 43, "PR #7"},
+    [1172] = {37, 41, 38, 45, "PR #7"},
+    [1205] = {35, 41, 35, 45, "PR #7"},
+    [1252] = {30, 35, 30, 40, "PR #7"},
 }
+-- PR #8: early-zone quests (Compat/NQuestieReviewedEarlyQuestLevels.lua).
+-- Only asserted when that module is part of the TOC being validated.
+local EARLY_LEVEL_CORRECTIONS = {
+    [98]   = {22, 32, 22, 35, "PR #8"},
+    [126]  = {15, 21, 15, 25, "PR #8"},
+    [169]  = {11, 26, 15, 26, "PR #8"},
+    [180]  = {11, 26, 15, 26, "PR #8"},
+    [249]  = {20, 26, 20, 27, "PR #8"},
+    [256]  = {9, 22, 17, 22, "PR #8"},
+    [304]  = {26, 31, 26, 34, "PR #8"},
+    [398]  = {4, 10, 6, 10, "PR #8"},
+    [442]  = {10, 20, 10, 24, "PR #8"},
+    [895]  = {9, 16, 11, 16, "PR #8"},
+    [6284] = {12, 21, 15, 21, "PR #8"},
+}
+do
+    local toc = io.open("Questie-335.toc", "r")
+    local text = toc and toc:read("*a") or ""
+    if toc then toc:close() end
+    if text:find("Compat\\NQuestieReviewedEarlyQuestLevels.lua", 1, true) then
+        for id, v in pairs(EARLY_LEVEL_CORRECTIONS) do LEVEL_CORRECTIONS[id] = v end
+    end
+end
 
 -- Allow-list of (database, id, field) that the N-Questie callbacks may change.
 -- field "*" = whole record may be new (custom quest).
@@ -165,9 +190,11 @@ local ALLOWED = {
     objectData = {},
     itemData = {},
 }
-for id, v in pairs(DUSTWALLOW) do
-    local f = { [QK.questLevel] = true }
+-- Allow-list only the level fields that actually change.
+for id, v in pairs(LEVEL_CORRECTIONS) do
+    local f = {}
     if v[1] ~= v[3] then f[QK.requiredLevel] = true end
+    if v[2] ~= v[4] then f[QK.questLevel] = true end
     ALLOWED.questData[id] = f
 end
 
@@ -209,6 +236,22 @@ local function ser(v)
     serialize(v, out)
     return table.concat(out)
 end
+
+-- The compiler stores absent ints as 0 and absent lists as {} (or nil).
+-- Normalise both sides so only real value differences remain.
+local function normalize(v)
+    if v == 0 then return nil end
+    if type(v) ~= "table" then return v end
+    local out, any = {}, false
+    for k, x in pairs(v) do
+        local n = normalize(x)
+        if n ~= nil then out[k] = n; any = true end
+    end
+    return any and out or nil
+end
+
+local COMPILED_KEYS = { "requiredLevel", "questLevel", "preQuestSingle", "preQuestGroup",
+                        "exclusiveTo", "nextQuestInChain", "parentQuest", "startedBy", "finishedBy" }
 
 -- 32-bit polynomial rolling hash over a string, exact in Lua 5.1 doubles.
 local function hashString(s, h)
@@ -409,6 +452,7 @@ local function run()
         for dbName in pairs(snapshots.before) do
             snapshots.after[dbName] = snapshot(QuestieDB[dbName])
         end
+
     end
 
     local t0 = os.clock()
@@ -513,23 +557,51 @@ local function run()
     end
 
     ---------------------------------------------------------------------------
-    -- Eight Dustwallow quests (PR #7), each with its own expected values
+    -- Reviewed level corrections (PR #7 Dustwallow, PR #8 early zones),
+    -- each with its own expected values. Unchanged fields must stay equal.
     ---------------------------------------------------------------------------
-    for id, v in pairs(DUSTWALLOW) do
+    local levelCount = 0
+    for id, v in pairs(LEVEL_CORRECTIONS) do
+        levelCount = levelCount + 1
+        local tag = v[5] .. " quest " .. id
         local bq, aq = before[id], QuestieDB.questData[id]
-        check(bq ~= nil and type(aq) == "table", id .. " present")
+        check(bq ~= nil and type(aq) == "table", tag .. " present")
         if bq and type(aq) == "table" then
             check(bq[QK.requiredLevel] == ser(v[1]) and bq[QK.questLevel] == ser(v[2]),
-                  id .. " base levels " .. v[1] .. "/" .. v[2])
-            check(aq[QK.requiredLevel] == v[3], id .. " requiredLevel " .. v[3] .. " (got " .. tostring(aq[QK.requiredLevel]) .. ")")
-            check(aq[QK.questLevel] == v[4], id .. " questLevel " .. v[4] .. " (got " .. tostring(aq[QK.questLevel]) .. ")")
+                  tag .. " original levels " .. v[1] .. "/" .. v[2] .. " (got " ..
+                  tostring(bq[QK.requiredLevel]) .. "/" .. tostring(bq[QK.questLevel]) .. ")")
+            check(aq[QK.requiredLevel] == v[3], tag .. " requiredLevel " .. v[3] .. " (got " .. tostring(aq[QK.requiredLevel]) .. ")")
+            check(aq[QK.questLevel] == v[4], tag .. " questLevel " .. v[4] .. " (got " .. tostring(aq[QK.questLevel]) .. ")")
+            if v[1] == v[3] then
+                check(ser(aq[QK.requiredLevel]) == bq[QK.requiredLevel], tag .. " requiredLevel must stay unchanged")
+            end
+            if v[2] == v[4] then
+                check(ser(aq[QK.questLevel]) == bq[QK.questLevel], tag .. " questLevel must stay unchanged")
+            end
         end
+    end
+    print("[validate-335] level corrections asserted: " .. levelCount)
+    local expectedCount = tonumber(os.getenv("NQ_VALIDATE_EXPECT_LEVEL_COUNT") or "")
+    if expectedCount then
+        check(levelCount == expectedCount, "expected " .. expectedCount .. " level corrections, found " .. levelCount)
     end
 
     ---------------------------------------------------------------------------
     -- Compile through the real DB compiler and read back compiled values
     ---------------------------------------------------------------------------
     if os.getenv("NQ_VALIDATE_SKIP_COMPILE") ~= "1" and #failures == 0 then
+        -- Baseline for the compiled round trip: the source table exactly as
+        -- handed to the compiler (after the full Initialize() pipeline,
+        -- including inherited post-correction steps such as faction inference).
+        local norm = {}
+        for id, record in pairs(QuestieDB.questData) do
+            local fields = {}
+            for _, key in ipairs(COMPILED_KEYS) do
+                fields[key] = ser(normalize(record[QuestieDB.questKeys[key]]))
+            end
+            norm[id] = fields
+        end
+        snapshots.afterNormalized = norm
         local QuestieDBCompiler = QuestieLoader:ImportModule("DBCompiler")
         t0 = os.clock()
         QuestieDBCompiler:Compile(function() end)
@@ -540,10 +612,40 @@ local function run()
         local cobj = Q(1203, "objectives")
         check(type(cobj) == "table" and cobj[3] and cobj[3][1] and cobj[3][1][1] == 3853, "compiled 1203 item 3853")
         check(Q(2001, "name") == "Ravenclaw Cleanup", "compiled 2001 name")
-        for id, v in pairs(DUSTWALLOW) do
+        for id, v in pairs(LEVEL_CORRECTIONS) do
             check(Q(id, "requiredLevel") == v[3] and Q(id, "questLevel") == v[4],
                   "compiled " .. id .. " levels " .. v[3] .. "/" .. v[4])
         end
+        -- Compiled round trip for every quest: levels and prerequisite /
+        -- chain fields must equal the post-correction source table.
+        -- Runtime overrides (QuestieDB.questDataOverrides) are applied on top of
+        -- the compiled data by the query handle. None may shadow an N-Questie
+        -- correction; set them aside to compare the compiled binary itself.
+        local overrides, saved, overrideCount = QuestieDB.questDataOverrides, {}, 0
+        for id, v in pairs(overrides) do
+            saved[id] = v; overrideCount = overrideCount + 1
+            check(not LEVEL_CORRECTIONS[id] and id ~= 1203 and id ~= 2001,
+                  "runtime questDataOverrides shadows N-Questie corrected quest " .. tostring(id))
+        end
+        for id in pairs(saved) do overrides[id] = nil end
+        print("[validate-335] runtime questDataOverrides entries set aside: " .. overrideCount)
+        local after = snapshots.afterNormalized or {}
+        local mismatches, compared = 0, 0
+        for id, fields in pairs(after) do
+            for _, key in ipairs(COMPILED_KEYS) do
+                local got = ser(normalize(Q(id, key)))
+                compared = compared + 1
+                if got ~= fields[key] then
+                    mismatches = mismatches + 1
+                    if mismatches <= 10 then
+                        print("compiled mismatch quest " .. tostring(id) .. " " .. key .. ": " .. got .. " vs " .. fields[key])
+                    end
+                end
+            end
+        end
+        for id, v in pairs(saved) do overrides[id] = v end
+        print("[validate-335] compiled round trip: " .. compared .. " quest fields compared, " .. mismatches .. " mismatches")
+        check(mismatches == 0, "compiled quest fields differ from the corrected source (" .. mismatches .. ")")
     end
 
     if #failures > 0 then
