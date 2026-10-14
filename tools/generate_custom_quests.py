@@ -7,6 +7,7 @@ existing Questie NPC locations may be emitted.
 """
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -150,6 +151,13 @@ def main(argv=None):
         parser.error("Output must be a separate .lua file")
     if args.output.exists() and not args.overwrite:
         parser.error("Output exists; pass --overwrite only after comparing revisions")
+    if args.output.exists():
+        existing = args.output.read_text(encoding="utf-8")
+        if not existing.startswith("-- N-Questie curated public quest metadata; generated from reviewed offline JSON."):
+            parser.error("Refusing to overwrite a non-generated Lua file")
+        current = re.search(r"(?m)^    revision = ([0-9]+),$", existing)
+        if not current or args.revision <= int(current.group(1)):
+            parser.error("New revision must be higher than existing generated revision")
     with args.review.open(encoding="utf-8") as source:
         document = json.load(source)
     content = generate(document, args.approved_quest, args.verified_npc, args.revision)
