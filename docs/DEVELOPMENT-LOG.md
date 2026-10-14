@@ -1,5 +1,19 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Private acore_world re-upload: quest 1203 and Dustwallow audit
+
+**Input/privacy:** Maintainer uploaded a fresh private HeidiSQL acore_world.zip in chat. Read-only local inspection confirmed 9,525 unique server quest_template records. No raw SQL, host/server details, connection strings, or complete exported quest data have been committed to GitHub.
+
+**Quest 1203:** Jarl Needs a Blade has server QuestLevel 35 and MinLevel 30 (same as stock WotLK Questie), but its required item is Moonsteel Broadsword (3853, quantity one), whereas Questie WotLK references Razorspine's Sword (33110). Jarl, the objective text, and prerequisite 1206 were verified locally. **Draft PR #6** proposes a fail-closed correction of item objective and objective text only, preserving the already-correct levels, quest chain and NPC links. Dedicated Lua 5.1 scoped checks passed [38554593796](https://github.com/CosmicCuddle/N-Questie/actions/runs/38554593796). No new in-game correction QA yet.
+
+**Dustwallow comparison:** 134 server quest records for QuestSortID 15; 126 present in raw WotLK Questie, 8 absent (classification pending). Found **eight numeric quest-level/minimum-level differences**, plus **32 candidate required-item objective differences** (one is Jarl; 31 others require manual interpretation of source-item and scripted mechanisms). Direct Classic/TBC/WotLK literal correction inspection found no conflicting numeric level changes for those eight. **Draft PR #7** adds guarded, level-field-only patches for quests 1166, 1168, 1169, 1170, 1171, 1172, 1205 and 1252, preserving all unrelated quest fields; in-game test pending. See docs/DUSTWALLOW-QUEST-AUDIT.md.
+
+**Remaining work:** Complete automatic *all-zone* discrepancy review, classify item-objective candidates, check quest-specific / Individual Progression conditions and character eligibility, and validate the fix through an approved backed-up QA build. Exact user character colour at quest 1203 was not independently established; do not claim changing item objectives fixes a colour symptom.
+
+**Safety:** PR #5 audit and PR #6/#7 corrections are stacked **draft/unmerged**. Original private export and full comparison remain offline. Do not merge, release, update N-Addon-Collection, modify live DB/progression or replace installed Questie/SavedVariables without approval.
+
+# N-Questie — Development Log
+
 ## 14 October 2026 — First known existing-quest mismatch and offline audit PR #5
 
 **Maintainer report:** Jarl Needs a Blade displays incorrect quest information in the customised AzerothCore / Individual Progression environment; remaining differences should be discovered through systematic comparison.
