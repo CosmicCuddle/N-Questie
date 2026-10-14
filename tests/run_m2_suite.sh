@@ -18,8 +18,10 @@ step "M2.2 effective schema" "$LUA" tests/test_nquestie_m2_effective_schema.lua
 step "M2.2 snapshot (compiled shapes)" "$LUA" tests/test_nquestie_m2_effective_export.lua
 step "M2.2 safe writer" "$LUA" tests/test_nquestie_m2_safe_write.lua
 step "M2.2 provenance" "$LUA" tests/test_nquestie_m2_provenance.lua
+step "M2.2 coverage (synthetic)" "$LUA" tests/test_nquestie_m2_coverage.lua
 step "busted tools/validation" busted -p ".test.lua" tools/validation
 if [ "${NQ_M2_SKIP_INTEGRATION:-0}" != "1" ]; then
     step "M2.2 real-DB export integration (M0 + export)" bash tests/test_nquestie_m2_export_integration.sh
+    step "M2.2 real-DB coverage integration" bash tests/test_nquestie_m2_coverage_integration.sh
 fi
 [ $status -eq 0 ] && echo "PASS: M2 suite" || { echo "FAILED: M2 suite"; exit 1; }

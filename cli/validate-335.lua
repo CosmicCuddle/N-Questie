@@ -18,6 +18,9 @@
 --   NQ_EXPORT_QUESTS="1203,2001"               explicit quest IDs, or
 --   NQ_EXPORT_SELECTION=/abs/input.lua          IDs from a validated nq-m2-input file
 --   NQ_EXPORT_FORCE=1                           replace an existing output file
+-- Optional M2.2 coverage report (read-only, all quests; not an export):
+--   NQ_COVERAGE_MANIFEST_OUT=/abs/private/m.lua per-quest manifest (private paths only)
+--   NQ_COVERAGE_AGGREGATE_OUT=/abs/agg.txt      optional aggregate copy (counts only)
 -- The export runs only after every M0 check has passed, needs a clean git
 -- checkout and NQ_VALIDATE_EXPECT_LEVEL_COUNT, and never changes the checks.
 -- No private server data is read. Without the export option nothing is written.
@@ -473,6 +476,85 @@ local function exportOptions()
     return { out = out, ids = list, root = root, force = os.getenv("NQ_EXPORT_FORCE") == "1" }
 end
 
+-- M2.2 coverage / preflight options (read-only report over ALL compiled
+-- quests; never an export). Checked before M0; nil on error, false when off.
+local function coverageOptions()
+    local man, agg = os.getenv("NQ_COVERAGE_MANIFEST_OUT"), os.getenv("NQ_COVERAGE_AGGREGATE_OUT")
+    if man == nil or man == "" then
+        if agg and agg ~= "" then return nil, { "coverage: NQ_COVERAGE_AGGREGATE_OUT given without NQ_COVERAGE_MANIFEST_OUT" } end
+        return false
+    end
+    local errs = {}
+    local root = io.popen("pwd -P"):read("*l")
+    if os.getenv("NQ_EXPORT_EFFECTIVE_OUT") and os.getenv("NQ_EXPORT_EFFECTIVE_OUT") ~= "" then
+        errs[#errs + 1] = "coverage: not allowed together with an effective export"
+    end
+    if os.getenv("NQ_VALIDATE_FIXTURE") and os.getenv("NQ_VALIDATE_FIXTURE") ~= "" then
+        errs[#errs + 1] = "coverage: not allowed together with NQ_VALIDATE_FIXTURE"
+    end
+    if os.getenv("NQ_VALIDATE_SKIP_COMPILE") == "1" then
+        errs[#errs + 1] = "coverage: needs the compiled database (unset NQ_VALIDATE_SKIP_COMPILE)"
+    end
+    if not tonumber(os.getenv("NQ_VALIDATE_EXPECT_LEVEL_COUNT") or "") then
+        errs[#errs + 1] = "coverage: NQ_VALIDATE_EXPECT_LEVEL_COUNT must be set"
+    end
+    local Writer = dofile("tools/validation/SafeWrite.lua")
+    -- The per-quest manifest must be private: inside the checkout only under
+    -- private/ (SafeWrite also allows paths outside the checkout).
+    local d, why = Writer.CheckDestination(man, root)
+    if not d then errs[#errs + 1] = "coverage: manifest: " .. why end
+    if agg and agg ~= "" then
+        local d2, why2 = Writer.CheckDestination(agg, root)
+        if not d2 then errs[#errs + 1] = "coverage: aggregate: " .. why2 end
+        if agg == man then errs[#errs + 1] = "coverage: manifest and aggregate paths must differ" end
+    end
+    if #errs > 0 then return nil, errs end
+    return { manifest = man, aggregate = (agg ~= "" and agg) or nil, root = root,
+             force = os.getenv("NQ_EXPORT_FORCE") == "1" }
+end
+
+-- Runs after every M0 check passed. Returns true, summary or false, errors.
+local function runCoverage(opts, QuestieDB, Q, levelCount)
+    local Export = dofile("tools/validation/EffectiveExport.lua")
+    local Coverage = dofile("tools/validation/Coverage.lua")
+    local Prov = dofile("tools/validation/ExportProvenance.lua")
+    local Writer = dofile("tools/validation/SafeWrite.lua")
+    local ids = {}
+    for id in pairs(QuestieDB.QuestPointers) do ids[#ids + 1] = id end
+    local results = Coverage.Run(Export, Q, ids)
+    local agg = Coverage.Aggregate(results)
+    local modules = {}
+    for _, f in ipairs(loadedFiles) do
+        if f:find("^Compat/NQuestie") then modules[#modules + 1] = f end
+    end
+    local tocInterface
+    for l in io.lines("Questie-335.toc") do
+        local v = l:match("^##%s*Interface:%s*(%d+)")
+        if v then tocInterface = tonumber(v) end
+    end
+    local _, _, _, build = GetBuildInfo()
+    local nq = rawget(_G, "NQuestieCustomQuestData")
+    local prov, perr = Prov.Collect(opts.root, modules, {
+        revision = type(nq) == "table" and nq.revision or nil,
+        correctionCount = levelCount,
+        expectedCorrectionCount = tonumber(os.getenv("NQ_VALIDATE_EXPECT_LEVEL_COUNT") or ""),
+        m0Checks = passes, tocInterface = tocInterface, buildInterface = build,
+        harnessVersion = HARNESS_VERSION,
+    })
+    if not prov then return false, perr end
+    local text = Coverage.FormatAggregate(agg, Export)
+    io.write(text)
+    local manifest = Export.Serialize(Coverage.Manifest(results, agg, prov),
+        "N-Questie M2.2 COVERAGE MANIFEST (per quest). Not an export. Keep private.")
+    local ok, where = Writer.WriteFile(opts.manifest, manifest, { repoRoot = opts.root, force = opts.force })
+    if not ok then return false, { "coverage: manifest: " .. where } end
+    if opts.aggregate then
+        local ok2, w2 = Writer.WriteFile(opts.aggregate, text, { repoRoot = opts.root, force = opts.force })
+        if not ok2 then return false, { "coverage: aggregate: " .. w2 } end
+    end
+    return true, where
+end
+
 -- Runs after every M0 check passed. Returns true or false, errors.
 local function runExport(opts, QuestieDB, Q, levelCount)
     local Export = dofile("tools/validation/EffectiveExport.lua")
@@ -532,6 +614,12 @@ local function run()
     if exportOpts == nil then
         for _, e in ipairs(exportErr) do print("\27[31m" .. e .. "\27[0m") end
         print("\27[31m[validate-335] export refused before validation; nothing written\27[0m")
+        os.exit(1)
+    end
+    local coverageOpts, coverageErr = coverageOptions()
+    if coverageOpts == nil then
+        for _, e in ipairs(coverageErr) do print("\27[31m" .. e .. "\27[0m") end
+        print("\27[31m[validate-335] coverage refused before validation; nothing written\27[0m")
         os.exit(1)
     end
     print("\27[36m[validate-335] Loading Questie-335.toc as a 3.3.5a client\27[0m")
@@ -825,6 +913,20 @@ local function run()
             os.exit(1)
         end
         print("\27[32m[validate-335] effective export written: " .. #exportOpts.ids .. " quest(s) -> " .. res .. "\27[0m")
+    end
+    if coverageOpts then
+        if not snapshots.afterNormalized then
+            print("\27[31m[validate-335] coverage refused: compiled round trip did not run\27[0m")
+            os.exit(1)
+        end
+        local ok, res = runCoverage(coverageOpts, QuestieLoader:ImportModule("QuestieDB"),
+            QuestieLoader:ImportModule("QuestieDB").QueryQuestSingle, levelCount)
+        if not ok then
+            for _, e in ipairs(res) do print("\27[31m" .. e .. "\27[0m") end
+            print("\27[31m[validate-335] COVERAGE FAILED\27[0m")
+            os.exit(1)
+        end
+        print("\27[32m[validate-335] coverage manifest written (private): " .. res .. "\27[0m")
     end
 end
 
