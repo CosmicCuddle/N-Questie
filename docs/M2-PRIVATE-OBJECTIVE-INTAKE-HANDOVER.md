@@ -4,9 +4,9 @@
 
 ## Latest private intake hardening — version 2 (14 October 2026)
 
-The standalone **local-only** objective exporter was upgraded without replacing its previous package or publishing its implementation/private outputs. The **24-case synthetic Python suite PASSED** (12 original plus 12 new fail-closed tests). Version 2 now rejects negative item IDs/counts/start/source items, missing target IDs with positive counts, malformed or negative creature KillCredit pairs, unsafe completeness claims, omitted/changed `"unknown"` script/condition/IP flags, invalid provenance, and duplicate/overlapping creature candidate lists. Signed **negative NPC/GO IDs remain valid** for AzerothCore gameobject objectives.
+The standalone **local-only** objective exporter was upgraded without replacing its previous package or publishing its implementation/private outputs. The **25-case synthetic Python suite PASSED** (12 original plus 13 new fail-closed tests). Version 2 now rejects negative item IDs/counts/start/source items, missing target IDs with positive counts, malformed or negative creature KillCredit pairs, unsafe completeness claims, omitted/changed `"unknown"` script/condition/IP flags, invalid provenance, and duplicate/overlapping creature candidate lists. Signed **negative NPC/GO IDs remain valid** for AzerothCore gameobject objectives.
 
-The private output remains atomically written with Unix `0600` permissions. A new **atomic no-clobber** link step prevents an output appearing mid-run (including an existing dangling symlink) from being silently replaced when `--overwrite` was not supplied.
+The private output remains atomically written with Unix `0600` permissions. Version 2 additionally detects a destination inside **any Git checkout**, even when the exporter is running from a separate private directory or when output path components are symbolic links; it refuses that destination to avoid accidentally tracking private reports. A new **atomic no-clobber** link step prevents an output appearing mid-run (including an existing dangling symlink) from being silently replaced when `--overwrite` was not supplied.
 
 **Read-only real-archive regression:** Quest 1203 required item **3853 × 1**, quest 2001 creatures **1868 × 8 / 1869 × 8**, and selected creature KillCredit rows were read successfully from the maintainer's original offline ZIP. Only the two requested quests were exported to files outside the checkout. The exported rows retained `killCreditComplete=false` and `hasConditions/ipGated/scriptedCredit="unknown"`; source archive and all per-quest rows remain strictly private.
 
@@ -36,7 +36,7 @@ The private output remains atomically written with Unix `0600` permissions. A ne
 
 ## Private source verification (no raw dumps published)
 
-The initial 12-case synthetic Python suite **PASSED** (now expanded to **24 passing tests** in version 2), covering ZIP and SQL parsing, positive/negative/GO objectives, explicit creature row lookup, incomplete KillCredit, malformed rows, private output guards, and tri-state provenance.
+The initial 12-case synthetic Python suite **PASSED** (now expanded to **25 passing tests** in version 2), covering ZIP and SQL parsing, positive/negative/GO objectives, explicit creature row lookup, incomplete KillCredit, malformed rows, private output guards, and tri-state provenance.
 
 A separate **read-only** real-world run on the user-provided archive succeeded:
 
@@ -63,4 +63,4 @@ The results were written to **private files outside GitHub**, not into this repo
 - Never edit Grok's original PR #15/#17/#18 branches from this workstream.
 - No live world SQL writes, Individual Progression or playerbot changes, installed client replacement, SavedVariables reset, merge/release/tag or Addon Collection update without maintainer approval.
 
-**Current status:** Private intake version 2 **works for selected real quest records** and 24 synthetic cases, including safe no-clobber writes and additional source-shape validation. **M2 validator, batch reporting, classification of the 24 item / 151 NPC candidates and in-game QA remain pending.**
+**Current status:** Private intake version 2 **works for selected real quest records** and 25 synthetic cases, including safe no-clobber writes and additional source-shape validation. **M2 validator, batch reporting, classification of the 24 item / 151 NPC candidates and in-game QA remain pending.**
