@@ -1,5 +1,13 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Quest 2001 hand-in removes marker: PASS
+
+**Maintainer-reported in-game confirmation:** After naturally handing in Ravenclaw Cleanup (2001) to Shadow Priest Allister, its completed quest marker disappeared from the map as expected. This completes the first custom quest's **observed icon state lifecycle**: available starter → NPC kill-objective markers and ordinary/Shift objective tooltips → ready-to-turn-in at NPC 2121 → no remaining completed marker after hand-in. The user explicitly confirmed the final removal; no screenshot was supplied for that last action.
+
+**Phase 1 visual smoke result: PASS for quest 2001's tested states**, together with Step 1's five normal Questie compatibility checks. Do not broaden this claim to all custom quests or the entire server. Individual kill counter transitions and a point-by-point match of NPC spawn coordinates against active server spawns were not separately documented.
+
+**Next:** Keep the installed working QA addon and SavedVariables unchanged. Continue importer review on stacked draft PR #3, investigate inherited Busted test harness failures, source-verify additional NPC spawns/quest eligibility, and arrange a second varied custom-quest test. No merge, tag, release, N-Addon-Collection change or live server DB change has been authorized.
+
 ## 14 October 2026 — Quest 2001 completed-state marker QA
 
 **In-game screenshot evidence:** Shadow Priest Allister's map tooltip lists **Ravenclaw Cleanup (2001) — (Complete)** in both compact and expanded views. Other quests (including Border Crossings 477 and Lost Deathstalkers 428) continue to be listed alongside it.
