@@ -225,13 +225,8 @@ oddOut=$(lua5.1 cli/check-private-1203.lua "$T/with-archive.lua" --archive "$T/p
     && [[ "$oddOut" != *"$T"* ]] && ok "reject archive symlink resolving into public checkout" \
     || bad "public-checkout archive symlink not rejected"
 
-oddOut=$(run "$T/"
-    && [ "$(stat -c %a "$T/source-archive.zip")" = 600 ] \
-    && ok "synthetic input and source bytes remained untouched" || bad "synthetic source/input changed"
-
-echo "M2 private 1203 gate synthetic: $passes passed, $fails failed"
-[ "$fails" -eq 0 ]
-newline\nname.lua'); oddCode=$?
+printf -v newlinePath '%s/newline\nname.lua' "$T"
+oddOut=$(run "$newlinePath"); oddCode=$?
 [ "$oddCode" -ne 0 ] && [[ "$oddOut" == *"input rejected"* ]] && [[ "$oddOut" != *"$T"* ]] \
     && ok "reject newline control character in input path without disclosing it" \
     || bad "unsafe control-character input path was not rejected"
