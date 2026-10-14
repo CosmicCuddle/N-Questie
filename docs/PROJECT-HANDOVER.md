@@ -211,3 +211,4 @@ The first documentation PR is **foundation only**. It does not implement or inst
 - 2026-10-14: M2 roadmap added (docs/NQ-VALIDATION-M2-ROADMAP.md) on the Step 1 branch. Steps 2-6 and M2.3 not started.
 - 2026-10-14: private/ guard added on ci/nq-private-untracked-guard-2026-10-14 (stacked on PR #22). Dedicated step is a proposed diff only (no workflow scope).
 - 2026-10-14: M2.2 handover: docs/NQ-VALIDATION-M2.2-HANDOVER.md (PR order #24 -> #26 -> #27 -> #28 -> #29, results, limitations, review items). M2.3 not started.
+- 2026-10-14: M2.2 Option A follow-up: coverage (#33), pilot and v2 design (#34). See docs/NQ-VALIDATION-M2.2-HANDOVER.md §10. v1 frozen; v2 exporter and M2.3 not started.
