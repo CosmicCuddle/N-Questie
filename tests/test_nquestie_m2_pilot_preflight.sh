@@ -20,12 +20,12 @@ reject() {
     if [ "$code" -ne 0 ] && printf '%s\n' "$result" | grep -qF -- "STOP: $want"; then
         ok "$label"
     else
-        bad "$label (exit $code)"
+        bad "$label (exit $code; output: $result)"
     fi
 }
 reject "reject public repo as output destination" "$ROOT" 1203 "OUT_DIR resolves inside the public checkout"
 [ ! -e "$ROOT/negatives-1203.log" ] && ok "public checkout not written" || bad "public checkout received output"
-reject "reject directory dot segments" "$T/../escape" 1203 "must not contain . or .. segments"
+reject "reject directory dot segments" "$T/../escape" 1203 "OUT_DIR must not contain . or .. segments"
 ln -s "$ROOT" "$T/to-repo"
 reject "reject symlink redirecting into checkout" "$T/to-repo" pilot "OUT_DIR resolves inside the public checkout"
 rm "$T/to-repo"
