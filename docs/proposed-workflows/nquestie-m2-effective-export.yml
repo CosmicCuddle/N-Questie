@@ -1,0 +1,83 @@
+# Proposed (NOT active). Dedicated CI for M2.1 + M2.2.
+# The push token has no workflow scope. To activate, the lead developer copies
+# this file to .github/workflows/ in a CI-only PR, as with #22 and #25.
+# Public Questie data and synthetic fixtures only. Writes only to runner temp.
+name: N-Questie M2 validation framework (M2.1 + M2.2)
+
+on:
+  push:
+    branches:
+      - "feat/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  m2-framework:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # provenance reads commit and tree from git
+
+      - name: Install Lua 5.1, LuaRocks, busted, bit32
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lua5.1 liblua5.1-0-dev luarocks
+          sudo luarocks --lua-version=5.1 install busted
+          sudo luarocks --lua-version=5.1 install bit32
+
+      - name: GNU realpath present (required before any path test)
+        run: realpath -e -- / && realpath --version | head -1 | grep GNU
+
+      - name: Lua 5.1 syntax for every M1/M2 module, spec, test and fixture
+        run: >
+          luac5.1 -p tools/validation/*.lua tools/validation/fixtures/*.lua
+          cli/validate-335.lua cli/validate-m2-input.lua cli/validate-objectives.lua
+          tests/test_nquestie_m2_*.lua tests/check_m2_export_values.lua
+          tests/fixtures/m2_input/*.lua tests/fixtures/m2_effective/*.lua
+          tests/fixtures/validate335/*.lua
+
+      - name: Private-file guard and its self-test
+        run: |
+          bash tests/test_check_no_tracked_private.sh
+          bash tests/check_no_tracked_private.sh
+
+      - name: M1 objective rules (unchanged)
+        run: lua5.1 tests/test_nquestie_objective_rules.lua
+
+      - name: M2.1 schema, parser and path/symlink tests
+        run: |
+          lua5.1 tests/test_nquestie_m2_input_schema.lua
+          lua5.1 tests/test_nquestie_m2_input_paths.lua
+
+      - name: M2.2 effective schema (standalone, actually executed)
+        run: lua5.1 tests/test_nquestie_m2_effective_schema.lua
+
+      - name: M2.2 snapshot tests (compiled shapes, round trip, M1 compatibility)
+        run: lua5.1 tests/test_nquestie_m2_effective_export.lua
+
+      - name: M2.2 safe writer (no-clobber, failures, symlinks)
+        run: lua5.1 tests/test_nquestie_m2_safe_write.lua
+
+      - name: M2.2 provenance (clean checkout, git, hashes)
+        run: lua5.1 tests/test_nquestie_m2_provenance.lua
+
+      - name: Busted (M1 + M2 specs)
+        run: busted -p ".test.lua" tools/validation
+
+      - name: M0 negatives still fail as intended
+        env:
+          LUA: lua5.1
+        run: bash tests/test_validate_335_fixtures.sh
+
+      - name: Full M0 + real-DB effective export integration (232 checks, 82,431 fields)
+        env:
+          LUA: lua5.1
+        run: bash tests/test_nquestie_m2_export_integration.sh
+
+      - name: Checkout still clean after the tests
+        run: test -z "$(git status --porcelain --untracked-files=all)"
