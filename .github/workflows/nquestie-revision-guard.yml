@@ -1,0 +1,23 @@
+# Review-only CI activation of the revision safeguard from draft PR #12.
+# No runtime changes, no private database data, no production deployment.
+# CI-only N-Questie cache revision guard; does not change runtime behaviour.
+name: N-Questie revision bump guard
+
+on:
+  pull_request:
+
+jobs:
+  revision-bump:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout project (full history for merge base)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Self-test the guard on synthetic git repositories
+        run: bash tests/test_check_revision_bump.sh
+
+      - name: Require a revision bump when N-Questie corrections change
+        run: bash cli/check-revision-bump.sh "origin/${{ github.base_ref }}"
