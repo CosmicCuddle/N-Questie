@@ -741,6 +741,17 @@ local function run()
             local hb, n = digest(before)
             local ha = digest(after)
             print(string.format("[validate-335] %-10s records=%d before=%s after=%s unexpected=%d", dbName, n, hb, ha, unexpected))
+            if dbName == "questData" then
+                -- Informational (not an extra check): exact quest ID changes made by
+                -- the N-Questie callbacks. Inherited Questie corrections that run
+                -- earlier are part of the "before" set.
+                local added, removed = {}, {}
+                for id in pairs(after) do if not before[id] then added[#added + 1] = tostring(id) end end
+                for id in pairs(before) do if not after[id] then removed[#removed + 1] = tostring(id) end end
+                table.sort(added); table.sort(removed)
+                print(string.format("[validate-335] questData IDs added by N-Questie: %s; removed: %s",
+                    #added > 0 and table.concat(added, ",") or "none", #removed > 0 and table.concat(removed, ",") or "none"))
+            end
             check(unexpected == 0, dbName .. ": " .. unexpected .. " unexpected change(s)")
         end
     end
