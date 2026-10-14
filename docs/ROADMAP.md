@@ -39,6 +39,16 @@
 
 ## Phase 2A — Corrections for existing WotLK quests (added 14 October 2026)
 
+**Audit implementation status (draft [PR #5](https://github.com/CosmicCuddle/N-Questie/pull/5)):** A read-only offline scanner can compare all server quest level fields against generated Questie WotLK data and literal Classic/TBC/WotLK correction levels without exporting the server SQL to GitHub. Dedicated synthetic QA [run 38551948617](https://github.com/CosmicCuddle/N-Questie/actions/runs/38551948617) passed on an earlier PR #5 commit; more realistic source-baseline regression was added afterward and needs its own CI result.
+
+- [x] Identify user-reported example: **quest 1203 Jarl Needs a Blade**, stock Questie MinLevel 30, QuestLevel 35, no numeric correction for this ID in Classic/TBC/WotLK sources.
+- [x] Implement a draft, read-only **mismatch discovery script** and synthetic SQL/ZIP + Lua fixture tests.
+- [ ] Run the scanner against the **private acore_world archive**; no accessible copy is currently present in this conversation, and the real server quest 1203 values are not established.
+- [ ] Triage every mismatch against custom modules, scripted availability, dynamic quest levels, runtime corrections and actual client observations; automatically discovered differences are *candidates*, not approved replacements.
+- [ ] Propose separate explicit **field-level** correction records, with Lua 5.1/in-game tests and no bulk data overwrite.
+
+
+
 **Purpose:** N-Questie must not only import new server quests: it must also correct existing quest IDs whose levels, difficulty colors, starter/ender relationships, objectives, item/NPC locations, prerequisites or available progression stages differ from stock WotLK.
 
 **Source authority and comparison:**
