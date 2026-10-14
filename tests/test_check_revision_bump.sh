@@ -23,7 +23,7 @@ new_repo() {
 
 expect() { # expect <name> <expected exit> 
     local name=$1 want=$2 got
-    "$SCRIPT" base >"$TMP/$name.log" 2>&1; got=$?
+    bash "$SCRIPT" base >"$TMP/$name.log" 2>&1; got=$?
     if [ "$got" -eq "$want" ]; then
         echo "PASS: $name (exit $got)"
     else
