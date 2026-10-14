@@ -350,50 +350,72 @@ end
 
 -------------------------------------------------------------------------------
 -- Paths
+--
+-- Every path is resolved fully (all components, parent symlinks and the file
+-- itself) with GNU `realpath -e` before any location rule is applied. If the
+-- resolver is unavailable, or the path cannot be resolved (missing file,
+-- broken link, loop, permission error), the input is REJECTED. Paths are
+-- never judged by their text. The resolved target governs: a symlink outside
+-- the checkout that points into it is treated as inside, and a symlink inside
+-- private/ that points into the public checkout is rejected.
 -------------------------------------------------------------------------------
 
-local function normalize(path)
-    local parts = {}
-    for seg in path:gmatch("[^/]+") do
-        if seg == ".." then
-            if #parts == 0 then return nil end
-            parts[#parts] = nil
-        elseif seg ~= "." then
-            parts[#parts + 1] = seg
-        end
-    end
-    return "/" .. table.concat(parts, "/")
+local function shellQuote(s)
+    return "'" .. s:gsub("'", "'\\''") .. "'"
 end
 
-local function realpath(path)
-    -- Resolve symlinks when the system realpath is available; fall back to
-    -- lexical normalisation. Single quotes are escaped for the shell.
-    local ok, h = pcall(io.popen, "realpath -m -- '" .. path:gsub("'", "'\\''") .. "' 2>/dev/null")
-    if ok and h then
-        local out = h:read("*l")
-        h:close()
-        if out and out:sub(1, 1) == "/" then return out end
+-- Default resolver. Returns an absolute canonical path or nil, reason.
+local function systemResolve(path)
+    if path:find("[%z\n\r]") then return nil, "path contains control characters" end
+    local ok, h = pcall(io.popen, "realpath -e -- " .. shellQuote(path) .. " 2>/dev/null")
+    if not ok or not h then return nil, "path resolver unavailable" end
+    local out = h:read("*a") or ""
+    h:close()
+    local line = out:match("^([^\n]*)\n?$")
+    if not line or line:sub(1, 1) ~= "/" then
+        return nil, "cannot resolve (missing file, broken symlink, symlink loop, permission error or no realpath)"
     end
-    return normalize(path)
+    return line
 end
-M._realpath = realpath
+
+-- Overridable for tests (simulated resolver failure). Production callers
+-- must not replace it.
+M.resolver = systemResolve
+
+local function resolve(path)
+    local ok, res, why = pcall(M.resolver, path)
+    if not ok then return nil, "path resolver failed: " .. tostring(res) end
+    if type(res) ~= "string" or res:sub(1, 1) ~= "/" then return nil, why or "path resolver returned no absolute path" end
+    return res
+end
+
+-- Confirm the resolver works at all before trusting a negative answer.
+local function resolverAvailable()
+    local r = resolve("/")
+    return r == "/"
+end
 
 local function under(path, dir)
     return path == dir or path:sub(1, #dir + 1) == dir .. "/"
 end
 
--- Decide whether an input path is acceptable.
--- repoRoot: absolute path of the public checkout.
--- Allowed: absolute paths outside the checkout, or inside it only under
--- private/ (gitignored) or tests/fixtures/m2_input/ (synthetic fixtures).
+-- Decide whether an input path is acceptable. Returns true, resolvedPath or
+-- false, reason. Allowed resolved locations: outside the checkout, or inside
+-- it only under private/ (gitignored) or tests/fixtures/m2_input/.
 function M.CheckInputPath(path, repoRoot)
     if type(path) ~= "string" or path == "" then return false, "no input path given (argument or NQ_M2_INPUT)" end
     if path:sub(1, 1) ~= "/" then return false, "input path must be absolute: " .. path end
-    local p = realpath(path)
-    local root = realpath(repoRoot)
-    if not p or not root then return false, "input path could not be normalised" end
+    for seg in path:gmatch("[^/]+") do
+        if seg == ".." or seg == "." then return false, "input path must not contain . or .. segments: " .. path end
+    end
+    if not resolverAvailable() then return false, "path resolver unavailable; refusing to judge the path by its text" end
+    local root, rwhy = resolve(repoRoot or "")
+    if not root then return false, "cannot resolve repository root: " .. tostring(rwhy) end
+    local p, why = resolve(path)
+    if not p then return false, "input path rejected: " .. tostring(why) end
     if under(p, root) and not (under(p, root .. "/private") or under(p, root .. "/tests/fixtures/m2_input")) then
-        return false, "input path is inside the public checkout; use a path outside it or under private/"
+        return false, "input path resolves inside the public checkout (" .. p:sub(#root + 2) ..
+            "); use a path outside it or under private/"
     end
     return true, p
 end

@@ -98,18 +98,12 @@ for _, case in ipairs(parseCases) do
     end
 end
 
--- Path gate
+-- Path gate (full symlink/edge-case coverage is in test_nquestie_m2_input_paths.lua)
 local root = assert(io.popen("pwd"):read("*l"))
 local ok, msg = Schema.CheckInputPath(root .. "/tools/validation/InputSchema.lua", root)
 if ok then fail("path gate allowed a tracked public file") else pass("path gate refuses a tracked public path: " .. msg) end
 ok = Schema.CheckInputPath(root .. "/tests/fixtures/m2_input/valid_selected_quests.lua", root)
 if not ok then fail("path gate refused fixture path") else pass("path gate allows tests/fixtures/m2_input/") end
-ok = Schema.CheckInputPath(root .. "/private/sample.lua", root)
-if not ok then fail("path gate refused private/") else pass("path gate allows private/") end
-ok = Schema.CheckInputPath("relative.lua", root)
-if ok then fail("path gate allowed a relative path") else pass("path gate requires an absolute path") end
-ok = Schema.CheckInputPath("/tmp/nq-m2-does-not-need-to-exist.lua", root)
-if not ok then fail("path gate refused an outside absolute path: " .. tostring(msg)) else pass("path gate allows absolute paths outside the checkout") end
 
 -- CLI against the fixture (absolute path)
 local cmd = string.format("lua5.1 cli/validate-m2-input.lua '%s/tests/fixtures/m2_input/valid_selected_quests.lua'", root)
@@ -119,7 +113,7 @@ else fail("CLI rejected the valid fixture: " .. out) end
 
 -- CLI against a public tracked path must refuse
 h = io.popen(string.format("lua5.1 cli/validate-m2-input.lua '%s/cli/validate-335.lua' 2>&1", root))
-out = h:read("*a"); st = h:close()
+out = h:read("*a"); h:close()
 if out:find("REJECT", 1, true) and out:find("public checkout", 1, true) then
     pass("CLI refuses a tracked public path")
 else

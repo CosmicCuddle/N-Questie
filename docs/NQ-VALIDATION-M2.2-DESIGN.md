@@ -94,6 +94,21 @@ No edits to the runtime revision system. No TOC changes. No correction-file chan
 3. Synthetic test: load a minimal fake QuestieDB table, export, parse with a sister schema validator (`nq-m2-effective` v1), confirm quest 1203's item id is 3853 when the N-Questie correction is present.
 4. CI uses only synthetic data. Real exports stay on the lead developer's machine.
 
+## 6a. Recommended implementation sequence
+
+Each step is a separate draft PR with its own tests. Every existing M0, M1 and M2.1 test must still pass.
+
+| Step | Work | Done when |
+|---|---|---|
+| 1 | Write the `nq-m2-effective` v1 schema and validator, reusing the M2.1 parser and path gate | Synthetic positive and negative fixtures pass |
+| 2 | Add `EffectiveExport.lua`, a pure function from an in-memory QuestieDB plus a list of quest IDs to a snapshot table, tested on a fake DB | Quest 1203 shows 33110 before corrections and 3853 after |
+| 3 | Add `--export-effective PATH` to `cli/validate-335.lua`. It runs only after every M0 check passes and writes nothing on failure. | M0 still reports 232 checks; a negative test shows no file is written when M0 fails |
+| 4 | Writing safety: absolute path, the same resolved-path rules as M2.1, no overwrite without `--force`, atomic write via a temporary file and rename | Path and symlink tests mirror the M2.1 set |
+| 5 | Round trip: the export passes the `nq-m2-effective` validator, and M1 `Compare` runs on synthetic server rows plus the effective rows | 1203 stays EXPECTED against effective N-Questie |
+| 6 | Proposed workflow under `docs/proposed-workflows/`, docs and handover | Michael decides on activation |
+
+M2.3 (the batch runner) starts only after these steps are reviewed.
+
 ## 7. Safety
 
 - Same path gate as M2.1.

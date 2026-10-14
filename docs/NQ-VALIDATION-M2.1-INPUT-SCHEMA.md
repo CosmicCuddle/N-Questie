@@ -92,15 +92,38 @@ Any error rejects the document. The CLI prints every error and exits 1. No parti
 
 ## 7. Input paths
 
-| Path | Allowed? |
-|---|---|
-| Absolute path outside the public checkout | Yes |
-| Absolute path under `<checkout>/private/` (gitignored) | Yes |
-| Absolute path under `<checkout>/tests/fixtures/m2_input/` | Yes (synthetic fixtures only) |
-| Any other path inside the checkout | No |
-| Relative path | No |
+The path is given as the CLI argument or `NQ_M2_INPUT`. It is checked in this order, and the first failure rejects the input:
 
-Pass the path as the CLI argument or as `NQ_M2_INPUT`. The validator never writes into the repo.
+| Step | Rule |
+|---|---|
+| 1 | Must be non-empty and absolute |
+| 2 | Must not contain `.` or `..` segments, or control characters |
+| 3 | The resolver must work (`realpath -e -- /` returns `/`). Otherwise reject. |
+| 4 | The repository root must resolve |
+| 5 | The input must resolve fully with GNU `realpath -e`: every component, every parent symlink and the file itself. A missing file, broken link, loop or permission error rejects. |
+| 6 | The **resolved** path must be outside the resolved checkout, or under `<checkout>/private/` or `<checkout>/tests/fixtures/m2_input/` |
+
+The resolved target always governs:
+
+| Case | Result |
+|---|---|
+| Symlink outside the checkout pointing to a public file | Reject |
+| Symlink outside pointing into `tests/fixtures/m2_input/` or `private/` | Accept |
+| Directory symlink outside pointing at the checkout root | Reject, unless the full path resolves under an allowed area |
+| Symlink in `private/` pointing to a public file or to the checkout root | Reject |
+| Symlink in `private/` pointing outside the checkout | Accept (resolved target is outside) |
+| Broken symlink, loop, missing file, unreadable parent | Reject |
+| Relative path, `.` or `..` segments | Reject |
+| Resolver missing, failing or giving a non-absolute answer | Reject |
+
+The file is then opened by its resolved path. The validator never writes.
+
+Platform notes:
+
+- Linux (Ubuntu CI, the box): supported. Uses GNU coreutils `realpath -e`.
+- macOS: the default `realpath` does not support `-e`, so every path is rejected unless GNU coreutils `realpath` is first on `PATH`. This is intentional fail-closed behaviour.
+- Windows: not supported. Lua 5.1 has no path API, `io.popen` goes through `cmd.exe`, and `realpath` is not available, so every path is rejected. Run under WSL or Git Bash with GNU coreutils if needed. This has not been tested.
+- LuaFileSystem is not used. It has no realpath function and would add a dependency.
 
 ## 8. Mapping from the private exporter (PR #19 handover)
 
@@ -144,9 +167,24 @@ Error message examples:
 | Suite | Coverage |
 |---|---|
 | `tests/test_nquestie_m2_input_schema.lua` | Standalone: valid fixture, 43 validation rejections, 16 parse rejections, path gate, CLI |
+| `tests/test_nquestie_m2_input_paths.lua` | Path and symlink safety: 29 cases using temporary files created at run time |
 | `tools/validation/InputSchema.test.lua` | Busted; picked up by the existing M1 workflow (`busted -p ".test.lua" tools/validation`) |
 | Proposed workflow steps | `docs/proposed-workflows/nquestie-m2-input-schema.yml` (not activated) |
 
-## 11. Out of scope
+## 11. Final statement: schema v1
+
+`nq-m2-input` version 1 is frozen as described in §3–§6. Any change to fields, types or rules needs a new `schemaVersion`. The validator rejects every version it does not know. It does not upgrade or downgrade documents.
+
+## 12. Exporter compatibility requirements
+
+The private exporter is compatible with v1 when it does all five of these:
+
+1. Writes the top-level document `{ schema = "nq-m2-input", schemaVersion = 1, provenance = {...}, quests = { ... } }`, with `quests` as a **list**, not a table keyed by quest ID.
+2. Writes every integer objective field for every record, using `0` for empty slots.
+3. Writes all seven provenance fields, with no paths, account names or credentials.
+4. Writes `hasConditions`, `ipGated` and `scriptedCredit` explicitly as `true`, `false` or `"unknown"`. It never turns `"unknown"` into `false`. It sets `killCreditComplete = true` only when a KillCredit row was actually read for every positive `RequiredNpcOrGo` creature.
+5. Writes a Lua data literal (no function calls, no long strings, no hex, no duplicate keys) to an absolute path outside the checkout, or under `private/`. It passes `lua5.1 cli/validate-m2-input.lua <path>` locally before any M2.4 pilot.
+
+## 13. Out of scope
 
 Effective Questie export (M2.2), batch comparison (M2.3), private exporter code, automatic corrections, live server access, workflow files under `.github/`.
