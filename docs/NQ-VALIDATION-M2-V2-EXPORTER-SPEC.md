@@ -56,7 +56,7 @@ The exporter reproduces `QuestieDB.GetQuest` exactly, because quest-log line N m
 Each entry `{spawns, icon, text, objectiveIndex, refs}` becomes `{position, icon, hasText, spawnZones, objectiveIndex, refs}`.
 
 - `spawnZones`: sorted list of zone IDs that have spawns; coordinates are not exported.
-- `objectiveIndex`: always exported, including 0 (696 of 730 entries). Must be ≤ number of objectives.
+- `objectiveIndex`: always exported, including 0 (696 of 730 entries). Must be ≤ number of objectives, with one exception found by the Stage A1 measurement: it may be number of objectives + 1 when the quest has a triggerEnd (that line is the event objective) or has no DB objectives at all (a client-only quest-log line). 5 real quests use this: 10985 and 13429 (triggerEnd), 12124, 13418 and 13419 (no objectives). Anything larger is rejected.
 - `refs`: every `{type, id}` with `refIndex`, in compiled order. Note: at runtime Questie takes `Type`/`Id` from the first reference only but merges the spawns of **all** references (`QuestieDB.GetQuest`, extraObjectives loop); the export keeps all of them so neither behaviour is lost.
 - Baseline: 632 quests, 730 entries, 801 refs (monster 466, object 335, item 0), 78 spawn-only entries.
 
@@ -92,7 +92,7 @@ Synthetic tests (run in CI, no private data):
 |---|---|---|
 | A1 | category fixture (10 real-shape quests) valid | `tests/test_nquestie_m2_effective_v2_draft.lua` |
 | A2 | acceptance fixture (6 synthetic quests, IDs 900001-900006) valid; covers no-objective quest, all six kinds, multi-ID kill credit, three reversed kill-credit entries, required source items, spell item source, trigger end, objectiveIndex 0 and maximum, spawn-only extra | `tests/test_nquestie_m2_v2_acceptance.lua` |
-| A3 | negative: kill credit not reversed, reputation 0 dropped, objectiveIndex too large, quest dropped, display text present, unknown version | same |
+| A3 | negative: kill credit not reversed, reputation 0 dropped, objectiveIndex too large (n+2, or n+1 without triggerEnd), quest dropped, display text present, unknown version | same |
 | A4 | migration refusals and downgrade refusal | v2 draft test |
 | A5 | reproducible comparison: exportedAt excluded explicitly, record and non-run provenance differences still detected, non-run exclusion refused, v1 golden fixture | acceptance test |
 

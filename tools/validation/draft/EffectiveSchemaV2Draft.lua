@@ -183,7 +183,10 @@ local function checkQuest(q, w, err)
             -- Questie data always carries [4]: 0 = not linked (696 real entries), n = linked to objective n.
             if not (isInt(e.objectiveIndex) and e.objectiveIndex >= 0) then
                 err(ew .. ".objectiveIndex: integer >= 0 required (0 = not linked to an ordinary objective)")
-            elseif e.objectiveIndex > #objs then
+            elseif e.objectiveIndex > #objs + ((#objs == 0 or q.hasTriggerEnd == true) and 1 or 0) then
+                -- A quest-log line one past the DB objectives exists only as
+                -- the triggerEnd event line or, with no DB objectives, as a
+                -- client-only line (Stage A1 measurement: 5 real quests).
                 err(ew .. ".objectiveIndex: points past the ordinary objectives")
             end
             if not isList(e.refs) then err(ew .. ".refs: list required (may be empty)")
@@ -211,6 +214,16 @@ local function checkQuest(q, w, err)
             err(w .. ".m1Status/m1Reasons: must be " .. want .. " [" .. table.concat(wr, "+") .. "] (no false SUPPORTED)")
         end
     end
+end
+
+-- Record-level validation of one quest (used by the Stage A1 round trip,
+-- which builds records in memory and has no provenance to validate).
+function M.ValidateQuest(q, opts)
+    guard(opts)
+    local errors = {}
+    checkQuest(q, "quest " .. tostring(type(q) == "table" and q.ID or "?"), function(m) errors[#errors + 1] = m end)
+    if #errors > 0 then return false, errors end
+    return true
 end
 
 -- Provenance: identical fields and rules to v1 (reused, not duplicated).

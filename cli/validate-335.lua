@@ -570,6 +570,105 @@ local function runCoverage(opts, QuestieDB, Q, levelCount)
     return true, where
 end
 
+-- Stage A1: opt-in read-only v2 round trip (NQ_V2_ROUNDTRIP=1). Checked
+-- before M0; false when off, nil + errors when misconfigured. It never
+-- writes: no output path exists, and the run is wrapped in NoWriteGuard.
+local function roundTripOptions()
+    local v = os.getenv("NQ_V2_ROUNDTRIP")
+    if v == nil or v == "" then return false end
+    local errs = {}
+    if v ~= "1" then errs[#errs + 1] = "v2 round trip: NQ_V2_ROUNDTRIP must be 1" end
+    for _, name in ipairs({ "NQ_EXPORT_EFFECTIVE_OUT", "NQ_EXPORT_QUESTS", "NQ_EXPORT_SELECTION", "NQ_EXPORT_FORCE",
+        "NQ_COVERAGE_MANIFEST_OUT", "NQ_COVERAGE_AGGREGATE_OUT", "NQ_EXPORT_SCHEMA_VERSION", "NQ_EXPORT_V2_OUT",
+        "NQ_VALIDATE_FIXTURE" }) do
+        local x = os.getenv(name)
+        if x and x ~= "" then errs[#errs + 1] = "v2 round trip: not allowed together with " .. name .. " (read-only mode, one mode per run)" end
+    end
+    if os.getenv("NQ_VALIDATE_SKIP_COMPILE") == "1" then
+        errs[#errs + 1] = "v2 round trip: needs the compiled database (unset NQ_VALIDATE_SKIP_COMPILE)"
+    end
+    if not tonumber(os.getenv("NQ_VALIDATE_EXPECT_LEVEL_COUNT") or "") then
+        errs[#errs + 1] = "v2 round trip: NQ_VALIDATE_EXPECT_LEVEL_COUNT must be set"
+    end
+    if #errs > 0 then return nil, errs end
+    return true
+end
+
+-- In-memory fingerprint of everything the round trip reads: every compiled
+-- quest's exported keys (raw query values, not normalised), the quest ID
+-- set, the killCreditObjectiveFirst set and the runtime overrides. Compared
+-- as exact strings; never printed.
+local function roundTripFingerprint(QuestieDB, Q, ids)
+    local V2 = dofile("tools/validation/EffectiveExportV2.lua")
+    local parts = {}
+    for _, id in ipairs(ids) do
+        parts[#parts + 1] = tostring(id)
+        for _, k in ipairs(V2.KEYS) do parts[#parts + 1] = ser(Q(id, k)) end
+    end
+    local QC = QuestieLoader:ImportModule("QuestieCorrections")
+    parts[#parts + 1] = ser(QC.killCreditObjectiveFirst)
+    parts[#parts + 1] = ser(QuestieDB.questDataOverrides)
+    local n = 0
+    for _ in pairs(QuestieDB.QuestPointers) do n = n + 1 end
+    parts[#parts + 1] = tostring(n)
+    return table.concat(parts, "\1")
+end
+
+-- Runs after every M0 check passed. Returns true, summary or false, errors.
+local function runRoundTrip(QuestieDB, Q)
+    local RT = dofile("tools/validation/RoundTripV2.lua")
+    local Guard = dofile("tools/validation/NoWriteGuard.lua")
+    local ids = {}
+    for id in pairs(QuestieDB.QuestPointers) do ids[#ids + 1] = id end
+    table.sort(ids)
+    local ctx, cerr = exportContext()
+    if not ctx then return false, { cerr } end
+    local before = roundTripFingerprint(QuestieDB, Q, ids)
+    collectgarbage("collect")
+    local mem0 = collectgarbage("count")
+    local guard = Guard.Install()
+    local okRun, r1, r2, t1, t2, peak = pcall(function()
+        local c0 = os.clock()
+        local _, a1 = RT.Run(Q, ids, ctx)
+        local m1 = collectgarbage("count")
+        local c1 = os.clock()
+        local _, a2 = RT.Run(Q, ids, ctx) -- full second run, nothing reused
+        local m2 = collectgarbage("count")
+        return a1, a2, c1 - c0, os.clock() - c1, math.max(m1, m2)
+    end)
+    local blocked, kinds = Guard.Remove(guard)
+    if not okRun then return false, { "v2 round trip: error: " .. tostring(r1) } end
+    if blocked > 0 then
+        local k = {}
+        for name, c in pairs(kinds) do k[#k + 1] = name .. "=" .. c end
+        table.sort(k)
+        return false, { "v2 round trip: " .. blocked .. " write/process attempt(s) blocked: " .. table.concat(k, ",") }
+    end
+    local after = roundTripFingerprint(QuestieDB, Q, ids)
+    local text1, text2 = RT.FormatAggregate(r1), RT.FormatAggregate(r2)
+    io.write(text1)
+    local unchanged, identical = before == after, text1 == text2
+    io.write(string.format("%-44s %d\n", "compiled quest IDs", #ids))
+    io.write(string.format("%-44s %s\n", "source data unchanged (fingerprint)", unchanged and "yes" or "NO"))
+    io.write(string.format("%-44s %s\n", "repeat run aggregate identical", identical and "yes" or "NO"))
+    io.write(string.format("%-44s %d\n", "write/process attempts blocked", blocked))
+    io.write(string.format("%-44s %.2f / %.2f\n", "cpu seconds run 1 / run 2", t1, t2))
+    io.write(string.format("%-44s %.1f\n", "lua heap growth peak (MiB, no GC forced)", (peak - mem0) / 1024))
+    local errs = {}
+    if r1.processed ~= #ids then errs[#errs + 1] = "v2 round trip: processed " .. r1.processed .. " of " .. #ids end
+    if r1.buildErrors > 0 then errs[#errs + 1] = "v2 round trip: " .. r1.buildErrors .. " record(s) could not be built" end
+    if r1.validateErrors > 0 then errs[#errs + 1] = "v2 round trip: " .. r1.validateErrors .. " record(s) failed v2 validation" end
+    if r1.unclassified > 0 then errs[#errs + 1] = "v2 round trip: unclassified quests" end
+    if r1.questsDiffering > 0 then errs[#errs + 1] = "v2 round trip: " .. r1.questsDiffering .. " quest(s) differ" end
+    if r1.v1Differing > 0 then errs[#errs + 1] = "v2 round trip: " .. r1.v1Differing .. " SUPPORTED quest(s) differ from v1" end
+    if r1.expectedM1Disagree > 0 then errs[#errs + 1] = "v2 round trip: m1 status disagrees with ExpectedM1" end
+    if r1.supported + r1.unsupported ~= #ids then errs[#errs + 1] = "v2 round trip: status counts do not sum to the ID count" end
+    if not unchanged then errs[#errs + 1] = "v2 round trip: compiled data changed during the run" end
+    if not identical then errs[#errs + 1] = "v2 round trip: repeat run differs" end
+    if #errs > 0 then return false, errs end
+    return true
+end
+
 -- Runs after every M0 check passed. Returns true or false, errors.
 local function runExport(opts, QuestieDB, Q, levelCount)
     local Export = dofile("tools/validation/EffectiveExport.lua")
@@ -627,6 +726,12 @@ local function runExport(opts, QuestieDB, Q, levelCount)
 end
 
 local function run()
+    local rtOpts, rtErr = roundTripOptions()
+    if rtOpts == nil then
+        for _, e in ipairs(rtErr) do print("\27[31m" .. e .. "\27[0m") end
+        print("\27[31m[validate-335] v2 round trip refused before validation; nothing run\27[0m")
+        os.exit(1)
+    end
     local exportOpts, exportErr = exportOptions()
     if exportOpts == nil then
         for _, e in ipairs(exportErr) do print("\27[31m" .. e .. "\27[0m") end
@@ -941,6 +1046,20 @@ local function run()
             os.exit(1)
         end
         print("\27[32m[validate-335] effective export written: " .. #exportOpts.ids .. " quest(s) -> " .. res .. "\27[0m")
+    end
+    if rtOpts then
+        if not snapshots.afterNormalized then
+            print("\27[31m[validate-335] v2 round trip refused: compiled round trip did not run\27[0m")
+            os.exit(1)
+        end
+        local QDB = QuestieLoader:ImportModule("QuestieDB")
+        local ok, res = runRoundTrip(QDB, QDB.QueryQuestSingle)
+        if not ok then
+            for _, e in ipairs(res) do print("\27[31m" .. e .. "\27[0m") end
+            print("\27[31m[validate-335] V2 ROUND TRIP FAILED (nothing written)\27[0m")
+            os.exit(1)
+        end
+        print("\27[32m[validate-335] v2 round trip PASS (read-only, nothing written)\27[0m")
     end
     if coverageOpts then
         if not snapshots.afterNormalized then

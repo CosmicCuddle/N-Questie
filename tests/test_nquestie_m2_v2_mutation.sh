@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Stage A1 mutation test: each mutant deliberately breaks the v2 builder,
+# the round trip or the no-write guard in a TEMPORARY copy, and the synthetic
+# tests must then FAIL. A mutant that survives means the tests do not
+# exercise that code. Also checks the unmutated copy passes. Writes only to
+# a temporary directory.
+set -u
+cd "$(dirname "$0")/.."
+LUA="${LUA:-lua5.1}"
+fails=0; passes=0
+ok()  { passes=$((passes+1)); echo "PASS: $1"; }
+bad() { fails=$((fails+1)); echo "FAIL: $1"; }
+T="$(mktemp -d)"; trap 'rm -rf -- "$T"' EXIT
+copy() {
+    rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests/fixtures"
+    cp tools/validation/*.lua "$T/w/tools/validation/"
+    cp tools/validation/draft/*.lua "$T/w/tools/validation/draft/"
+    cp tests/test_nquestie_m2_v2_builder.lua tests/test_nquestie_m2_no_write_guard.lua "$T/w/tests/"
+    cp -r tests/fixtures/m2_v2_builder "$T/w/tests/fixtures/"
+}
+run_tests() { (cd "$T/w" && "$LUA" tests/test_nquestie_m2_v2_builder.lua >/dev/null 2>&1 && "$LUA" tests/test_nquestie_m2_no_write_guard.lua >/dev/null 2>&1); }
+# mutant FILE 'exact old text' 'new text' 'label'
+mutant() {
+    local file="$1" old="$2" new="$3" label="$4"
+    copy
+    if ! OLD="$old" NEW="$new" F="$T/w/$file" "$LUA" -e '
+        local f = io.open(os.getenv("F")); local s = f:read("*a"); f:close()
+        local old, new = os.getenv("OLD"), os.getenv("NEW")
+        local i = s:find(old, 1, true); if not i then os.exit(3) end
+        s = s:sub(1, i - 1) .. new .. s:sub(i + #old)
+        f = io.open(os.getenv("F"), "w"); f:write(s); f:close()'; then
+        bad "mutant not applied (text not found): $label"; return
+    fi
+    if run_tests; then bad "mutant SURVIVED: $label"; else ok "mutant killed: $label"; fi
+}
+copy
+run_tests && ok "unmutated copy passes" || bad "unmutated copy fails"
+
+B=tools/validation/EffectiveExportV2.lua
+R=tools/validation/RoundTripV2.lua
+G=tools/validation/NoWriteGuard.lua
+mutant $B 'table.insert(list, 1, o)' 'list[#list + 1] = o' "killCreditFirst not inserted first (no reversal)"
+mutant $B 'o.occurrence = occ[key]' 'o.occurrence = 1' "duplicate occurrences not numbered"
+mutant $B 'requiredValue = list[2] }' 'requiredValue = (list[2] ~= 0) and list[2] or nil }' "reputation value 0 dropped"
+mutant $B 'refs[j] = { type = r[1], id = r[2], refIndex = j }' 'if j == 1 then refs[j] = { type = r[1], id = r[2], refIndex = j } end' "extra refs after the first dropped"
+mutant $B 'ids[j] = v' 'ids = e[1]' "killCredit ids aliased (shallow copy)"
+mutant $B 'if isInt(e.objectiveIndex) and e.objectiveIndex > M.MaxObjectiveIndex(rec) then' 'if false then' "objectiveIndex upper bound removed"
+mutant $B 'if not ok then err("query for "' 'if false then err("query for "' "query failure swallowed"
+mutant $B 'zones[#zones + 1] = z' 'table.insert(zones, 1, z)' "spawn zones not sorted"
+mutant $B 'if src == nil then src = 0 end' 'if src == nil then src = nil end' "absent sourceItemId not exported as 0"
+mutant $B '        table.sort(reasons)' '' "m1 reasons not sorted"
+mutant $B 'rec.requiredSourceItems[i] = v' 'if i == 1 then rec.requiredSourceItems[i] = v end' "requiredSourceItems truncated"
+mutant $B 'rec.hasTriggerEnd = raw.triggerEnd ~= nil' 'rec.hasTriggerEnd = false' "triggerEnd presence lost"
+mutant $B 'if #refs == 0 and #zones == 0 then' 'if false then' "empty extra entry accepted"
+mutant $B 'if not posId(e[1]) then err(w .. " id "' 'if false then err(w .. " id "' "invalid objective id accepted"
+mutant $B 'if not isInt(list[2]) then' 'if false then' "missing reputation value accepted"
+mutant $B 'rec.killCreditFirst = kcfFlag and #slots.killCredit > 0' 'rec.killCreditFirst = false' "killCreditFirst flag ignored"
+mutant $B 'if type(ctx) ~= "table" or type(ctx.killCreditFirst) ~= "table" or next(ctx.killCreditFirst) == nil then' 'if false then' "missing killCreditFirst context accepted"
+mutant $R 'if a ~= b then out[#out + 1] = path end' 'if false then out[#out + 1] = path end' "Compare made vacuous"
+mutant $R 'if name == "killCredit" and flagged then' 'if false then' "RecomputePositions ignores killCreditFirst"
+mutant $R '    return d
+end' '    return {}
+end' "V1Equivalent made vacuous"
+mutant $R 'if not okv then r.validateError = verrs end' '' "record validation ignored"
+mutant $R 'if #r.diffs > 0 then a.questsDiffering = a.questsDiffering + 1 end' '' "aggregate never counts differing quests"
+mutant $R 'a.buildErrors = a.buildErrors + 1' '' "aggregate never counts build errors"
+mutant $R 'for _, p in ipairs(M.Compare(rebuilt, projected)) do' 'for _, p in ipairs({}) do' "round trip comparison skipped"
+mutant $G 'state.count = state.count + 1' '' "guard does not count"
+mutant $G 'if m:find("[wa+]") then block("io.open:" .. m) end' '' "guard lets write-mode io.open through"
+mutant $G 'env.os.execute = function() block("os.execute") end' '' "guard lets os.execute through"
+echo "mutation test: $passes passed, $fails failed"
+[ $fails -eq 0 ]
