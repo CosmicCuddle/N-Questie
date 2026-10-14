@@ -50,15 +50,20 @@ local function shellQuote(s)
     return "'" .. s:gsub("'", "'\\''") .. "'"
 end
 local function capture(cmd)
-    local ok, h = pcall(io.popen, cmd .. " 2>/dev/null")
+    -- Lua 5.1 io.popen():close() can report true for a child that exited
+    -- nonzero (pclose itself succeeded). Check the *command* exit code by
+    -- appending a fixed final status line from the parent POSIX shell.
+    -- The trailing anchored marker cannot be forged by earlier stdout.
+    local command = "( " .. cmd .. " ) 2>/dev/null; nq_capture_status=$?; " ..
+        "printf '\\nNQ_CAPTURE_EXIT:%s\\n' \"$nq_capture_status\""
+    local ok, h = pcall(io.popen, command)
     if not ok or not h then return nil end
     local output = h:read("*a")
-    -- A subprocess may emit plausible stdout and still exit unsuccessfully.
-    -- In Lua 5.1, pclose reports success as true (or status 0).
-    -- Never accept output from a failed hashing/stat/identity command.
-    local closeOk, closeStatus = h:close()
-    if closeOk ~= true and closeOk ~= 0 then return nil end
-    return output and output:match("^(.-)\n?$")
+    h:close()
+    if type(output) ~= "string" then return nil end
+    local data, status = output:match("^(.*)\nNQ_CAPTURE_EXIT:(%d+)\n$")
+    if status ~= "0" then return nil end
+    return data and data:match("^(.-)\n?$")
 end
 local uid = capture("id -u")
 local function secureStat(p, expectedMode, expectedType)
