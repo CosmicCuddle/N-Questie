@@ -1,5 +1,15 @@
 # N-Questie — Development Roadmap
 
+## M2 private intake foundation — 14 October 2026
+
+- [x] Prepare **local-only selected quest objective exporter** (no SQL/code/report uploaded to GitHub): 12 synthetic Python tests passed; offline quest 1203 + quest 2001 records read successfully.
+- [x] Require explicit tri-state `"unknown"` flags for unverified conditions, IP gates and scripted credits; never assert `killCreditComplete=true` from selected creature rows alone.
+- [x] Record privacy and M2 interface handover in [draft PR #19](https://github.com/CosmicCuddle/N-Questie/pull/19) / [M2 intake contract](M2-PRIVATE-OBJECTIVE-INTAKE-HANDOVER.md), without touching Grok's implementation branch.
+- [ ] Await Grok's **PR #18** pending negative-test, Python and full Busted-with-#4 verification; review final M1 regression evidence.
+- [ ] Coordinate Grok-owned **M2.1** input schema and **M2.2** 3.3.5a effective-record exporter before converting broad private data.
+- [ ] First report-only trial on known quest 1203, then a small reviewed mixed item/NPC/GO batch. No automatic correction generation.
+- [ ] Keep full private database and all generated per-quest reports outside public GitHub; only approved aggregates in the project docs.
+
 ## Combined 28-quest test milestone — 14 October 2026
 
 - [x] Create [draft PR #16](https://github.com/CosmicCuddle/N-Questie/pull/16), new testing-only branch from #13 integrating M0, the CI revision guard and the inherited test fixture repair without touching existing PR branches.
