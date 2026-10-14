@@ -58,7 +58,7 @@ end
 p, e = P.Collect(root, {}, facts()); check(not p and has(e, "no N-Questie correction modules"), "empty module list refused")
 p, e = P.Collect(root, { "Compat/../x.lua" }, facts()); check(not p and has(e, "unexpected correction module path"), "odd module path refused")
 p, e = P.Collect(root, { "Compat/NQuestieNotTracked.lua" }, facts()); check(not p and has(e, "not tracked"), "untracked module refused")
-p, e = P.Collect("/tmp", MODS, facts()); check(not p, "root that is not the checkout top level refused")
+p = P.Collect("/tmp", MODS, facts()); check(not p, "root that is not the checkout top level refused")
 P._capture = real
 if clean then
     p = P.Collect(root, MODS, facts()); check(p ~= nil and p.sourceDirty == false, "real clean checkout accepted")
