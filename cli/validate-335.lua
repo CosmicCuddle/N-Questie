@@ -476,6 +476,17 @@ local function exportOptions()
     return { out = out, ids = list, root = root, force = os.getenv("NQ_EXPORT_FORCE") == "1" }
 end
 
+-- Runtime facts the exporter needs besides the compiled records. Fail closed:
+-- without the killCreditObjectiveFirst set, order loss could go unnoticed.
+local function exportContext()
+    local QC = QuestieLoader:ImportModule("QuestieCorrections")
+    local kcf = QC and QC.killCreditObjectiveFirst
+    if type(kcf) ~= "table" or next(kcf) == nil then
+        return nil, "export: QuestieCorrections.killCreditObjectiveFirst missing or empty; refusing (order check impossible)"
+    end
+    return { killCreditFirst = kcf }
+end
+
 -- M2.2 coverage / preflight options (read-only report over ALL compiled
 -- quests; never an export). Checked before M0; nil on error, false when off.
 local function coverageOptions()
@@ -521,7 +532,9 @@ local function runCoverage(opts, QuestieDB, Q, levelCount)
     local Writer = dofile("tools/validation/SafeWrite.lua")
     local ids = {}
     for id in pairs(QuestieDB.QuestPointers) do ids[#ids + 1] = id end
-    local results = Coverage.Run(Export, Q, ids)
+    local ctx, cerr = exportContext()
+    if not ctx then return false, { cerr } end
+    local results = Coverage.Run(Export, Q, ids, ctx)
     local agg = Coverage.Aggregate(results)
     local modules = {}
     for _, f in ipairs(loadedFiles) do
@@ -571,7 +584,9 @@ local function runExport(opts, QuestieDB, Q, levelCount)
         return table.concat(t, "\1")
     end
     local beforeState = rawState()
-    local records, errs = Export.Snapshot(Q, exists, opts.ids)
+    local ctx, cerr = exportContext()
+    if not ctx then return false, { cerr } end
+    local records, errs = Export.Snapshot(Q, exists, opts.ids, ctx)
     if not records then return false, errs end
     if rawState() ~= beforeState then return false, { "export: compiled records changed during the snapshot" } end
 

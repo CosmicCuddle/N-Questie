@@ -20,6 +20,7 @@ M.CATEGORY = {
     REPUTATION_OBJECTIVE = "reputation",
     DUPLICATE_CREATURE = "duplicate_creature",
     DUPLICATE_OBJECT = "duplicate_object",
+    KILLCREDIT_FIRST_REORDER = "order",
     UNCLASSIFIED = "unclassified",
     UNEXPECTED_ERROR = "unclassified",
 }
@@ -29,8 +30,8 @@ function M.Category(code) return M.CATEGORY[code] or OTHER end
 
 -- Classify one quest. Never raises: an error inside Record is reported as
 -- UNEXPECTED_ERROR (unclassified), never as representable.
-function M.Classify(Export, query, id)
-    local ok, rec, errs, codes = pcall(Export.Record, query, id)
+function M.Classify(Export, query, id, ctx)
+    local ok, rec, errs, codes = pcall(Export.Record, query, id, ctx)
     if not ok then
         return { id = id, status = "UNSUPPORTED", codes = { "UNEXPECTED_ERROR" },
                  counts = { UNEXPECTED_ERROR = 1 }, messages = { "quest " .. tostring(id) .. ": " .. tostring(rec) } }
@@ -49,12 +50,12 @@ function M.Classify(Export, query, id)
 end
 
 -- Classify every id in ids (sorted ascending copy).
-function M.Run(Export, query, ids)
+function M.Run(Export, query, ids, ctx)
     local list = {}
     for i, id in ipairs(ids) do list[i] = id end
     table.sort(list)
     local results = {}
-    for i, id in ipairs(list) do results[i] = M.Classify(Export, query, id) end
+    for i, id in ipairs(list) do results[i] = M.Classify(Export, query, id, ctx) end
     return results
 end
 

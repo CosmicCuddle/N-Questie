@@ -46,6 +46,7 @@ M.REASONS = {
     SOURCE_ITEM_INVALID = "sourceItemId not a non-negative integer",
     QUERY_FAILED = "database query raised an error",
     SHAPE_UNUSUAL = "objective, list or field shape outside v1",
+    KILLCREDIT_FIRST_REORDER = "QuestieCorrections.killCreditObjectiveFirst moves killCredit before other objectives (quest-log position not representable in v1)",
     UNCLASSIFIED = "refusal without a specific reason code (tool gap)",
 }
 
@@ -133,7 +134,14 @@ local function plainIds(list, where, err, dupCode)
 end
 
 -- Build one nq-m2-effective v1 record from query(id, key).
-function M.Record(query, id)
+-- ctx.killCreditFirst: the runtime QuestieCorrections.killCreditObjectiveFirst
+-- set. Questie maps quest-log line N to ObjectiveData[N]; that list is built in
+-- a fixed kind order (creatures, objects, items, reputation, killCredit,
+-- spells, event), which v1's per-kind lists reproduce, EXCEPT for quests in
+-- this set: each killCredit entry is inserted at position 1 (QuestieDB.lua),
+-- moving it before the other objectives and reversing several killCredit
+-- entries. v1 cannot express that, so such quests are refused.
+function M.Record(query, id, ctx)
     local errors, codes = {}, {}
     local function err(msg, code)
         errors[#errors + 1] = "quest " .. id .. ": " .. msg
@@ -197,6 +205,16 @@ function M.Record(query, id)
             end
         end
         o.spells = idEntries(obj[6], "objectives[6] spells", err, "DUPLICATE_SPELL")
+        local kcf = type(ctx) == "table" and ctx.killCreditFirst or nil
+        if kcf and kcf[id] and #o.killCredit > 0 then
+            local others = #o.creatures + #o.objects + #o.items + #o.spells +
+                ((type(obj[4]) == "table" and next(obj[4]) ~= nil) and 1 or 0)
+            if others > 0 or #o.killCredit > 1 then
+                err("killCreditObjectiveFirst reorders objectives (killCredit shown first" ..
+                    (#o.killCredit > 1 and ", " .. #o.killCredit .. " killCredit entries reversed" or "") ..
+                    "); v1 cannot represent quest-log position", "KILLCREDIT_FIRST_REORDER")
+            end
+        end
     end
     rec.objectives = o
 
@@ -249,7 +267,7 @@ end
 -- Snapshot an explicit selection. exists(id) must return true only for quests
 -- present in the compiled DB. Returns list of records or nil, errors. Any
 -- error refuses the whole snapshot.
-function M.Snapshot(query, exists, ids)
+function M.Snapshot(query, exists, ids, ctx)
     local sel, serr = M.CheckSelection(ids)
     if not sel then return nil, serr end
     if type(query) ~= "function" or type(exists) ~= "function" then
@@ -261,7 +279,7 @@ function M.Snapshot(query, exists, ids)
             errors[#errors + 1] = "quest " .. id .. ": not in the compiled Questie database"
             refused[#refused + 1] = { id = id, codes = { "ABSENT_FROM_EFFECTIVE_DB" } }
         else
-            local rec, rerr, rcodes = M.Record(query, id)
+            local rec, rerr, rcodes = M.Record(query, id, ctx)
             if rec then out[#out + 1] = rec
             else
                 for _, e in ipairs(rerr) do errors[#errors + 1] = e end
