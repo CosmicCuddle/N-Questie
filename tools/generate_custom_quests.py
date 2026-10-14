@@ -162,7 +162,7 @@ def main(argv=None):
             parser.error("New revision must be higher than existing generated revision")
         # A partial import must never silently remove existing curated quests.
         existing_ids = [int(id_text) for id_text in re.findall(
-            r"(?m)^        \\[([0-9]+)\\] = \\{$", existing
+            r"(?m)^        \[([0-9]+)\] = \{$", existing
         )]
         if not existing_ids or len(existing_ids) != len(set(existing_ids)):
             parser.error("Cannot safely identify existing generated quest IDs")
