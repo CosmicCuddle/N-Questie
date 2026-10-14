@@ -10,19 +10,19 @@
 - [x] Confirm addon loader, database sources, correction layer and SavedVariables names in source.
 - [x] Document safe backups, release boundaries, proposed import data contract and maintainer handover.
 - [ ] Finish attribution/licence review for any redistributable custom Questie package; retain original credits.
-- [ ] Verify baseline addon behaviour and current warnings in-game without modifying saved settings or quests.
+- [x] Verify baseline addon loading, normal world-map/minimap icons and preference persistence in game (5/5). More exhaustive warnings/regressions remain future work.
 - [ ] Determine whether baseline fork CI is applicable/passable or needs scoped 3.3.5a checks.
 
 ## Phase 1 — Reliable custom quest starter/ender map icons
 
 - [x] Identify quest 2001 — Ravenclaw Cleanup as missing from Questie's raw WotLK quest table; its NPC giver, ender and kill target IDs were obtained from the private read-only world export.
-- [ ] Confirm quest 2001 is available to a suitable character in-game; its missing marker must be reproduced before claiming a fix.
+- [x] Confirm quest 2001 available to an eligible character in game and verify its starter marker tooltip. Original fork absence was established by comparing source records, not a separately captured before/after screenshot.
 - [ ] Inspect **read-only** `world` quest starter/ender and spawn data; detect server-specific NPC/object or quest ID differences.
 - [x] Implement first **unmerged** N-Questie-specific quest/NPC correction overlay, separate from generated WotLK tables, with cache revision invalidation.
-- [ ] Validate in actual WoW 3.3.5a and refine unsupported cases.
+- [x] Validate quest 2001's visible marker lifecycle in actual WoW 3.3.5a (available, objective tooltip, complete, disappears after hand-in). Further quest types remain unverified.
 - [ ] Verify correction loading order, compiled-DB invalidation/rebuild behavior, map conversion and marker filters.
 - [ ] Add tests for custom IDs, malformed data rejection, duplicate-safe merges and optional hide/availability rules.
-- [ ] Test one quest icon on the world map and minimap; preserve vanilla quest behavior.
+- [x] Test quest 2001 on the world map and objective marker tooltips; baseline minimap icons still work. Dedicated custom quest 2001 minimap icon verification remains unrecorded.
 
 **Acceptance:** A confirmed, available custom quest displays its correct start and end markers at real NPC/gameobject spawn locations; unrelated native quests still display as before. Markers must not appear on unrelated maps.
 
