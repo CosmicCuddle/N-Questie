@@ -19,6 +19,7 @@ step "M2.2 snapshot (compiled shapes)" "$LUA" tests/test_nquestie_m2_effective_e
 step "M2.2 safe writer" "$LUA" tests/test_nquestie_m2_safe_write.lua
 step "M2.2 provenance" "$LUA" tests/test_nquestie_m2_provenance.lua
 step "M2.2 coverage (synthetic)" "$LUA" tests/test_nquestie_m2_coverage.lua
+step "M2.2 objective order (killCreditObjectiveFirst)" "$LUA" tests/test_nquestie_m2_order.lua
 step "M2 v2 DRAFT prototype (design validation only)" "$LUA" tests/test_nquestie_m2_effective_v2_draft.lua
 step "pilot script syntax" bash -n tools/validation/run-m2-pilot.sh
 step "busted tools/validation" busted -p ".test.lua" tools/validation
