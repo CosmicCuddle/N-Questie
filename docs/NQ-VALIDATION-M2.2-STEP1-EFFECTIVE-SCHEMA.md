@@ -108,6 +108,8 @@ Ids within one list must be unique. Order is kept because M1 reports ordering no
 
 ## 9. Representability in real data (found in Step 2)
 
+> Historical snapshot (before the #36 kill-credit order check). Current measured figures: 8,401 representable, 758 unsupported of 9,159 (`NQ-VALIDATION-M2.2-COVERAGE.md` §3).
+
 A scan of all 9,159 compiled 3.3.5a quests found 752 that v1 cannot represent: reputation objectives (181 quests), extraObjectives references to monsters (466) or objects (335), and the same id twice in one objective list (10). The exporter refuses them; v1 is unchanged. See `docs/NQ-VALIDATION-M2.2-HANDOVER.md` §4 for the options.
 
 ## 10. Out of scope

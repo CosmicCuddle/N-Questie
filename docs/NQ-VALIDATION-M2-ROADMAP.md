@@ -69,6 +69,8 @@ Goal: write `nq-m2-effective` v1 records for explicitly selected quest IDs, take
 
 ### Open item from Steps 2–6: decided (Option A)
 
+> Historical snapshot (before the #36 kill-credit order check). Current measured figures: 8,401 representable, 758 unsupported of 9,159 (`NQ-VALIDATION-M2.2-COVERAGE.md` §3).
+
 v1 cannot represent 752 of 9,159 quests. **Decision (Michael, 14 October 2026): Option A.** v1 stays frozen; those quests are out of scope for the initial pilot (temporary); v2 is designed next. The exporter stays fail-closed: an unsupported requested ID fails the export, writes nothing and prints every reason. Never trim, dedupe, drop reputation or reinterpret extras; no false CONFIRMED.
 
 ### M2.2 follow-up (Option A)
