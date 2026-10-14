@@ -167,7 +167,7 @@ Decision: Option A. v1 frozen; v1-unsupported quests out of scope for the initia
 |---|---|---|---|
 | 0–4 | #24 → #26 → #27 → #28 → #29 | as §1 | M2.2 Steps 1–6 |
 | 5 | #33 | feat/nq-validation-m2.2-coverage-preflight-2026-10-14 | Shared reason codes, coverage/preflight mode, coverage tests, CI coordination notes and activation diff |
-| 6 | #PR_B | feat/nq-validation-m2.2-pilot-v2-design-2026-10-14 | Pilot script and results, v2 design and duplicate investigation, DRAFT v2 validator and fixtures, docs |
+| 6 | #34 | feat/nq-validation-m2.2-pilot-v2-design-2026-10-14 | Pilot script and results, v2 design and duplicate investigation, DRAFT v2 validator and fixtures, docs |
 
 Each PR's base is the PR above it; no rebases, force-pushes or base changes. #30 and #31 (lead developer) were reviewed and not touched; this stack does not merge #31, because #31 changes `nquestie-objective-rules.yml` and the M2.2 code is not on its base. Merging both lines later is a plain merge with no expected conflicts beyond doc appends.
 

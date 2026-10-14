@@ -1,6 +1,6 @@
 # N-Questie — Development Log
 
-## 14 October 2026 — M2.2 Option A follow-up: coverage, pilot, v2 design (draft PRs #33, #PR_B)
+## 14 October 2026 — M2.2 Option A follow-up: coverage, pilot, v2 design (draft PRs #33, #34)
 
 - **Decision applied:** Option A. v1 frozen; unsupported quests out of scope for the initial pilot; exporter fail-closed.
 - **Change:** shared reason codes in the exporter; read-only coverage mode over all compiled quests (private manifest via SafeWrite, public aggregate); pilot script; v2 design with a DRAFT validator and synthetic fixtures. No runtime addon, SQL or SavedVariables change; no workflow edits.
