@@ -1,6 +1,16 @@
 # First curated N-Questie quest: Ravenclaw Cleanup (2001)
 
-**Status:** Implemented only on the draft N-Questie feature branch. **Not in-game tested, not merged, not released.** Server SQL was inspected locally and read-only. The server export itself is not committed.
+**Status:** Curated quest marker lifecycle **tested successfully in game, 14 October 2026** on the draft N-Questie feature branch. Not merged or released. Server SQL remains private and was inspected locally and read-only.
+
+### Confirmed in-game acceptance (quest 2001)
+
+- [x] Starter at Shadow Priest Allister appears as available (screenshot).
+- [x] Map objective pins / regular and Shift tooltips show Ravenclaw Servants (1868), Ravenclaw Champions (1869), each 0/8 (screenshots).
+- [x] Completed quest's turn-in NPC shows `Ravenclaw Cleanup (2001) (Complete)` (screenshots).
+- [x] After normal quest hand-in, the completed marker disappears (maintainer explicitly confirmed in chat).
+- [x] Unrelated Questie world-map/minimap icons, addon load and existing settings remained functional in Step 1.
+
+**Separate verification still needed:** all actual active-spawn coordinates, interim kill-counter transitions, progression-specific availability and the next custom quest. Do not claim an entire server quest audit from this one scenario.
 
 ## Installation smoke test — verified by maintainer on 14 October 2026
 
