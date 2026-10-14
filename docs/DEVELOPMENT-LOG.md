@@ -1,5 +1,17 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Existing-quest correction scope formally added
+
+**Request:** Repair existing WotLK quest entries modified by the Naxxramas server and progression modules, including incorrect quest levels, colours, objectives and availability; not just missing custom quests.
+
+**Source finding:** `QuestieLib:GetColoredQuestName` gets the quest's effective level from `GetTbcLevel` and applies `PrintDifficultyColor` against `QuestiePlayer.GetPlayerLevel()` (with `GetQuestGreenRange`). A stale Questie quest-level record can therefore cause a wrong red/green display. `requiredLevel` / `MinLevel` and server progression unlock rules must be audited separately.
+
+**Decision:** Added Phase 2A to the roadmap. Start with **read-only mismatch reporting** and exact per-field correction approvals; preserve unrelated Questie fields. Do not alter colours artificially to match IP stage, assume IP makes a quest available, or publish the original private world SQL. Next obtain a specific discrepant quest ID and compare live observed colour/level to the server-sourced `QuestLevel` and current effective addon record.
+
+**Tests / changes:** Documentation-only scope approval. No client, live database or character state edits; no claim that a quest-colour correction has been implemented or tested yet.
+
+# N-Questie — Development Log
+
 ## 14 October 2026 — Importer deletion protection and isolated CI repair
 
 **Latest verified gameplay (from draft PR #2):** Maintainer screenshots confirmed quest 2001 available at Shadow Priest Allister; Ravenclaw Servant/Champion kill-objective tooltips; completed turn-in state; and maintainer directly confirmed the quest marker disappears after normal hand-in. First custom quest visual-marker lifecycle **PASS**; exact active-spawn accuracy and individual kill-progress increments were not separately proven.
