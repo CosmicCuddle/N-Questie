@@ -192,3 +192,4 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 ## M2 planning (14 October 2026)
 
 Detailed plan: `docs/NQ-VALIDATION-M2-ROADMAP-M2.2-M2.5.md`. Correction process: `docs/NQ-VALIDATION-M2-CORRECTION-WORKFLOW.md`.
+Proposals awaiting approval: `docs/NQ-VALIDATION-M2-V2-EXPORTER-PROPOSAL.md`, `docs/NQ-VALIDATION-M2.3-ENGINE-PROPOSAL.md`. Audit: `docs/NQ-VALIDATION-M2-DESIGN-AUDIT.md`.

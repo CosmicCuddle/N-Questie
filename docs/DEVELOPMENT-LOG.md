@@ -222,3 +222,12 @@ The maintainer installed the temporary N-Questie QA addon and reported **five ex
 - #39 review addressed (two-axis roadmap, full server validation, migration refuses kill credit, duplicates as hypotheses); CI green on 2912fd20d.
 - #41 v2 exporter specification and acceptance fixtures; #42 M2.3 design and draft report validator; #43 markers design; correction workflow and roadmap M2.2-M2.5.
 - Draft tests now run in the existing M2 workflow through the busted wrapper. No exporter, engine or correction added.
+
+## 14 October 2026 (late): review round 2 on the planning stack
+
+- #39: CI evidence recorded, M2.3 statuses aligned (three report statuses; malformed batch-level only).
+- #41: reproducible comparison (`Canonical`, exportedAt excluded explicitly), v2 exporter as opt-in validate-335 mode, Proposal A.
+- #42: closed reason vocabulary, exact aggregate reconciliation, confirming findings for CONFIRMED_MISMATCH, unique dense selections, executable selection protocol with preflight split, Proposal B.
+- #43: exact custom spawn pins with origin tags, item source categories, waypoints separate, map-bounds decision, draft marker validator.
+- #44: two-tier correction regression, text/tooltip QA lane aligned with #40, roadmap fixes, design audit.
+- Separate: harness 1.2.0 PR on the #38 line. No exporter, engine, marker exporter or correction added.

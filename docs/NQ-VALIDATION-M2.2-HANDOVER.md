@@ -279,9 +279,17 @@ CI on the final #39 head 2912fd20d (all success, run head SHA verified): M2 3861
 
 | PR | Branch | Content |
 |---|---|---|
-| #41 | feat/nq-validation-m2-v2-exporter-spec-2026-10-14 | v2 exporter specification, synthetic acceptance fixture and test (29 checks), CI evidence for #39 |
-| #42 | feat/nq-validation-m2-3-design-2026-10-14 | M2.3 detailed design, draft report/aggregate validator, batch matrix (104 checks) |
-| #43 | feat/nq-validation-m2-markers-design-2026-10-14 | nq-m2-markers design with Questie source citations |
-| this | feat/nq-validation-m2-corrections-roadmap-2026-10-14 | correction workflow, roadmap M2.2-M2.5 and in-game QA |
+| #41 | feat/nq-validation-m2-v2-exporter-spec-2026-10-14 | v2 exporter specification, acceptance fixture and test (38 checks), Proposal A, CI evidence for #39 |
+| #42 | feat/nq-validation-m2-3-design-2026-10-14 | M2.3 detailed design, draft contract validator, executable matrix (110 checks), Proposal B |
+| #43 | feat/nq-validation-m2-markers-design-2026-10-14 | nq-m2-markers design with Questie source citations, draft marker validator (39 checks) |
+| #44 | feat/nq-validation-m2-corrections-roadmap-2026-10-14 | correction workflow (two-tier regression, text/tooltip lane, 25 checks), roadmap M2.2-M2.5, design audit |
 
-Nothing in the stack is a production exporter, an M2.3 engine or a marker exporter. Open decisions for the lead: HARNESS_VERSION bump for the #36 order check; exporter as new CLI or mode; map-bounds source for markers.
+Nothing in the stack is a production exporter, an M2.3 engine or a marker exporter. Decisions taken 14 October 2026: harness 1.2.0 (separate PR), v2 exporter as opt-in mode of validate-335, map bounds from verified client data with a provisional 1.0 tolerance.
+
+## 13. Review round 2 (14 October 2026, evening)
+
+Resolved: #39 CI evidence and status alignment; #42 aggregate vocabulary, confirming findings, unique selections, batch-only malformed status, selection protocol and mixed-selection preflight split; #43 exact custom pins, origins, item source categories, waypoints, map-bounds decision; #44 two-tier regression, reproducible v1 equivalence, text/tooltip QA lane, marker traceability. Audit: `docs/NQ-VALIDATION-M2-DESIGN-AUDIT.md`. Proposals: `docs/NQ-VALIDATION-M2-V2-EXPORTER-PROPOSAL.md` (A), `docs/NQ-VALIDATION-M2.3-ENGINE-PROPOSAL.md` (B).
+
+Separate PR: harness 1.2.0 on the #38 line (see the PR text for heads and CI).
+
+Heads and CI for this round are recorded in the PR descriptions and the final report, because adding them here would change the head again. All results are public/synthetic CI and box runs; the real private 1203 M2.1 file has not been validated by these tests.

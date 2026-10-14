@@ -28,7 +28,7 @@ Together these are the 28 reviewed corrections plus quest 2001 (`correctionCount
 | Type | Candidate source | Evidence required | Change | Regression check |
 |---|---|---|---|---|
 | Wrong level | M2.1 vs effective levels | `quest_template` MinLevel/QuestLevel row | level module entry with expected inherited values | M0 pin of the corrected value; inherited guard test |
-| Wrong objective (simple: item/creature/object ID or count) | M2.3 CONFIRMED_MISMATCH | `quest_template` RequiredNpcOrGo/RequiredItem rows, and KillCredit/loot evidence complete | field-level objective change in `NQuestieExistingQuestCorrections.lua` | M0 record pin; M2.3 rerun gives CONFIRMED_MATCH or EXPECTED_REPRESENTATION_DIFF |
+| Wrong objective (simple: item/creature/object ID or count) | M2.3 CONFIRMED_MISMATCH, or NEEDS_MANUAL_REVIEW once a person has collected the missing evidence | `quest_template` RequiredNpcOrGo/RequiredItem rows, and KillCredit/loot evidence | field-level objective change in `NQuestieExistingQuestCorrections.lua` | tier A M0 record pin; tier B M2.3 outcome recorded (§5) |
 | Missing custom quest | quest present on server, ABSENT_FROM_EFFECTIVE_DB | full `quest_template` row, starter/ender tables, objective targets existing in npc/object DB | new record in `NQuestieCustomQuestData.lua` | quest ID set pin updated (count and sha256, procedure in the ID-set doc); M0 record checks |
 | NPC/object association (starter, ender) | queststarter/questender tables vs Questie startedBy/finishedBy | the server rows plus the NPC/object existing in Questie data | startedBy/finishedBy field change | M0 pin; marker structural check |
 | Markers / locations | marker comparison (when built) | verified spawn rows **and** verified map bounds, phase/condition/IP evidence | spawn correction only for the specific NPC/object | location check rerun; in-game QA item |
@@ -40,12 +40,24 @@ Together these are the 28 reviewed corrections plus quest 2001 (`correctionCount
 - When a new server revision is exported, rerun M2.3 against the current Questie head. A reviewed correction whose server value changed shows up as CONFIRMED_MISMATCH on that quest and becomes a new review item; the old correction is not edited automatically.
 - Corrections that only hold for one server revision are not supported; N-Questie targets one server line at a time, and this is stated in the correction header.
 
-## 5. Regression checks for reviewed corrections
+## 5. Regression checks for reviewed corrections (two tiers)
 
-- M0 pins each corrected field value (as today for the 28).
-- The compare-and-swap guard makes upstream drift visible.
-- M2.3, when built, must report every corrected quest as CONFIRMED_MATCH or EXPECTED_REPRESENTATION_DIFF against the server revision it was reviewed on; anything else fails the regression run.
+**Tier A, strict (M0, always required).**
+
+- The approved compiled field value is asserted exactly (M0 pin), as today for the 28.
+- The compare-and-swap guard records the expected inherited value; upstream drift is reported, never overwritten.
+- No unrelated field of the quest differs (M0 field-level read-back over all 82,431 fields).
 - A correction is never removed without a matching M0 pin change in the same PR.
+
+**Tier B, recorded (M2.3, once it exists).**
+
+- M2.3 runs on the server revision the correction was reviewed against and its outcome is recorded.
+- Allowed: `CONFIRMED_MATCH`, `EXPECTED_REPRESENTATION_DIFF`, or `NEEDS_MANUAL_REVIEW` **with a documented reason** (which evidence item is incomplete: KillCredit, conditions, scripts, IP or objective data). With frozen M2.1 input these flags can stay unknown, so manual review is an accepted, conservative result, not a failure.
+- `CONFIRMED_MISMATCH` or any other outcome is a regression and fails.
+- New unexpected differences are verified independently by a person.
+- CONFIRMED is only demanded where the evidence contract supports it.
+
+Draft: `tools/validation/draft/CorrectionQaDraft.lua` `CheckRegression` (synthetic tests in `tests/test_nquestie_m2_qa_draft.lua`).
 
 ## 6. Prioritised review queue (public categories only)
 
@@ -63,3 +75,30 @@ Order by how much evidence a decision needs, lowest first. Counts are public cov
 | 8 | Scripted, phased, condition- or IP-dependent quests | need server scripts and in-game confirmation |
 
 Each queue item is a private review note; only the public category and count appear in repository documents.
+
+## 7. Text and tooltip QA lane (separate)
+
+Correct IDs and markers are not proof of correct text. Text is checked in its own lane, aligned with the maintainer-side checklist on #40 (`docs/NQ-QUEST-MARKER-TEXT-QA.md`), and never folded into M1 or M2.3 outcomes. `displayScope = "structural-only"` in v2 is unchanged.
+
+| Surface | What is observed |
+|---|---|
+| Quest log line, count, order | client-visible objective text, current/required count and line order for an accepted quest |
+| Tracker line | Questie tracker text against the quest log |
+| Starter / finisher tooltip | title and giver on map and minimap pins |
+| Objective marker tooltip | label and counter on objective pins, distinguished from the quest-log line |
+| Item source tooltip | source and item names for loot, object, vendor sources |
+| Extra objective text | custom text from public Questie corrections only, traced to the source file |
+
+Rules:
+
+1. Result is `PASS`, `DIFFERENCE_TO_REVIEW` or `UNKNOWN`; there is no CONFIRMED text result.
+2. Record the stage actually tested (before acceptance, accepted, progress, completion, hand-in, relog) and the observed client locale. No enUS assumption; private AzerothCore locales are not assumed verified.
+3. Unknown availability (prerequisites, race/class, phase, conditions, IP) gives `UNKNOWN`.
+4. Static addon text (Questie strings, corrections) and client quest-log text are recorded separately; a stylistic difference is a review item, not wrong data.
+5. Stale cache text and transitions on acceptance, progress, completion, hand-in and relog are separate observations.
+6. No automatic text rewrite. A text correction is a field-scoped, human-reviewed proposal with its own source.
+7. Private server text is never published and never used as a public PASS reference.
+
+Public anchors (no new in-game result claimed): 1203 effective item 3853 vs inherited 33110 (client text still to check in an authorised QA session); 2001 earlier showed 0/8 counters and marker lifecycle (partial); 12683 and 11142 need quest-log line vs tooltip distinction.
+
+Draft: `CheckTextObservation` with synthetic fixtures (unknown availability, locale missing, CONFIRMED text result, auto-rewrite, text turned into an M1 outcome all rejected).
