@@ -49,14 +49,14 @@ return {
 | Local read-only offline world pilot | Only selected **1203 / 2001** quest records exported, verified fields and explicit conservative flags; raw SQL and output remained local/private |
 | Local Lua syntax | Generated synthetic and real private Lua **syntax parsed under Lua 5.4, without execution** |
 | GitHub actual **Lua 5.1** data-only parser | [Dedicated CI run 38589636591](https://github.com/CosmicCuddle/N-Questie/actions/runs/38589636591) **PASS**: synthetic v3 exporter fixture reports `OK: 2 quest record(s), schema nq-m2-input v1` |
-| M2.1 schema/parser regression | Same CI run: 43 validation rejections, 16 parse rejections, 94 Busted tests passing |
+| M2.1 schema/parser regression | [CI 38589636591](https://github.com/CosmicCuddle/N-Questie/actions/runs/38589636591): 43 validation rejections, 16 parse rejections, 94 Busted tests passing; separate path/symlink test step added subsequently |
 | Full integration | [PR #22 CI](https://github.com/CosmicCuddle/N-Questie/pull/22): M1, M0 28 corrections, revision guard, overlay and inherited LuaCheck/Busted/Era/SoD/WotLK checks PASS on its initial code commit |
 
-**Do not overstate:** There has been **no actual Lua 5.1 M2.1 validation of the maintainer's real private output**. That will require the reviewed updated M2.1 path/symlink guard and an authorised private local checkout/run. The GitHub proof uses **synthetic rows only**. M2.2 effective Questie export, M2.3 batch comparison, M2.4 private analysis of 24 item / 151 NPC candidates, and in-game quest QA remain unimplemented/unverified.
+**Do not overstate:** There has been **no actual Lua 5.1 M2.1 validation of the maintainer's real private output**. Grok's updated PR #21 **now contains** a canonical `realpath -e` path/symlink safeguard that rejects resolution failures, with 29 dedicated path tests; our next validation step is an **authorised private local checkout/run** of the real exporter output using that revised validator. The GitHub proof uses **synthetic rows only**. M2.2 effective Questie export, M2.3 batch comparison, M2.4 private analysis of 24 item / 151 NPC candidates, and in-game quest QA remain unimplemented/unverified.
 
 ## Next actions and approval gates
 
-1. Grok completes review of M2.1 input-path and symlink handling. Fail closed if canonical resolution fails; do not rely on unchecked lexical fallback for untrusted path restrictions.
+1. **Grok's current PR #21 implementation already uses** fail-closed canonical `realpath -e` input-path handling and includes 29 path/symlink tests. This separate CI branch activates those tests and must pass them alongside the exporter interoperability fixture.
 2. Keep the private exporter and ZIP outside all public Git checkouts; do not upload real quest records or use them as public CI fixtures.
 3. After M2.1 is accepted, test the **private v3 output** locally with Grok's CLI, starting with selected quest **1203** and a controlled read-only test. This is a validation step, **not** an automatic correction or in-game action.
 4. Only after private M2.1 acceptance should Grok implement M2.2 and later M2.3 in separate reviewable PRs; preserve M0's strict 28-level allow-list and 82,431-field compiled roundtrip.
