@@ -19,6 +19,7 @@ describe("N-Questie M2.2 libraries", function()
         { "M2.3 contract DRAFT tests pass (design only)", "tests/test_nquestie_m2_3_report_draft.lua" },
         { "nq-m2-markers DRAFT tests pass (design only)", "tests/test_nquestie_m2_markers_draft.lua" },
         { "correction regression and text QA DRAFT tests pass", "tests/test_nquestie_m2_qa_draft.lua" },
+        { "harness version pin (1.2.0)", "tests/test_nquestie_harness_version.lua" },
     }) do
         if available then
             it(t[1], function() assert.is_true(runs(t[2])) end)

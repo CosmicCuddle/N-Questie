@@ -424,7 +424,9 @@ end
 -------------------------------------------------------------------------------
 -- Main
 -------------------------------------------------------------------------------
-local HARNESS_VERSION = "1.1.0"
+-- 1.2.0: kill-credit ordering protection (killCreditObjectiveFirst refusal,
+-- KILLCREDIT_FIRST_REORDER coverage reason). Pinned by tests; bump with care.
+local HARNESS_VERSION = "1.2.0"
 
 -- M2.2 export options. Parsed and checked before M0 runs; nil when off.
 local function exportOptions()

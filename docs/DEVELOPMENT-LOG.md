@@ -258,3 +258,8 @@ union conflicts at #46 (DEVELOPMENT-LOG, M22Libraries). Inventory, static
 assertion counts (38 files, 566 calls) and executed counts all preserved.
 Added tools/validation/integration/assertion_counts.sh. Plan updated with the
 pre-integration-335 tag proposal (not created) and the old-PR table.
+## 14 October 2026: harness 1.2.0
+
+- `cli/validate-335.lua` HARNESS_VERSION 1.1.0 -> 1.2.0, marking the kill-credit ordering protection from #36 (refusal of killCreditObjectiveFirst quests in the v1 export, KILLCREDIT_FIRST_REORDER coverage reason). Maintainer decision, 14 October 2026.
+- Pinned by `tests/test_nquestie_harness_version.lua` (static), `tests/check_m2_export_values.lua` (real export provenance) and the coverage integration test (manifest provenance). v1 schema unchanged: harnessVersion is a free semantic-version string in v1.
+- Exports or manifests from 1.1.0 and 1.2.0 never pair in M2.3 (harnessVersion is a pairing field).
