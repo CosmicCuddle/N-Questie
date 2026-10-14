@@ -1,0 +1,10 @@
+# Proposed (not activated): extend the M1 objective-rules job with M2.1 schema checks.
+# Copy the two run steps below into .github/workflows/nquestie-objective-rules.yml
+# when Michael approves. Until then, busted -p ".test.lua" tools/validation already
+# covers InputSchema.test.lua on every feat/** push and pull_request.
+#
+# Extra steps to add after the existing Busted step:
+#      - name: Parse M2.1 files with Lua 5.1
+#        run: luac5.1 -p tools/validation/InputSchema.lua tools/validation/fixtures/input_*.lua cli/validate-m2-input.lua
+#      - name: Standalone M2.1 schema test
+#        run: lua5.1 tests/test_nquestie_m2_input_schema.lua

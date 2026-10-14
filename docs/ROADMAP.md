@@ -179,3 +179,5 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 - [ ] Keep NPC spawn accuracy and special objective/GO handling as separate source-verified milestones; do not interpret syntactically valid Lua as working pins.
 - [ ] Investigate inherited Busted suite initialization independently of successful scoped overlay tests.
 
+
+- 2026-10-14: M2.1 input schema on feat/nq-validation-m2.1-input-schema-2026-10-14 (draft, based on PR #20). Schema nq-m2-input v1, data-only Lua parser, path gate, synthetic fixtures including quest 1203. M2.2 effective-export design only in docs/NQ-VALIDATION-M2.2-DESIGN.md.

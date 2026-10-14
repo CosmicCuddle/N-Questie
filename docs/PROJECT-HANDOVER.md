@@ -204,3 +204,5 @@ The first documentation PR is **foundation only**. It does not implement or inst
 - **Step 1 remains PASS 5/5. Step 2 remains NOT TESTED.** Continue actual quest 2001 (Ravenclaw Cleanup) starter / NPC kills / turn-in in-game only when a legitimately eligible character exists. No progression changes just for testing.
 - PR #3 automation results must be checked separately from PR #2's last passing scoped run and inherited CI failures. No PR merge, release, live database changes or addon collection change without maintainer approval.
 
+
+- 2026-10-14: M2.1 branch feat/nq-validation-m2.1-input-schema-2026-10-14. See docs/NQ-VALIDATION-M2.1-INPUT-SCHEMA.md. Private exporter stays local (PR #19 handover); adapter gaps are listed in that doc §8. M2.2 is design-only.
