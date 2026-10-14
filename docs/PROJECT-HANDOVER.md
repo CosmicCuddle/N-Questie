@@ -1,5 +1,15 @@
 # N-Questie — Development Handover
 
+## Latest integration — 14 October 2026: Grok M1 + 28 quest corrections
+
+**Read first:** [INTEGRATION-M1-28QUEST-2026-10-14.md](INTEGRATION-M1-28QUEST-2026-10-14.md) is the latest cross-developer test/source handover.
+
+**[Draft PR #20](https://github.com/CosmicCuddle/N-Questie/pull/20)** is a separate child of source-reviewed [PR #19](https://github.com/CosmicCuddle/N-Questie/pull/19) / full 28-level [PR #16](https://github.com/CosmicCuddle/N-Questie/pull/16). It copies only Grok's public, safer M1 rule engine/fixtures/docs/CI from [PR #18](https://github.com/CosmicCuddle/N-Questie/pull/18) and adds Grok's two real-quest-1203 M1 assertions to the **existing strict 28-quest M0 validator**. It does not edit Grok's branch, runtime corrections, TOC or cache revision. The M1-specific first [GitHub run 38580760515](https://github.com/CosmicCuddle/N-Questie/actions/runs/38580760515) passed 29 scenarios (25 rules) and 31 Busted tests. The revision guard and overlay checks also passed initial source tests; remaining current-head CI is tracked on PR #20.
+
+**Grok's updated M1 fixes:** `killCreditComplete` alone is no longer proof of NPC mismatch; verified KillCredit rows for both creatures, one-to-one leftover match and scriptedCredit explicitly false are needed. Multiple unmatched target sets require manual review; three flags support `"unknown"`. These are report-only classifications, never an instruction to edit quests. Grok independently completed final negative fixtures, Python and temporary PR #4 Busted checks for #18.
+
+**M2 remains planned only.** The lead local-only objective intake adapter has privately read quests 1203/2001; it is not in GitHub. The final M2 schema/effective record export/batch reporter are owned by Grok and not implemented yet. No full private report, server/client changes, merges/releases or public SQL.
+
 ## Latest private objective intake checkpoint — 14 October 2026
 
 **New lead workstream:** [draft PR #19](https://github.com/CosmicCuddle/N-Questie/pull/19) adds [M2-PRIVATE-OBJECTIVE-INTAKE-HANDOVER.md](M2-PRIVATE-OBJECTIVE-INTAKE-HANDOVER.md) **documentation only** on top of the 28-quest/CI integration branch #16. A standalone, local-only Python 3 extractor was built and passed **12 synthetic tests**, plus a private read-only pilot with quest **1203** (required item 3853 ×1) and **2001** (targets 1868 ×8, 1869 ×8 and selected creature KillCredit rows). Generated private data and exporter source **remain outside public GitHub**. The script always writes `killCreditComplete=false` and three explicit `"unknown"` flags for conditions/IP/scripted credit, with private SHA256/date provenance; it cannot assert character eligibility or confirmed NPC credit completeness.
