@@ -208,3 +208,4 @@ The first documentation PR is **foundation only**. It does not implement or inst
 - 2026-10-14: M2.1 branch feat/nq-validation-m2.1-input-schema-2026-10-14. See docs/NQ-VALIDATION-M2.1-INPUT-SCHEMA.md. Private exporter stays local (PR #19 handover); adapter gaps are listed in that doc §8. M2.2 is design-only.
 - 2026-10-14: PR #21 schema v1 is final. The exporter compatibility checklist is in docs/NQ-VALIDATION-M2.1-INPUT-SCHEMA.md §12. Windows/macOS without GNU realpath reject all paths (fail closed).
 - 2026-10-14: M2.2 Step 1 branch: docs/NQ-VALIDATION-M2.2-STEP1-EFFECTIVE-SCHEMA.md. nq-m2-input v1 unchanged. Steps 2-6 still need approval.
+- 2026-10-14: M2 roadmap added (docs/NQ-VALIDATION-M2-ROADMAP.md) on the Step 1 branch. Steps 2-6 and M2.3 not started.
