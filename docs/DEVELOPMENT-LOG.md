@@ -216,3 +216,9 @@ The maintainer installed the temporary N-Questie QA addon and reported **five ex
 - **Tests:** Automated and in-game outcomes, stating **not run** where appropriate.
 - **Rollback:** Addon/SavedVariables backup and commit revert steps.
 - **Next:** Highest-priority unresolved item.
+
+## 14 October 2026 (evening): M2 planning stack
+
+- #39 review addressed (two-axis roadmap, full server validation, migration refuses kill credit, duplicates as hypotheses); CI green on 2912fd20d.
+- #41 v2 exporter specification and acceptance fixtures; #42 M2.3 design and draft report validator; #43 markers design; correction workflow and roadmap M2.2-M2.5.
+- Draft tests now run in the existing M2 workflow through the busted wrapper. No exporter, engine or correction added.
