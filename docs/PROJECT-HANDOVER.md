@@ -9,6 +9,16 @@
 **Client:** World of Warcraft 3.3.5a (`## Interface: 30300`)  
 **Inherited addon identity:** `Questie-335.toc`, display title `Questie-335`, upstream version `9.5.1`  
 
+## Most recent verified state — 14 October 2026 (supersedes historical checkpoints below)
+
+- **In-game quest 2001 visual marker lifecycle: PASS.** Available starter, Ravenclaw Servant/Champion objective pin tooltips, completed turn-in indicator and post-hand-in marker disappearance confirmed by maintainer. Existing Questie installation/regression tests also passed 5/5. Individual kill-counter transitions and exact active NPC spawn-coordinate alignment not independently tested.
+- **PR #3 (this branch):** Offline reviewed JSON → Lua generator now protects existing generated quests against accidental removal, requiring explicit `--approve-removal-quest` approval and a revision increase for replacements. Test file includes synthetic partial-import regression. The latest commits need fresh dedicated CI results. Earlier [run 38547219011](https://github.com/CosmicCuddle/N-Questie/actions/runs/38547219011) passed before the newest removal safeguard.
+- **PR #4 (independent `335` CI fixture):** [run 38549456997](https://github.com/CosmicCuddle/N-Questie/actions/runs/38549456997) **all inherited checks PASS**: LuaCheck, Busted, WotLK/Era/SoD validators. This has **not** been integrated with PR #2/#3; combined CI still requires testing.
+- All PRs remain **unmerged** (PR #2/#3/#4 are draft). Neither the full private world export nor raw review JSON has been published. Installed addon and SavedVariables are unchanged by this development. No live DB changes, release or N-Addon-Collection update authorized.
+- **Next:** Obtain clean CI for the latest PR #3 changes, then plan an additional source-verified quest (especially missing NPC/gameobject spawn mapping) without guessing coordinates; integrate test-only CI improvements only after separate review.
+
+## Earlier new-chat entry point — historical context
+
 ## Latest verified state — 14 October 2026 (new-chat entry point)
 
 **Maintainer in-game QA STEP 1: PASS — five out of five.** User installed the PR-only N-Questie test addon and explicitly confirmed:
