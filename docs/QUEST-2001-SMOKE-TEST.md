@@ -2,6 +2,19 @@
 
 **Status:** Implemented only on the draft N-Questie feature branch. **Not in-game tested, not merged, not released.** Server SQL was inspected locally and read-only. The server export itself is not committed.
 
+## Installation smoke test — verified by maintainer on 14 October 2026
+
+**Step 1: PASS (5/5)** on the installed N-Questie QA addon:
+- [x] Appears as N-Questie in character-selection AddOns list
+- [x] Loads without Lua errors
+- [x] Existing world-map quest icons still work
+- [x] Existing minimap quest objective icons still work
+- [x] Questie settings and existing preferences remain intact
+
+**Custom quest 2001 test: NOT YET RUN / NOT YET REPORTED.** An eligible character must meet the quest's actual server eligibility and prerequisite quest 437. Do not bypass progression or mark quest-marker tests passed based only on standard icon functionality.
+
+**Next:** Confirm whether the maintainer can access the quest naturally, then test the starter at NPC 2121, objective markers for NPCs 1868 and 1869, and ender NPC 2121 in the world map and minimap. If not accessible, choose a different ordinary playable custom quest from the private audit. Always back up the previous installed Questie folder and relevant SavedVariables before any subsequent addon replacement.
+
 ## Exact source-derived quest facts
 
 | Field | Selected acore_world export |
