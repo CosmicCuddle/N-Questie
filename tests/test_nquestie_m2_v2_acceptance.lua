@@ -52,17 +52,17 @@ end
 
 -- Negative acceptance: the exporter must never produce these
 local function mut(f) local d = copy(A); f(d); return D.Validate(d, OPT) end
-r, e = mut(function(d) local o = q(d, 900003).objectives; o[1], o[3] = o[3], o[1]; o[1].position, o[3].position = 1, 3 end)
+r = mut(function(d) local o = q(d, 900003).objectives; o[1], o[3] = o[3], o[1]; o[1].position, o[3].position = 1, 3 end)
 ok(not r, "kill-credit not reversed under killCreditFirst rejected")
-r, e = mut(function(d) q(d, 900001).objectives[4].requiredValue = nil end)
+r = mut(function(d) q(d, 900001).objectives[4].requiredValue = nil end)
 ok(not r, "reputation zero dropped to nil rejected")
-r, e = mut(function(d) q(d, 900001).extraObjectives[1].objectiveIndex = 7 end)
+r = mut(function(d) q(d, 900001).extraObjectives[1].objectiveIndex = 7 end)
 ok(not r, "objectiveIndex beyond objective count rejected")
 r, e = mut(function(d) table.remove(d.quests, 5) end)
 ok(not r and has(e, "questCount"), "silently dropped quest (questCount mismatch) rejected")
-r, e = mut(function(d) q(d, 900001).objectives[6].text = "Cast it" end)
+r = mut(function(d) q(d, 900001).objectives[6].text = "Cast it" end)
 ok(not r, "display text in structural-only export rejected")
-r, e = mut(function(d) d.schemaVersion = 3 end)
+r = mut(function(d) d.schemaVersion = 3 end)
 ok(not r, "unknown schema version rejected")
 
 -- Reproducible equivalence despite run timestamps (lead review #44 point 3)
