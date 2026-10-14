@@ -16,6 +16,21 @@ if arg[2] ~= nil then
     os.exit(1)
 end
 
+-- The general M2.1 path validator intentionally permits public synthetic
+-- fixtures in tests/fixtures/m2_input/ and private/ inside the checkout.
+-- This *real private evidence* gate is stricter: only an input resolving
+-- OUTSIDE the entire public checkout may pass. Never trust a path by text.
+local allowed, resolved = Input.CheckInputPath(path or "", ".")
+local root = Input.resolver(".")
+if not allowed or type(root) ~= "string" or type(resolved) ~= "string" then
+    io.stderr:write("FAIL: private M2.1 input rejected (path, parser or schema); investigate locally\n")
+    os.exit(1)
+end
+if resolved == root or resolved:sub(1, #root + 1) == root .. "/" then
+    io.stderr:write("FAIL: private input must resolve outside the public checkout\n")
+    os.exit(1)
+end
+
 -- Run from repository root, as with cli/validate-m2-input.lua.
 local doc = Input.LoadFile(path or "", ".")
 if not doc then
