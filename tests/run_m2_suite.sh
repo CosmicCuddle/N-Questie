@@ -14,6 +14,8 @@ step "private/ guard self-test" bash tests/test_check_no_tracked_private.sh
 step "M1 objective rules" "$LUA" tests/test_nquestie_objective_rules.lua
 step "M2.1 input schema and parser" "$LUA" tests/test_nquestie_m2_input_schema.lua
 step "M2.1 path and symlink safety" "$LUA" tests/test_nquestie_m2_input_paths.lua
+step "Single-quest 1203 gate syntax" luac5.1 -p cli/check-private-1203.lua
+step "Private-1203 gate (public synthetic cases only)" bash tests/test_nquestie_private_1203_gate.sh
 step "M2.2 effective schema" "$LUA" tests/test_nquestie_m2_effective_schema.lua
 step "M2.2 snapshot (compiled shapes)" "$LUA" tests/test_nquestie_m2_effective_export.lua
 step "M2.2 safe writer" "$LUA" tests/test_nquestie_m2_safe_write.lua
