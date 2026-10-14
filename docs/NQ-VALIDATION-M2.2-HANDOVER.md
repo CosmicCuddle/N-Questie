@@ -217,3 +217,37 @@ Local (box, head 05645e9f0): full M2 suite PASS (all standalone suites, busted, 
 4. **The lead developer's real M2.1 input still needs genuine Lua 5.1 validation (`cli/validate-m2-input.lua`) in a trusted Linux environment.**
 5. Explain 9,158 vs 9,159.
 6. Then, with approval: v2 exporter, then M2.3.
+
+## 11. Second follow-up (14 October 2026): order, ID set, CI integration, final v2 design
+
+### 11.1 PR stack and dependency order
+
+| Order | PR | Branch | Content |
+|---|---|---|---|
+| … | #24 → #26 → #27 → #28 → #29 → #33 → #34 | as above | M2.2 Steps 1–6, coverage, pilot, v2 draft |
+| 7 | #36 | feat/nq-validation-m2.2-order-killcredit-first-2026-10-14 | `KILLCREDIT_FIRST_REORDER` (exporter + coverage), order tests, measured coverage 8,401 / 758 |
+| 8 | #37 | feat/nq-validation-m2.2-quest-id-set-2026-10-14 | 9,158 vs 9,159 explained (quest 2001), compiled ID set pinned |
+| 9 | #38 | feat/nq-validation-m2.2-ci-integration-2026-10-14 | #37 + `--no-ff` merge of #35's head 811b2b796 (lead's active M2 workflow); proposed copy removed |
+| 10 | this PR | feat/nq-validation-m2-v2-design-final-2026-10-14 | final v2 design, duplicate assessment, provenance pairing, split M1 statuses, draft validator (57 checks) |
+
+#35 is the lead's PR and was not edited. Its workflow is canonical.
+
+### 11.2 Per-stage handover
+
+| Stage | Result | Where |
+|---|---|---|
+| Order (#36) | Questie maps quest-log line N to ObjectiveData[N]; 16 quests in `killCreditObjectiveFirst` all change order; v1 now refuses them. 6 newly unsupported: 10503, 12100, 12546, 12561, 13382, 13404. No other cross-type order loss. | coverage doc §6 |
+| ID set (#37) | raw 9,086 → inherited corrections 9,158 (+72; 90 existing IDs reset and refilled, IDs kept) → N-Questie +2001 = 9,159 = compiled set. No removals. Pinned by count and sha256. | `NQ-VALIDATION-M2.2-QUEST-ID-SET.md` |
+| CI (#38) | six workflows on one commit (see §11.3) | PR #38 |
+| Design (this PR) | review points 1–6 addressed; normaliser artifact corrected (reputation value 0, objectiveIndex 0) | `NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md` |
+
+### 11.3 CI evidence
+
+CI_EVIDENCE_2
+
+### 11.4 Outstanding
+
+1. Lead: genuine Lua 5.1 validation of the real private M2.1 input (1203 first).
+2. Approve the v2 design and the M2.3 two-axis status model.
+3. In-game: 11142 line count; 64128 only if unhidden. 12683: M1 to treat line 1's ID as a location hint (review in M2.3).
+4. Production v2 exporter and the M2.3 engine: separate approvals; not started.

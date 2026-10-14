@@ -80,7 +80,7 @@ Conclusion: duplicates are meaningful (positions in the quest log). v2 keeps eve
       killCreditFirst = true, hasTriggerEnd = true,
       extraObjectives = {
         { position = 1, icon = 3, hasText = true, spawnZones = {}, objectiveIndex = 0,
-          refs = { { type = "monster", id = 25466, refIndex = 1 } } },  -- illustrative
+          refs = { { type = "monster", id = 25334, refIndex = 1 } } },  -- "Drive a tank"
       },
       m1Status = "UNSUPPORTED_BY_RULES", m1Reasons = { "EXTRA_CREATURE_REF", "KILLCREDIT_FIRST_REORDER" } },
   } }

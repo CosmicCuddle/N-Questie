@@ -78,7 +78,10 @@ v1 cannot represent 752 of 9,159 quests. **Decision (Michael, 14 October 2026): 
 - [x] CI review of #30/#31 and an exact activation diff (`docs/NQ-VALIDATION-M2.2-CI-COORDINATION.md`)
 - [x] Reproducible 1203 pilot and a 16-quest v1 pilot list (`docs/NQ-VALIDATION-M2.2-PILOT.md`)
 - [x] v2 design, duplicate investigation, draft validator and fixtures (`docs/NQ-VALIDATION-M2-EFFECTIVE-V2-DESIGN.md`)
-- [ ] Activate the proposed workflow (lead developer, CI-only PR)
+- [x] Activate the M2 workflow (lead's #35; integrated in #38)
+- [x] killCreditObjectiveFirst order refusal; measured coverage 8,401 / 758 (#36)
+- [x] 9,158 vs 9,159 explained and the compiled ID set pinned (#37)
+- [x] Final v2 design: display scope, provenance pairing, split M1 statuses, duplicate assessment
 - [ ] Approve v2 design; then a v2 exporter (separate approval)
 
 ## 4. M2.3 Report-only batch comparison engine
