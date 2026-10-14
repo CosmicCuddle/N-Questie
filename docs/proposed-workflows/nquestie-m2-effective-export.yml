@@ -66,6 +66,9 @@ jobs:
       - name: M2.2 provenance (clean checkout, git, hashes)
         run: lua5.1 tests/test_nquestie_m2_provenance.lua
 
+      - name: M2.2 coverage / preflight (synthetic, shared exporter reasons)
+        run: lua5.1 tests/test_nquestie_m2_coverage.lua
+
       - name: Busted (M1 + M2 specs)
         run: busted -p ".test.lua" tools/validation
 
@@ -78,6 +81,11 @@ jobs:
         env:
           LUA: lua5.1
         run: bash tests/test_nquestie_m2_export_integration.sh
+
+      - name: Real-DB coverage report over all compiled quests (aggregate only; manifest to temp)
+        env:
+          LUA: lua5.1
+        run: bash tests/test_nquestie_m2_coverage_integration.sh
 
       - name: Checkout still clean after the tests
         run: test -z "$(git status --porcelain --untracked-files=all)"
