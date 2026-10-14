@@ -27,16 +27,31 @@ r, e = mutate(function(d) q(d, 1203).objectives[1].id = 0 end)
 ok(not r and has(e, ".id"), "R2 invalid target id rejected")
 -- R3 relationship: extra objectiveIndex kept; killCredit ids/root kept
 ok(q(base, 735).extraObjectives[1].objectiveIndex == 2, "R3 extra linked to objective 2 kept")
-r, e = mutate(function(d) q(d, 735).extraObjectives[1].objectiveIndex = 0 end)
-ok(not r and has(e, "objectiveIndex"), "R3 bad objectiveIndex rejected")
+r, e = mutate(function(d) q(d, 735).extraObjectives[1].objectiveIndex = 9 end)
+ok(not r and has(e, "objectiveIndex"), "R3 objectiveIndex past the objectives rejected")
+r, e = mutate(function(d) q(d, 735).extraObjectives[1].objectiveIndex = nil end)
+ok(not r and has(e, "objectiveIndex"), "R3 objectiveIndex required (0 = not linked)")
+ok(q(base, 11142).extraObjectives[1].objectiveIndex == 0, "R3 0 = not linked kept")
 r, e = mutate(function(d) q(d, 9666).objectives[2].rootId = nil end)
 ok(not r and has(e, "rootId"), "R3 killCredit root required")
 -- R4 order: Questie ObjectiveData order enforced
 r, e = mutate(function(d) local o = q(d, 1369).objectives; o[1], o[2] = o[2], o[1]; o[1].position = 1; o[2].position = 2 end)
 ok(not r and has(e, "out of Questie objective order"), "R4 reputation before item rejected")
 r = mutate(function(d) local x = q(d, 9666); x.killCreditFirst = true; local o = x.objectives
-    o[1], o[2] = o[2], o[1]; o[1].position = 1; o[2].position = 2 end)
-ok(r, "R4 killCreditFirst allows killCredit first")
+    o[1], o[2] = o[2], o[1]; o[1].position = 1; o[2].position = 2
+    x.m1Status = "UNSUPPORTED_BY_RULES"; x.m1Reasons = { "KILLCREDIT_FIRST_REORDER" } end)
+ok(r, "R4 killCreditFirst puts killCredit first")
+-- ordering limitation (10503 / 11652): v1 cannot say this, v2 must
+ok(q(base, 10503).objectives[1].kind == "killCredit" and q(base, 10503).killCreditFirst, "R4 10503 killCredit on line 1")
+ok(q(base, 11652).objectives[1].slotIndex == 2 and q(base, 11652).objectives[2].slotIndex == 1, "R4 11652 killCredit reversed")
+r, e = mutate(function(d) local o = q(d, 11652).objectives; o[1], o[2] = o[2], o[1]; o[1].position = 1; o[2].position = 2 end)
+ok(not r and has(e, "out of Questie objective order"), "R4 11652 in slot order rejected (Questie reverses)")
+r, e = mutate(function(d) local x = q(d, 10503); local o = x.objectives; o[1], o[2] = o[2], o[1]; o[1].position = 1; o[2].position = 2 end)
+ok(not r and has(e, "out of Questie objective order"), "R4 10503 default order rejected when killCreditFirst")
+r, e = mutate(function(d) local x = q(d, 10503); x.killCreditFirst = false end)
+ok(not r, "R4 killCreditFirst flag must agree with the order")
+r, e = mutate(function(d) local x = q(d, 10503); x.m1Status = "SUPPORTED"; x.m1Reasons = {} end)
+ok(not r and has(e, "no false SUPPORTED"), "R9 reordered quest never M1 SUPPORTED")
 -- R5 position: contiguous, equals list index; extra refs keep refIndex
 r, e = mutate(function(d) q(d, 735).objectives[3].position = 4 end)
 ok(not r and has(e, "position"), "R5 position gap rejected")
@@ -56,7 +71,9 @@ ok(not r and has(e, "occurrence"), "R7 wrong occurrence rejected")
 r = mutate(function(d) table.remove(q(d, 25199).objectives, 2) end)
 ok(not r, "R7 silently dropping a duplicate breaks positions/occurrence")
 -- R8 reputation explicit; absent value never defaulted
-ok(q(base, 8470).objectives[1].requiredValue == nil, "R8 faction-only reputation kept without value")
+ok(q(base, 8470).objectives[1].requiredValue == 0, "R8 required value 0 kept as 0")
+r, e = mutate(function(d) q(d, 8470).objectives[1].requiredValue = nil end)
+ok(not r and has(e, "requiredValue"), "R8 missing required value rejected (never dropped)")
 r, e = mutate(function(d) q(d, 1367).objectives[1].factionId = nil end)
 ok(not r and has(e, "factionId"), "R8 faction required")
 r, e = mutate(function(d) local o = q(d, 1369).objectives
@@ -68,6 +85,43 @@ ok(not r and has(e, "no false SUPPORTED"), "R9 false SUPPORTED rejected")
 r = mutate(function(d) local x = q(d, 11142); x.m1Reasons = { "EXTRA_CREATURE_REF" } end)
 ok(not r, "R9 all reasons required")
 ok(q(base, 1203).m1Status == "SUPPORTED" and q(base, 9666).m1Status == "SUPPORTED", "R9 v1-shaped quests SUPPORTED")
+r, e = mutate(function(d) q(d, 1367).m1Status = "NEEDS_MANUAL_REVIEW" end)
+ok(not r and has(e, "m1Status"), "R9 NEEDS_MANUAL_REVIEW is not a record status (comparison outcome only)")
+r = mutate(function(d) q(d, 1367).m1Status = "UNSUPPORTED" end)
+ok(not r, "R9 old collapsed UNSUPPORTED value rejected")
+
+-- Display scope: omission is intentional and explicit
+r, e = mutate(function(d) d.displayScope = nil end)
+ok(not r and has(e, "displayScope"), "display scope marker required")
+r, e = mutate(function(d) q(d, 1367).extraObjectives[1].text = "Slay Gelkis centaur" end)
+ok(not r and has(e, "unknown field"), "display text never carried in v2")
+r, e = mutate(function(d) q(d, 11142).extraObjectives[1].spawns = { [15] = { { 69.95, 19.53 } } } end)
+ok(not r and has(e, "unknown field"), "exact coordinates never carried in v2")
+ok(q(base, 11142).extraObjectives[1].hasText == true and #q(base, 11142).extraObjectives[1].spawnZones == 1,
+   "presence of text and custom spawns recorded (omission is not absence)")
+
+-- Provenance pairing
+local P = copy(base.provenance)
+ok(D.CheckPairing(P, copy(P), OPT), "pairing: same checkout accepted")
+local P2 = copy(P); P2.sourceCommit = string.rep("d", 40)
+r, e = D.CheckPairing(P, P2, OPT)
+ok(not r and has(e, "sourceCommit"), "pairing: different commit rejected")
+P2 = copy(P); P2.correctionFingerprint = "sha256:" .. string.rep("e", 64)
+ok(not D.CheckPairing(P, P2, OPT), "pairing: different correction fingerprint rejected")
+P2 = copy(P); P2.correctionModules = { "x.lua" }
+ok(not D.CheckPairing(P, P2, OPT), "pairing: different modules rejected")
+P2 = copy(P); P2.nQuestieDataRevision = 4
+ok(not D.CheckPairing(P, P2, OPT), "pairing: different revision rejected")
+local stock = copy(P); stock.dataKind = "stock"
+ok(not D.CheckPairing(stock, copy(stock), OPT), "pairing: stock export never paired as effective")
+local S = { exporter = "nq-acore-exporter", exporterVersion = "3.0.0", sourceLabel = "acore-world",
+    sourceFingerprint = "sha256:" .. string.rep("f", 64), exportedAt = "2026-10-14T12:00:00Z", selection = "explicit", questCount = 1 }
+ok(D.CheckServerProvenance(S, OPT), "server provenance validated on its own (no commit)")
+local S2 = copy(S); S2.sourceCommit = P.sourceCommit
+r, e = D.CheckServerProvenance(S2, OPT)
+ok(not r and has(e, "must not carry a git commit"), "server provenance never compared with a Questie commit")
+S2 = copy(S); S2.sourceFingerprint = "abc"
+ok(not D.CheckServerProvenance(S2, OPT), "server fingerprint format enforced")
 -- R10 versioning
 ok(D.ValidateAnyVersion(dofile("tests/fixtures/m2_effective/effective_selected_quests.lua"), OPT), "R10 v1 still valid via dispatch")
 local v3 = copy(base); v3.schemaVersion = 3
