@@ -28,6 +28,10 @@ jobs:
         run: python3 tools/test_export_world_quests.py
       - name: Test reviewed JSON to Lua generation (offline, fail closed)
         run: python3 tools/test_generate_custom_quests.py
+      - name: Test private existing-quest level audit (synthetic data only)
+        run: |
+          python3 -m py_compile tools/audit_world_quest_levels.py
+          python3 tools/test_audit_world_quest_levels.py
       - name: Verify 3.3.5a TOC integration
         run: |
           grep -Fq '## Interface: 30300' Questie-335.toc
