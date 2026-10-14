@@ -1,5 +1,15 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Full installed Questie file and private world comparison
+
+**Source confirmed:** `wotlkQuestDB.lua` uploaded from the installed addon is byte-identical (git blob `abbf2831b6d6b54b5d9383ba2c3e5cce5147379d`) to the GitHub original WotLK Questie file. It contains 9,086 records. The private exported AzerothCore world contains 9,525 records.
+
+**Full read-only results:** 439 server-only quest IDs (many placeholders or unlinked; 18 appear to have starter and ender relationships without placeholder tags). Raw level differences: 139 `questLevel`, 150 minimum, 259 unique. After static literal Classic→TBC→WotLK correction interpretation: 270 candidate quests, 148 nominal fields and 154 minimum fields (some overlap). Initial 1,484 item-ID differences shrink to 24 for review after matching 1,460 to Questie's separate source-item representation. Additional NPC starter/ender, kill-objective and chain candidates require runtime/IP condition review.
+
+**Deliverable:** Seven-tab **private Excel review workbook** prepared for the maintainer; kept off public GitHub. Public documentation records only aggregate statistics and methodology, see `docs/FULL-SERVER-QUEST-AUDIT-CHECKPOINT.md`. No runtime patches, SQL updates, installed addon edits or client QA in this step. PRs #6/#7 remain draft.
+
+# N-Questie — Development Log
+
 ## 14 October 2026 — Private acore_world re-upload: quest 1203 and Dustwallow audit
 
 **Input/privacy:** Maintainer uploaded a fresh private HeidiSQL acore_world.zip in chat. Read-only local inspection confirmed 9,525 unique server quest_template records. No raw SQL, host/server details, connection strings, or complete exported quest data have been committed to GitHub.
