@@ -88,6 +88,7 @@ Database\Corrections\wotlkObjectFixes.lua
 Compat\NQuestieCustomQuestData.lua
 Compat\NQuestieCustomQuestLoader.lua
 Compat\NQuestieExistingQuestCorrections.lua
+Compat\NQuestieReviewedQuestLevelCorrections.lua
 
 # Compiler
 Database\compiler.lua
