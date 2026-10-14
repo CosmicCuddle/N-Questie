@@ -1,5 +1,11 @@
 # N-Questie — Development Handover
 
+## Latest coordination checkpoint — 14 October 2026 (PR #13 + Grok integration)
+
+**Please read [COLLABORATION-INTEGRATION-STATUS.md](COLLABORATION-INTEGRATION-STATUS.md) before making additional changes**; it is the current cross-developer ownership, PR ancestry, CI truth and rollout gate. Source-verified existing quest **level** corrections now total **28**, staged as **8 Dustwallow (#7) + 11 early-game (#8) + 9 Duskwood/Wetlands chain quests (#13)**. The last nine are documented in [CLASSIC-CHAIN-LEVEL-AUDIT.md](CLASSIC-CHAIN-LEVEL-AUDIT.md). PR #13's dedicated Lua 5.1/source tests passed [38567305494](https://github.com/CosmicCuddle/N-Questie/actions/runs/38567305494); inherited unit tests still fail because #4 is independent and unmerged.
+
+**Grok collaboration:** External validation M0 was delivered in draft #9; workflow enabled in independent draft #10 with successful real-GitHub M0 run [38565400913](https://github.com/CosmicCuddle/N-Questie/actions/runs/38565400913). Grok opened combined 19-quest validation draft #11 and independent CI-only cache guard draft #12. **PR #13's nine additional quest IDs are not covered by that 19-quest integration yet.** Their expected values were supplied in a coordination comment on PR #11. All PRs remain draft or open and unmerged; installed game client, SavedVariables and live server untouched.
+
 ## Current continuation — 14 October 2026: early-zone quest corrections, draft PR #8
 
 **New:** [draft PR #8](https://github.com/CosmicCuddle/N-Questie/pull/8) is stacked on PR #7 and proposes **11 additional early-game existing-quest level/minimum-level corrections** (IDs **98, 126, 169, 180, 249, 256, 304, 398, 442, 895, 6284**). All values were cross-checked against the private offline `acore_world` quest templates and the earlier literal-correction audit. Only `requiredLevel` and/or `questLevel` fields are emitted, using source-value guards; other quest metadata stays unchanged. Cache revision 3→4, with synthetic Lua 5.1 tests and an original-source regression. See [EARLY-QUEST-LEVEL-AUDIT.md](EARLY-QUEST-LEVEL-AUDIT.md). **Scoped CI run 38562858874 passed**; inherited CI still requires independent PR #4 integration and is not proof of the final combined build.
