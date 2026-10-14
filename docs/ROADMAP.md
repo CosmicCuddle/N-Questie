@@ -135,3 +135,5 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 - [ ] Agree the cache revision safeguard with the lead developer (proposal in the M0 doc §6).
 - [ ] M1 — effective-record JSON export and rule-catalogue fixtures.
 - [ ] M2–M5 as per the design document.
+- [x] M0 combined with PR #8 on `feat/nq-validation-m0-pr8-integration-2026-10-14`: 19 level corrections + 1203 + 2001, compiled round trip, 4 negative fixtures (NQ-VALIDATION-M0.md §9).
+- [x] Revision safeguard layer 1 (CI-only bump check) on `feat/nq-revision-bump-guard-2026-10-14`; layer 2 fingerprint deferred.
