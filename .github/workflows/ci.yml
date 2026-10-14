@@ -25,7 +25,7 @@ jobs:
         uses: nebularg/actions-luacheck@v1
         with:
           files: Database Localization Modules Questie.lua
-          args: "--no-color -q"
+          args: "--no-color -q --globals WorldMapFrameTitle QuestLogScrollFrameScrollBar"
 
       - name: Send CI failure to Discord
         uses: nebularg/actions-discord-webhook@v1

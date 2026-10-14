@@ -1,5 +1,69 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Quest 2001 hand-in removes marker: PASS
+
+**Maintainer-reported in-game confirmation:** After naturally handing in Ravenclaw Cleanup (2001) to Shadow Priest Allister, its completed quest marker disappeared from the map as expected. This completes the first custom quest's **observed icon state lifecycle**: available starter → NPC kill-objective markers and ordinary/Shift objective tooltips → ready-to-turn-in at NPC 2121 → no remaining completed marker after hand-in. The user explicitly confirmed the final removal; no screenshot was supplied for that last action.
+
+**Phase 1 visual smoke result: PASS for quest 2001's tested states**, together with Step 1's five normal Questie compatibility checks. Do not broaden this claim to all custom quests or the entire server. Individual kill counter transitions and a point-by-point match of NPC spawn coordinates against active server spawns were not separately documented.
+
+**Next:** Keep the installed working QA addon and SavedVariables unchanged. Continue importer review on stacked draft PR #3, investigate inherited Busted test harness failures, source-verify additional NPC spawns/quest eligibility, and arrange a second varied custom-quest test. No merge, tag, release, N-Addon-Collection change or live server DB change has been authorized.
+
+## 14 October 2026 — Quest 2001 completed-state marker QA
+
+**In-game screenshot evidence:** Shadow Priest Allister's map tooltip lists **Ravenclaw Cleanup (2001) — (Complete)** in both compact and expanded views. Other quests (including Border Crossings 477 and Lost Deathstalkers 428) continue to be listed alongside it.
+
+**PASS:** Quest 2001's completed/ready-to-turn-in state is correctly represented in map tooltips at its NPC turn-in location; previous objective marker tooltip and available-state checks remain verified.
+
+**Not yet verified:** Quest hand-in and post-turn-in marker disappearance, independent comparison of all NPC pin locations against active spawns, or objective counter progression during kills (only initial 0/8 and eventual Complete observed). Do not claim these checks passed without separate evidence.
+
+**Safety:** No addon reinstall, live DB edits, character progression overrides, PR merge or release performed by development. Maintain existing installed test build and SavedVariables.
+
+## 14 October 2026 — Quest 2001 objective tooltips verified in-game
+
+**Evidence:** Maintainer screenshots of normal and Shift-modified objective marker tooltips for active Ravenclaw Cleanup (2001). Both list 0/8 Ravenclaw Servants and 0/8 Ravenclaw Champions; Shift view identifies the NPC names and level ranges (Servant 13–14, Champion 14–15). **PASS:** quest 2001 objective marker tooltip associations, both NPC objective names, and displayed quest-log progress counts. Normal and modifier tooltip modes work.
+
+**Limits:** Screenshot evidence does not establish that every plotted NPC coordinate matches current server spawns, that counts increment after kills, or that a completed quest displays a turn-in marker. No live database or character progression was edited by development.
+
+**Next:** Confirm actual target locations and normal kill progress, then complete quest normally and inspect Shadow Priest Allister's turn-in marker. Preserve QA build and SavedVariables; no merge or release without approval.
+
+## 14 October 2026 — Quest 2001 first in-game marker evidence
+
+**Maintainer evidence:** Screenshots show Ravenclaw Cleanup (2001) as Available in Shadow Priest Allister's Questie map tooltip and visible map markers around The Sepulcher / nearby objective area. **PASS:** quest is discoverable in Questie's available-quest presentation; initial map marker rendering is visible. These are stronger observations than the earlier installation-only checks.
+
+**Not yet established:** whether the nearby sword icons specifically represent quest 2001 rather than other active quests; objective markers after accepting quest 2001; objective coordinates versus actual Ravenclaw spawns; quest completion and turn-in icon. No quest-progress or database edits were requested or performed.
+
+**Next:** Have the maintainer accept quest 2001 through normal gameplay, inspect its quest-log objectives and hover one of its sword markers to identify the quest, then verify turn-in after normal completion. Preserve installed addon and SavedVariables. No merge/release authorization.
+
+## 14 October 2026 — Maintainer's in-game installation checks: PASS (Step 1)
+
+The maintainer installed the temporary N-Questie QA addon and reported **five explicit PASS results**:
+
+- Character-selection AddOns list identifies N-Questie.
+- Addon loads without Lua errors.
+- Existing world-map Questie quest icons appear normally.
+- Existing minimap quest-objective icons appear normally.
+- Existing Questie settings and user preferences persist.
+
+**Result:** This verifies baseline installation and visual/regression smoke behavior on the maintainer's client. It **does not** verify custom quest 2001 starter, kill/quest objective, or turn-in icons. No new SQL data was required, and no live database changes were made by development.
+
+**CI:** Dedicated N-Questie overlay GitHub Actions workflow passed ([run 38461711184](https://github.com/CosmicCuddle/N-Questie/actions/runs/38461711184)); broader inherited GitHub CI failed ([run 38461710869](https://github.com/CosmicCuddle/N-Questie/actions/runs/38461710869)) on upstream Busted test setup. Both must be resolved/reviewed before merge.
+
+**Next:** Ask which legitimate character can accept custom quest 2001 (quest 437 prerequisite); if unavailable, select an accessible real server quest. Carry forward the install QA PASS and record each additional tested marker separately. No merge, release or N-Addon-Collection change without explicit approval.
+
+## 13 October 2026 — Initial N-Questie overlay implementation (unreleased)
+
+**Approval:** The maintainer explicitly authorized publishing the limited server quest IDs, names, NPCs, objectives and map coordinates required by N-Questie. The **full `acore_world.zip` remains private**.
+
+**Source-backed trial:** Quest 2001 (`Ravenclaw Cleanup`, level 12/16, Silverpine Forest zone 130) references NPC 2121 as starter/ender, NPC 1868 and 1869 as eight-kill objectives, prerequisite quest 437, server race mask 690 and quest flag 8. Existing raw Questie WotLK NPC data already has those NPC IDs and their zone 130 spawn positions; no new map coordinates were inferred.
+
+**Prototype:** Added `Compat/NQuestieCustomQuestData.lua` containing only curated data, `Compat/NQuestieCustomQuestLoader.lua` registering quest and reverse NPC corrections without erasing existing NPC quests, and added those files to the original TOC. Updated `Modules/QuestieInit.lua` to recompile the cached DB after the custom data revision changes, without resetting SavedVariables. The installed TOC name remains `Questie-335.toc`; its display title is N-Questie and test version is `9.5.1.1`.
+
+**Importer:** Added `tools/export_world_quests.py` to read one private SQL or ZIP export and extract **only nominated quest IDs** into a review-only JSON file; unsupported gameobject quests/objectives, negative prerequisites or missing NPC links fail closed. The tool does **not** yet automatically convert JSON into the curated Lua file, nor calculate replacement spawn coords. Added Lua 5.1 mock and Python fixture tests, plus a focused GitHub Actions workflow (runs not yet observed on this fork).
+
+**Not yet validated:** In-game starter/kills/turn-in icons, active spawn/phase accuracy, manual/progression eligibility, any full GitHub CI success, broader quest import and packaging. No release and no merge has been approved. Back up the current Questie addon folder and Questie SavedVariables before any in-game build.
+
+**Next:** Review feature PR, run tests/enable Actions if necessary, prepare a safely packaged single-addon QA build and test quest 2001 in-game. Keep the full database and any secrets off public GitHub.
+
 ## 13 October 2026 — Private world database intake
 
 **Input:** Maintainer supplied a ZIP containing a HeidiSQL export of the Naxxramas AzerothCore `acore_world` database. This is private source material, **not** a public repository file.

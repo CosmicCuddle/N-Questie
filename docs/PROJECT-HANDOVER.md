@@ -9,6 +9,41 @@
 **Client:** World of Warcraft 3.3.5a (`## Interface: 30300`)  
 **Inherited addon identity:** `Questie-335.toc`, display title `Questie-335`, upstream version `9.5.1`  
 
+## Latest verified state — 14 October 2026 (current checkpoint)
+
+**Quest 2001 Ravenclaw Cleanup: first custom quest visual smoke test PASSED in game.** Maintainer screenshots verified the available starter at Shadow Priest Allister (NPC 2121); quest 2001 objective pins and both Ravenclaw Servant (1868) / Champion (1869) tooltip variants with 0/8 progress; the ready-to-turn-in `(Complete)` state at Allister; and normal Questie quests alongside it. Maintainer explicitly confirmed the completed marker **disappears after normal turn-in**. Step 1's original five addon installation/compatibility checks remain PASS.
+
+**Limits:** Did not individually compare all objective pin coordinates against active world spawns, nor document each interim 0→8 counter update. Quest prerequisites, phases, and availability are server-authoritative; one test does not prove all custom quests.
+
+**Active PRs:** [#1 docs/foundation](https://github.com/CosmicCuddle/N-Questie/pull/1) (open); [#2 curated quest overlay](https://github.com/CosmicCuddle/N-Questie/pull/2) (draft; this branch); [#3 reviewed JSON-to-Lua generator](https://github.com/CosmicCuddle/N-Questie/pull/3) (draft, stacked on #2). Dedicated PR #3 workflow [38547219011](https://github.com/CosmicCuddle/N-Questie/actions/runs/38547219011) passed generator and overlay checks; inherited Busted suite failure remains separately outstanding (see development log). **None merged or released.**
+
+**Next development task:** Continue reviewing safe offline quest import and CI, and select a second source-verified custom quest. Never put the full private `acore_world.zip`, raw review JSON, or server access details in the public repository; only approved curated addon data. Preserve installed addon, existing SavedVariables, quest progression and live databases; no merge or release without maintainer permission.
+
+## Earlier new-chat handover — retained for historical context
+
+## Latest verified state — 14 October 2026 (new-chat entry point)
+
+**Maintainer in-game QA STEP 1: PASS — five out of five.** User installed the PR-only N-Questie test addon and explicitly confirmed:
+1. **PASS:** N-Questie appears in the character-selection AddOns list.
+2. **PASS:** The addon loads with no Lua errors.
+3. **PASS:** Normal Questie quest icons remain visible on the world map.
+4. **PASS:** Normal quest objective icons remain visible on the minimap.
+5. **PASS:** Questie settings and existing preferences are retained.
+
+**Meaning:** Preliminary addon compatibility and regression smoke checks passed **in game**. **Not tested yet:** actual custom quest 2001 starter, kill-objective and ender markers. The user has **not** stated a qualifying Horde character or completion of prerequisite 437. Do not call that test passed and do not infer backup completion unless confirmed.
+
+**Development PRs:** [#1 foundation](https://github.com/CosmicCuddle/N-Questie/pull/1) open/unmerged against `335`; [#2 quest overlay](https://github.com/CosmicCuddle/N-Questie/pull/2) **draft**, stacked on the #1 branch, unmerged. The baseline branch `335` still has original Questie-335. The last feature revision *before this documentation-only QA note* was `0976bce5c3ec96bb3a4b5114b2ad71e5bfdcabba`. A code/PR recheck is required before any merge/release.
+
+**Automated checks:** [dedicated N-Questie run 38461711184](https://github.com/CosmicCuddle/N-Questie/actions/runs/38461711184) passed Lua 5.1 parsing, mocked quest/NPC correction, scoped Python exporter fixture tests, TOC checks and QA package assembly. **Inherited upstream CI run 38461710869 failed**, with Busted upstream tests starting without `QuestieCompat` (verify current logs before claiming the failure is exclusively upstream). Both results must remain visible; not all CI passed. Temporary QA artifact `N-Questie-335-PR-TestBuild`, ID `11846520352`, from that successful run (expiry 27 October 2026).
+
+**Next user-facing step:**
+- Thank the maintainer for five passes; continue to **Step 2 — one custom quest**. Ask whether a genuinely eligible Horde test character (quest 437 done) can reach **quest 2001 Ravenclaw Cleanup** in Silverpine Forest.
+- If yes: check starter at Shadow Priest Allister NPC 2121, kill-target map/minimap positions for Ravenclaw Servants (1868) and Champions (1869), then turn-in at NPC 2121. Keep normal quest icons as a comparison. Test only through ordinary in-game gameplay.
+- If not: use the private acore_world-derived audit to choose a safer, accessible custom quest; **do not change player progress, database or GM state just to test**.
+- After the first verified custom quest, review and fix the remaining inherited CI issue and implement scalable read-only import for more quests, including NPC/object coordinates and special quest conditions.
+
+**Permissions and safety:** Maintainer permits publication of *curated* quest IDs, names, NPCs, objectives and map coordinates. Full `acore_world.zip`, server metadata and connection information stay private, **never on public GitHub**. The private export may need to be reattached in a new chat; do not assume its bytes are automatically in the repo. Back up the existing `Questie-335` addon folder plus account/character Questie SavedVariables before any future installed test build. Preserve upstream authorship/licence, folder and TOC names, existing settings and rollback. Do not merge, tag, publish a release or update N-Addon-Collection without explicit maintainer approval.
+
 ## Purpose
 
 Maintain a Naxxramas-server-specific Questie fork and make it straightforward to add or correct map and minimap markers for custom AzerothCore quests. The first milestone is reliable quest starter and ender markers; objective markers follow only when their world locations and underlying Questie record types are known.
@@ -56,3 +91,20 @@ The first documentation PR is **foundation only**. It does not implement or inst
 ## Continue development in a new chat
 
 > Continue N-Questie on https://github.com/CosmicCuddle/N-Questie (branch `335`). Read docs/PROJECT-HANDOVER.md, ROADMAP.md, CUSTOM-QUEST-DATA-DESIGN.md, TESTING.md and DEVELOPMENT-LOG.md; check current PRs and state. Prioritize a small, non-destructive server-specific quest overlay and a reproducible read-only quest import. Request the example quest ID and only the necessary world-DB records. Preserve WoW 3.3.5a, the installed Questie addon identity, upstream credits, backups and PR-based testing. Update the handover after each milestone.
+
+## Current development state — 13 October 2026 (supersedes foundation-only status)
+
+**Open PRs:**
+- [PR #1](https://github.com/CosmicCuddle/N-Questie/pull/1), base `335`: documentation/handover only.
+- **Draft** [PR #2](https://github.com/CosmicCuddle/N-Questie/pull/2), base PR #1 branch: isolated first custom quest overlay, selected-quest read-only exporter, regression tests and PR-only QA package.
+
+**Curated quest 2001:** `Ravenclaw Cleanup` (Silverpine Forest). The private `world` export supplies NPC 2121 as giver/ender, prerequisite quest 437, and kill targets 1868 and 1869 (eight kills each). Those NPCs already have zone 130 coordinates in Questie's WotLK NPC records, so the overlay only adds quest data and missing reverse NPC links without making up spawn positions.
+
+**Implementation in draft PR #2:** `Compat/NQuestieCustomQuestData.lua` and `Compat/NQuestieCustomQuestLoader.lua` are loaded through the existing `Questie-335.toc`. `Modules/QuestieInit.lua` uses a custom data revision to force a normal compiled-DB refresh on changed records. The README preserves upstream attribution; the addon folder/TOC name and original Questie SavedVariables remain intact. A test-only in-game title/version distinguishes the fork.
+
+**Automated QA:** [GitHub Actions run 38461484026](https://github.com/CosmicCuddle/N-Questie/actions/runs/38461484026) **passed** the dedicated Lua 5.1 parser, mock Questie corrections, SQL/ZIP Python test fixtures, TOC paths and temporary single-addon package. The artifact is `N-Questie-335-PR-TestBuild`; expires 27 October 2026. This **does not establish in-game pin functionality** or comprehensive upstream CI compatibility. The inherited workflow has separate lint/validator jobs; record those outcomes separately.
+
+**Privacy:** Maintainer approved publicly including *curated* server quest IDs, NPCs, objectives and coordinates. Do **not** upload the entire `acore_world.zip`, server connection details, or uncontrolled exports. The full SQL was only read locally.
+
+**Next action:** Back up the existing Questie folder and both Questie SavedVariables. Then, when the maintainer is ready, install the reviewed **PR-only** test build and verify quest 2001's starter, kill objective and turn-in markers in Silverpine on an eligible Horde character with prerequisite quest 437. Do not mutate server/character progression for testing. Use [QUEST-2001-SMOKE-TEST.md](QUEST-2001-SMOKE-TEST.md). After that, implement reviewed-JSON to Lua generation, added/new NPC spawn mapping and progressively expand to further server-specific quests. Neither PR has been merged; no release has been published.
+
