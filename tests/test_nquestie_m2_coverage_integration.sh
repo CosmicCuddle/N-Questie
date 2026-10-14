@@ -68,6 +68,21 @@ assert(by[1203] == "" and by[11142] == "DUPLICATE_OBJECT+EXTRA_CREATURE_REF" and
 local a = io.open(os.getenv("NQ_A")):read("*a"); assert(not a:find("ID = ", 1, true), "aggregate has per-quest data")
 ' && ok "manifest parses, reconciles, keeps all reasons, carries no records" || bad "manifest content"
 
+# Pinned compiled quest ID set (update procedure: docs/NQ-VALIDATION-M2.2-QUEST-ID-SET.md)
+PIN_COUNT=9159
+PIN_SHA=e7dfb2a99642544b66359b6721887083a3bdab783986d75de32296c783edb6a3
+grep -q "questData  records=9158 " "$T/clean" && ok "9,158 quests before the N-Questie callbacks" || bad "pre-N-Questie quest count"
+grep -q "questData IDs added by N-Questie: 2001; removed: none" "$T/clean" && ok "N-Questie adds exactly 2001, removes none" || bad "N-Questie ID changes"
+NQ_M="$T/priv/manifest.lua" "$LUA" -e '
+local S = dofile("tools/validation/EffectiveSchema.lua")
+local d = S.ParseString(io.open(os.getenv("NQ_M")):read("*a"))
+local seen = {}
+for _, q in ipairs(d.quests) do assert(not seen[q.ID], "duplicate ID " .. q.ID); seen[q.ID] = true; print(q.ID) end
+assert(seen[2001], "2001 missing from the compiled set")' | sort -n >"$T/ids.txt"; c=${PIPESTATUS[0]}
+n=$(wc -l <"$T/ids.txt"); h=$(sha256sum <"$T/ids.txt" | cut -d' ' -f1)
+[ "$c" -eq 0 ] && [ "$n" -eq $PIN_COUNT ] && [ "$h" = "$PIN_SHA" ] && ok "compiled quest ID set pinned ($n IDs, sha256 ${h:0:12}), unique, includes 2001" \
+    || bad "compiled quest ID set changed (count $n, sha256 $h); see docs/NQ-VALIDATION-M2.2-QUEST-ID-SET.md"
+
 # The exporter refuses an unsupported id with every reason, writes nothing
 env $E28 NQ_EXPORT_EFFECTIVE_OUT="$T/priv/e.lua" NQ_EXPORT_QUESTS="1203,11142" "$LUA" cli/validate-335.lua >"$T/log" 2>&1; c=$?
 [ $c -ne 0 ] && strip <"$T/log" | grep -q "quest 11142: refused, reasons: DUPLICATE_OBJECT,EXTRA_CREATURE_REF" && [ ! -e "$T/priv/e.lua" ] \

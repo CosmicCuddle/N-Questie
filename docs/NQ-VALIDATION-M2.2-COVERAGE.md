@@ -79,7 +79,7 @@ Overlap combinations (each unsupported quest exactly once):
 
 Reconciliation: 8,401 + 758 = 9,159; combinations sum to 758. The earlier "466 monster / 335 object" figures were occurrences; the quest counts are 359 and 243.
 
-Note: the M0 log reports 9,158 `questData` records before compilation and the compiled pointer table holds 9,159 quests. Coverage uses the compiled table (what the exporter reads). Explaining the one-quest difference is an open review item.
+Note: the M0 log's 9,158 `questData` records are the set before the N-Questie callbacks; the extra compiled quest is 2001 (N-Questie overlay). Proven by ID-set comparison and pinned by a test: `docs/NQ-VALIDATION-M2.2-QUEST-ID-SET.md`.
 
 ## 4. How to run
 
