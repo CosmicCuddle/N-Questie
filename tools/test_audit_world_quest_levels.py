@@ -55,6 +55,7 @@ class QuestLevelAuditTests(unittest.TestCase):
             (root / audit.QUESTIE_RAW).read_text(encoding="utf-8")
         )
         self.assertGreater(len(raw), 5000)
+        self.assertEqual(skipped, [], "Generated WotLK quest records must all parse")
         self.assertEqual(raw[1203]["name"], "Jarl Needs a Blade")
         self.assertEqual(raw[1203]["requiredLevel"], 30)
         self.assertEqual(raw[1203]["questLevel"], 35)
