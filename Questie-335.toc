@@ -87,6 +87,7 @@ Database\Corrections\wotlkObjectFixes.lua
 # Naxxramas-specific, curated quest data and correction registrations
 Compat\NQuestieCustomQuestData.lua
 Compat\NQuestieCustomQuestLoader.lua
+Compat\NQuestieExistingQuestCorrections.lua
 
 # Compiler
 Database\compiler.lua
