@@ -2,7 +2,7 @@
 
 **Updated:** 13 October 2026  
 **Baseline:** forked `divial28/Questie-335`, branch `335`, upstream addon v9.5.1.  
-**Status:** first curated quest overlay implemented on an **unmerged QA branch**; not yet confirmed in-game or released.
+**Status:** First custom quest 2001's tested visual marker lifecycle PASSED in-game. PR #3's approved offline generator has additional safeguards pending latest CI. PR #4's standalone inherited full CI is PASS but not integrated. No merges or releases authorized.
 
 ## Phase 0 — Foundation and safety
 
