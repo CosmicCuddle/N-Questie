@@ -24,6 +24,7 @@ step "M2 v2 DRAFT prototype (design validation only)" "$LUA" tests/test_nquestie
 step "M2 v2 exporter acceptance DRAFT (spec only)" "$LUA" tests/test_nquestie_m2_v2_acceptance.lua
 step "M2.3 contract DRAFT (design only)" "$LUA" tests/test_nquestie_m2_3_report_draft.lua
 step "nq-m2-markers DRAFT (design only)" "$LUA" tests/test_nquestie_m2_markers_draft.lua
+step "Correction regression and text QA DRAFT" "$LUA" tests/test_nquestie_m2_qa_draft.lua
 step "pilot script syntax" bash -n tools/validation/run-m2-pilot.sh
 step "busted tools/validation" busted -p ".test.lua" tools/validation
 if [ "${NQ_M2_SKIP_INTEGRATION:-0}" != "1" ]; then
