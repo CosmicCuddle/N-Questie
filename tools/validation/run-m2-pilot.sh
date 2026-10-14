@@ -106,6 +106,11 @@ print("effective 1203: levels 30/35, item 3853; records " .. n .. "; sourceCommi
       "; revision " .. p.nQuestieDataRevision .. "; corrections " .. p.correctionCount .. "; M0 " .. p.m0Checks)
 ' >"$OUT/verify-$MODE.log" 2>&1 && ok "$(tail -1 "$OUT/verify-$MODE.log")" || bad "export verification: $(tail -3 "$OUT/verify-$MODE.log")"
 
-sha256sum "$FILE" | sed "s|$OUT/||" >"$OUT/SHA256SUMS-$MODE"
-echo "sha256: $(cut -d' ' -f1 "$OUT/SHA256SUMS-$MODE")"
+# Hash first and fail closed; never interpolate OUT into a sed pattern.
+hash_line=$(sha256sum -- "$FILE") || die "failed to hash exported file"
+digest=${hash_line%% *}
+[[ "$digest" =~ ^[0-9a-f]{64}$ ]] || die "invalid SHA-256 digest"
+printf '%s  %s\n' "$digest" "effective-$MODE.lua" >"$OUT/SHA256SUMS-$MODE" \
+    || die "failed to write pilot checksum manifest"
+echo "sha256: $digest"
 [ $fails -eq 0 ] && echo "PILOT PASS ($MODE). Files stay in $OUT; publish nothing." || { echo "PILOT FAILED ($fails)"; exit 1; }
