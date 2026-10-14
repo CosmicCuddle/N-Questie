@@ -29,43 +29,52 @@ No technical reason was found that makes a separate CLI safer, provided the mode
 |---|---|
 | `tools/validation/EffectiveSchemaV2.lua` | promoted from `draft/EffectiveSchemaV2Draft.lua`; draft guard removed; draft file kept for history or deleted in the same PR |
 | `tools/validation/EffectiveExportV2.lua` | new: v2 record builder (`BuildRecord(query, id, ctx)`), ordering per spec §4 |
-| `cli/validate-335.lua` | mode selection and call; HARNESS_VERSION 1.2.0 → 1.3.0 |
+| `cli/validate-335.lua` | A1: read-only round-trip mode; A2: export mode selection and call, HARNESS_VERSION 1.2.0 → 1.3.0 |
 | `tests/test_nquestie_m2_v2_builder.lua` | synthetic builder tests |
 | `tests/test_nquestie_m2_v2_export_integration.sh` | full-DB tests F1-F8 |
 | `tests/run_m2_suite.sh`, `tools/validation/M22Libraries.test.lua` | wiring (no workflow file edits) |
 
-## 4. Steps
+## 4. First implementation PR, split into two stages
 
-1. Builder only, plus the **measured round trip** (spec §10) that prints counts only. Review the numbers.
-2. Promote the validator; add the mode guards and SafeWrite path.
-3. Full-DB integration tests F1-F8; determinism via `Canonical`.
-4. Docs, handover, harness bump.
+Each stage is its own draft PR with its own approval. Stage A2 starts only after A1's measured numbers are reviewed.
 
-## 5. Tests and acceptance
+### Stage A1: record builder and measured in-memory round trip (no file writes)
 
-| Test | Pass |
+| Item | Detail |
 |---|---|
-| A1-A5 synthetic | as today, without the draft guard |
-| Builder unit tests | every shape in both v2 fixtures rebuilt from compiled-shaped input |
-| Mode guards | each wrong variable combination writes nothing and exits non-zero |
-| F1 quest set | 9,159; ID-list sha256 pin |
-| F2 coverage | 8,401 SUPPORTED / 758 UNSUPPORTED_BY_RULES; per-reason counts equal the manifest |
-| F3 round trip | 0 differences over 9,159 |
-| F4 no-loss for the 758 | 801 refs, 181 reputation pairs (22 zero), 16 kill-credit-first, 10 duplicate occurrences |
-| F5 v1 equivalence | 0 differences over 8,401 (spec §11) |
-| F6/F7 | reproducible by `Canonical`; v1 writer diff empty; M0 232, M1 and v1 suites pass |
-| F8 fail-closed | injected failures write nothing |
-| CI | all six workflows green on the exact head SHA |
+| Files | new `tools/validation/EffectiveExportV2.lua`; new `tools/validation/RoundTripV2.lua`; `tools/validation/EffectiveSchemaV2.lua` promoted from the draft (draft file deleted in the same PR, history in git); `cli/validate-335.lua`: one new read-only mode `NQ_V2_ROUNDTRIP=1` that prints counts only; tests below; suite and busted wiring |
+| Functions | `EffectiveExportV2.BuildRecord(query, id, ctx) -> record \| nil, errs` (spec §3-5, uses the same `exportContext()` kill-credit-first set); `EffectiveExportV2.BuildAll(query, ids, ctx) -> records \| nil, errs`; `RoundTripV2.Rebuild(record) -> compiledShape`; `RoundTripV2.RecomputePositions(compiledShape, killCreditFirst) -> positions`; `RoundTripV2.Compare(rebuilt, raw) -> diffs`; `RoundTripV2.Aggregate(results) -> counts` |
+| Output | stdout only: quests compared, quests differing, differences per field, per-reason no-loss totals (801 refs by type, 181 reputation pairs incl. 22 zero, 16 kill-credit-first, 10 duplicate occurrences), 8,401 v1-equivalence count. No quest IDs in the output except in a fixed failure line naming the first differing field kind. No file is opened for writing; a test asserts `io.open` is never called with a write mode during the mode |
+| Harness | HARNESS_VERSION unchanged (1.2.0): no exported artefact changes |
+| Tests | synthetic builder tests on both v2 fixtures' compiled-shaped inputs (all kinds, repeats, kill-credit reversed, rep 0, objectiveIndex 0 and max, spawn-only extras, required source items); negative builder tests (unclassified shape, missing kill-credit set, query failure); full-DB integration test running the mode |
+| F-mapping | F1 (9,159 IDs, sha256 pin), F2 (8,401 / 758, per-reason counts equal the coverage manifest), F3 (round trip 0 differences), F4 (no-loss totals), F5 (v1 equivalence 0 differences over 8,401), F7 (M0 232, M1, v1 suites unchanged; v1 writer diff empty) |
+| Acceptance | all of the above on CI with six green workflows on the exact head; measured counts recorded in the handover; any difference stops the stage (no adjusting the comparison) |
+| Approval gate | maintainer approves Stage A1; review of the measured counts before A2 |
 
-## 6. Will not be exported
+### Stage A2: opt-in export mode, SafeWrite, harness 1.3.0
+
+| Item | Detail |
+|---|---|
+| Files | `cli/validate-335.lua` (v2 mode per §2, after compile + M0), `tools/validation/EffectiveExportV2.lua` (serialiser in fixed key order), `tests/test_nquestie_m2_v2_export_integration.sh`, `tests/test_nquestie_m2_v2_mode_guards.sh`, harness version pin test updated |
+| Functions | `EffectiveExportV2.Serialise(doc) -> string` (deterministic, integers only); `runExportV2(opts, QuestieDB, Q, levelCount)` in the CLI, mirroring `runExport`; reuse of `ExportProvenance.Collect`, `SafeWrite.WriteFile` (no `force`), self-validation before writing and after re-reading |
+| Harness | HARNESS_VERSION 1.2.0 → 1.3.0; pinned in the static test, export provenance and manifest provenance |
+| Tests | mode guards (each wrong variable combination: nothing written, non-zero exit, including `NQ_EXPORT_FORCE`, `NQ_VALIDATE_SKIP_COMPILE`, selection with v2, v1 + v2 together); full export of 9,159; determinism (two runs equal after `Canonical(doc, {"exportedAt"})`); fail-closed injections (malformed record, missing kill-credit set, existing output, unsafe path) |
+| F-mapping | F1-F5 re-run on the written file; F6 determinism; F7 v1 export equivalence before/after by `Canonical`; F8 fail-closed |
+| Acceptance | all F-tests on the written file; v1 output equivalent and v1 writer diff empty; six green workflows on the exact head |
+| Approval gate | separate maintainer approval of A2 after A1 is merged or accepted |
+
+## 5. Will not be exported
 
 Display text, spawn or marker coordinates, trigger-end contents, live availability (phase, conditions, IP), server data of any kind.
 
-## 7. Stopped / no-go list
+## 6. Stopped / no-go list
 
 - No M2.3 comparison, no corrections, no change to v1 schema or v1 output, no workflow file edits, no private data in tests or CI.
 - Stop and report if F3, F4 or F5 shows any difference; do not adjust the round trip to pass.
 
-## 8. Approval gate
+## 7. Approval gates
 
-Separate maintainer approval of this proposal; then one draft PR, reviewed on its exact head with six green workflows. Merge is a further decision.
+1. Maintainer approves this proposal.
+2. Stage A1 draft PR, reviewed on its exact head with six green workflows; measured counts reviewed.
+3. Separate approval for Stage A2; its draft PR reviewed the same way.
+4. Each merge is a further decision.
