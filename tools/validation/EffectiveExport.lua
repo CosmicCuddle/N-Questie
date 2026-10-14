@@ -24,6 +24,31 @@ local M = {}
 M.MAX_SELECTION = 20000
 M.MAX_ID = 2147483647
 
+-- Rejection reason codes. Each refusal message carries exactly one code;
+-- the M2.2 coverage tool (Coverage.lua) uses these same codes, so coverage
+-- reasons and export refusals cannot drift apart. A message without a
+-- specific code is UNCLASSIFIED (a gap in this list, never ignored).
+M.UNCLASSIFIED = "UNCLASSIFIED"
+M.EXTRA_REF_CODES = { monster = "EXTRA_CREATURE_REF", object = "EXTRA_OBJECT_REF" }
+M.REASONS = {
+    EXTRA_CREATURE_REF = "extraObjectives reference of type 'monster' (creature)",
+    EXTRA_OBJECT_REF = "extraObjectives reference of type 'object' (gameobject)",
+    REPUTATION_OBJECTIVE = "reputation objective (objectives[4])",
+    DUPLICATE_CREATURE = "same creature id twice in objectives[1]",
+    DUPLICATE_OBJECT = "same object id twice in objectives[2]",
+    DUPLICATE_ITEM = "same item id twice in objectives[3]",
+    DUPLICATE_SPELL = "same spell id twice in objectives[6]",
+    DUPLICATE_KILLCREDIT_ID = "same id twice in one killCredit list",
+    DUPLICATE_SOURCE_ITEM = "same id twice in requiredSourceItems",
+    DUPLICATE_EXTRA_ITEM = "same item referenced twice in extraObjectives",
+    EXTRA_OTHER_REF = "extraObjectives reference of another type",
+    LEVEL_INVALID = "requiredLevel/questLevel not an integer",
+    SOURCE_ITEM_INVALID = "sourceItemId not a non-negative integer",
+    QUERY_FAILED = "database query raised an error",
+    SHAPE_UNUSUAL = "objective, list or field shape outside v1",
+    UNCLASSIFIED = "refusal without a specific reason code (tool gap)",
+}
+
 local function isInt(v) return type(v) == "number" and v == math.floor(v) and v == v end
 
 -- Validate an explicit selection. Returns sorted-as-given copy or nil, errors.
@@ -66,24 +91,24 @@ function M.ParseIdList(text)
 end
 
 -- Read one objective list (creatures/objects/items/spells): entries {id} or {id, text}.
-local function idEntries(list, where, err)
+local function idEntries(list, where, err, dupCode)
     local out, seen = {}, {}
     if list == nil then return out end
-    if type(list) ~= "table" then err(where .. ": not a table") return out end
+    if type(list) ~= "table" then err(where .. ": not a table", "SHAPE_UNUSUAL") return out end
     local n = 0
     for _ in pairs(list) do n = n + 1 end
-    if n ~= #list then err(where .. ": unusual shape (not a plain list)") end
+    if n ~= #list then err(where .. ": unusual shape (not a plain list)", "SHAPE_UNUSUAL") end
     for i, e in ipairs(list) do
         if type(e) ~= "table" or not isInt(e[1]) or e[1] < 1 then
-            err(where .. "[" .. i .. "]: unusual entry shape")
+            err(where .. "[" .. i .. "]: unusual entry shape", "SHAPE_UNUSUAL")
         else
             for k, v in pairs(e) do
                 if not (k == 1 or (k == 2 and type(v) == "string")) then
-                    err(where .. "[" .. i .. "]: unusual entry field " .. tostring(k))
+                    err(where .. "[" .. i .. "]: unusual entry field " .. tostring(k), "SHAPE_UNUSUAL")
                 end
             end
             if seen[e[1]] then
-                err(where .. ": id " .. e[1] .. " appears more than once (v1 cannot represent duplicates)")
+                err(where .. ": id " .. e[1] .. " appears more than once (v1 cannot represent duplicates)", dupCode)
             end
             seen[e[1]] = true
             out[#out + 1] = e[1]
@@ -92,16 +117,16 @@ local function idEntries(list, where, err)
     return out
 end
 
-local function plainIds(list, where, err)
+local function plainIds(list, where, err, dupCode)
     local out = {}
     if list == nil then return out end
-    if type(list) ~= "table" then err(where .. ": not a table") return out end
+    if type(list) ~= "table" then err(where .. ": not a table", "SHAPE_UNUSUAL") return out end
     local n, seen = 0, {}
     for _ in pairs(list) do n = n + 1 end
-    if n ~= #list then err(where .. ": unusual shape (not a plain list)") end
+    if n ~= #list then err(where .. ": unusual shape (not a plain list)", "SHAPE_UNUSUAL") end
     for i, id in ipairs(list) do
-        if not isInt(id) or id < 1 then err(where .. "[" .. i .. "]: not a positive id")
-        elseif seen[id] then err(where .. ": id " .. id .. " appears more than once (v1 cannot represent duplicates)")
+        if not isInt(id) or id < 1 then err(where .. "[" .. i .. "]: not a positive id", "SHAPE_UNUSUAL")
+        elseif seen[id] then err(where .. ": id " .. id .. " appears more than once (v1 cannot represent duplicates)", dupCode)
         else seen[id] = true; out[#out + 1] = id end
     end
     return out
@@ -109,11 +134,14 @@ end
 
 -- Build one nq-m2-effective v1 record from query(id, key).
 function M.Record(query, id)
-    local errors = {}
-    local function err(msg) errors[#errors + 1] = "quest " .. id .. ": " .. msg end
+    local errors, codes = {}, {}
+    local function err(msg, code)
+        errors[#errors + 1] = "quest " .. id .. ": " .. msg
+        codes[#codes + 1] = code or M.UNCLASSIFIED
+    end
     local function q(key)
         local ok, v = pcall(query, id, key)
-        if not ok then err("query for " .. key .. " failed: " .. tostring(v)) return nil end
+        if not ok then err("query for " .. key .. " failed: " .. tostring(v), "QUERY_FAILED") return nil end
         return v
     end
 
@@ -123,77 +151,77 @@ function M.Record(query, id)
     local trig, extra = q("triggerEnd"), q("extraObjectives")
 
     local rec = { ID = id }
-    if not isInt(rl) then err("requiredLevel is " .. tostring(rl)) end
-    if not isInt(ql) then err("questLevel is " .. tostring(ql)) end
+    if not isInt(rl) then err("requiredLevel is " .. tostring(rl), "LEVEL_INVALID") end
+    if not isInt(ql) then err("questLevel is " .. tostring(ql), "LEVEL_INVALID") end
     rec.requiredLevel, rec.questLevel = rl, ql
 
     if src == nil then src = 0 end
-    if not isInt(src) or src < 0 then err("sourceItemId is " .. tostring(src)) end
+    if not isInt(src) or src < 0 then err("sourceItemId is " .. tostring(src), "SOURCE_ITEM_INVALID") end
     rec.sourceItemId = src
-    rec.requiredSourceItems = plainIds(rsi, "requiredSourceItems", err)
+    rec.requiredSourceItems = plainIds(rsi, "requiredSourceItems", err, "DUPLICATE_SOURCE_ITEM")
 
     local o = { creatures = {}, objects = {}, items = {}, killCredit = {}, spells = {} }
     if obj ~= nil and type(obj) ~= "table" then
-        err("objectives is not a table")
+        err("objectives is not a table", "SHAPE_UNUSUAL")
     elseif type(obj) == "table" then
         for k in pairs(obj) do
-            if not isInt(k) or k < 1 or k > 6 then err("objectives has unusual slot " .. tostring(k)) end
+            if not isInt(k) or k < 1 or k > 6 then err("objectives has unusual slot " .. tostring(k), "SHAPE_UNUSUAL") end
         end
-        o.creatures = idEntries(obj[1], "objectives[1] creatures", err)
-        o.objects = idEntries(obj[2], "objectives[2] objects", err)
-        o.items = idEntries(obj[3], "objectives[3] items", err)
+        o.creatures = idEntries(obj[1], "objectives[1] creatures", err, "DUPLICATE_CREATURE")
+        o.objects = idEntries(obj[2], "objectives[2] objects", err, "DUPLICATE_OBJECT")
+        o.items = idEntries(obj[3], "objectives[3] items", err, "DUPLICATE_ITEM")
         if obj[4] ~= nil and not (type(obj[4]) == "table" and next(obj[4]) == nil) then
-            err("objectives[4] reputation objective present (v1 cannot represent reputation)")
+            err("objectives[4] reputation objective present (v1 cannot represent reputation)", "REPUTATION_OBJECTIVE")
         end
         if obj[5] ~= nil then
-            if type(obj[5]) ~= "table" then err("objectives[5] killCredit is not a table")
+            if type(obj[5]) ~= "table" then err("objectives[5] killCredit is not a table", "SHAPE_UNUSUAL")
             else
                 local n = 0
                 for _ in pairs(obj[5]) do n = n + 1 end
-                if n ~= #obj[5] then err("objectives[5] killCredit: unusual shape") end
+                if n ~= #obj[5] then err("objectives[5] killCredit: unusual shape", "SHAPE_UNUSUAL") end
                 for i, e in ipairs(obj[5]) do
                     local w = "objectives[5] killCredit[" .. i .. "]"
                     if type(e) ~= "table" or type(e[1]) ~= "table" or not isInt(e[2]) or e[2] < 1 then
-                        err(w .. ": unusual shape (expected {{ids}, rootId, text})")
+                        err(w .. ": unusual shape (expected {{ids}, rootId, text})", "SHAPE_UNUSUAL")
                     else
                         for k, v in pairs(e) do
                             if not (k == 1 or k == 2 or (k == 3 and type(v) == "string")) then
-                                err(w .. ": unusual field " .. tostring(k))
+                                err(w .. ": unusual field " .. tostring(k), "SHAPE_UNUSUAL")
                             end
                         end
-                        local ids = plainIds(e[1], w .. ".ids", err)
-                        if #ids == 0 then err(w .. ": empty ids") end
+                        local ids = plainIds(e[1], w .. ".ids", err, "DUPLICATE_KILLCREDIT_ID")
+                        if #ids == 0 then err(w .. ": empty ids", "SHAPE_UNUSUAL") end
                         o.killCredit[#o.killCredit + 1] = { ids = ids, rootId = e[2] }
                     end
                 end
             end
         end
-        o.spells = idEntries(obj[6], "objectives[6] spells", err)
+        o.spells = idEntries(obj[6], "objectives[6] spells", err, "DUPLICATE_SPELL")
     end
     rec.objectives = o
 
     rec.hasTriggerEnd = trig ~= nil
-    if trig ~= nil and type(trig) ~= "table" then err("triggerEnd has unusual shape") end
+    if trig ~= nil and type(trig) ~= "table" then err("triggerEnd has unusual shape", "SHAPE_UNUSUAL") end
 
     rec.hasExtraObjectives = false
     rec.extraObjectiveItems = {}
     if extra ~= nil then
-        if type(extra) ~= "table" then err("extraObjectives is not a table")
+        if type(extra) ~= "table" then err("extraObjectives is not a table", "SHAPE_UNUSUAL")
         elseif next(extra) ~= nil then
             rec.hasExtraObjectives = true
             local seen = {}
             for i, e in ipairs(extra) do
-                if type(e) ~= "table" then err("extraObjectives[" .. i .. "]: unusual shape")
+                if type(e) ~= "table" then err("extraObjectives[" .. i .. "]: unusual shape", "SHAPE_UNUSUAL")
                 elseif e[5] ~= nil then
-                    if type(e[5]) ~= "table" then err("extraObjectives[" .. i .. "][5]: unusual shape") else
+                    if type(e[5]) ~= "table" then err("extraObjectives[" .. i .. "][5]: unusual shape", "SHAPE_UNUSUAL") else
                         for j, ref in ipairs(e[5]) do
                             if type(ref) ~= "table" or not isInt(ref[2]) then
-                                err("extraObjectives[" .. i .. "] ref " .. j .. ": unusual shape")
+                                err("extraObjectives[" .. i .. "] ref " .. j .. ": unusual shape", "SHAPE_UNUSUAL")
                             elseif ref[1] ~= "item" then
                                 err("extraObjectives[" .. i .. "] ref " .. j .. " is '" .. tostring(ref[1]) ..
-                                    "' (v1 can only represent item references)")
+                                    "' (v1 can only represent item references)", M.EXTRA_REF_CODES[ref[1]] or "EXTRA_OTHER_REF")
                             elseif seen[ref[2]] then
-                                err("extraObjectives item " .. ref[2] .. " referenced more than once (v1 cannot represent duplicates)")
+                                err("extraObjectives item " .. ref[2] .. " referenced more than once (v1 cannot represent duplicates)", "DUPLICATE_EXTRA_ITEM")
                             else
                                 seen[ref[2]] = true
                                 rec.extraObjectiveItems[#rec.extraObjectiveItems + 1] = ref[2]
@@ -205,8 +233,17 @@ function M.Record(query, id)
         end
     end
 
-    if #errors > 0 then return nil, errors end
+    if #errors > 0 then return nil, errors, codes end
     return rec
+end
+
+-- Distinct codes in first-seen order.
+function M.UniqueCodes(codes)
+    local seen, out = {}, {}
+    for _, c in ipairs(codes or {}) do
+        if not seen[c] then seen[c] = true; out[#out + 1] = c end
+    end
+    return out
 end
 
 -- Snapshot an explicit selection. exists(id) must return true only for quests
@@ -218,17 +255,28 @@ function M.Snapshot(query, exists, ids)
     if type(query) ~= "function" or type(exists) ~= "function" then
         return nil, { "snapshot: query and exists functions are required" }
     end
-    local out, errors = {}, {}
+    local out, errors, refused = {}, {}, {}
     for _, id in ipairs(sel) do
         if not exists(id) then
             errors[#errors + 1] = "quest " .. id .. ": not in the compiled Questie database"
+            refused[#refused + 1] = { id = id, codes = { "ABSENT_FROM_EFFECTIVE_DB" } }
         else
-            local rec, rerr = M.Record(query, id)
+            local rec, rerr, rcodes = M.Record(query, id)
             if rec then out[#out + 1] = rec
-            else for _, e in ipairs(rerr) do errors[#errors + 1] = e end end
+            else
+                for _, e in ipairs(rerr) do errors[#errors + 1] = e end
+                refused[#refused + 1] = { id = id, codes = M.UniqueCodes(rcodes) }
+            end
         end
     end
-    if #errors > 0 then return nil, errors end
+    if #errors > 0 then
+        -- One summary line per refused quest with every reason code, in addition
+        -- to the exact messages above.
+        for _, r in ipairs(refused) do
+            errors[#errors + 1] = "quest " .. r.id .. ": refused, reasons: " .. table.concat(r.codes, ",")
+        end
+        return nil, errors, refused
+    end
     return out
 end
 
