@@ -9,6 +9,16 @@
 **Client:** World of Warcraft 3.3.5a (`## Interface: 30300`)  
 **Inherited addon identity:** `Questie-335.toc`, display title `Questie-335`, upstream version `9.5.1`  
 
+## Current verified intake — 14 October 2026 (installed quest file + full server audit)
+
+**Installed file verified:** Maintainer uploaded the working addon's `Database/Wotlk/wotlkQuestDB.lua`. Its git blob is `abbf2831b6d6b54b5d9383ba2c3e5cce5147379d`, identical to the N-Questie repository's original WotLK quest source. No installed version discrepancy.
+
+**Private all-server audit completed:** 9,525 server quest templates versus 9,086 original Questie entries; 439 server-only IDs, most unlinked/unused/NYI, with only 18 *plausibly linked* non-placeholder quests needing eligibility review. Initial raw level mismatches: 139 nominal, 150 minimum across 259 unique quests. After literal inherited correction-layer approximation: **270** unique level candidate IDs (148 nominal, 154 minimum, overlapping). Of 1,484 raw item differences, **1,460** match Questie's separate `sourceItemId` representation; **24** require follow-up. Additional NPC/GO and chain mismatches are candidates, not accepted fixes.
+
+**PRIVATE handover artifact:** A seven-tab Excel workbook of candidate mismatches was generated for the maintainer inside the conversation. Do not push that file, the private original SQL ZIP, full data JSON or per-record full audit into public GitHub. Aggregate methodology and caveats are documented in `docs/FULL-SERVER-QUEST-AUDIT-CHECKPOINT.md`.
+
+**Next:** Review the 24 unresolved item cases and 18 linked missing quests; triage high-impact early-zone level candidates; test server IP/condition gate behavior separately. Keep PR #6 and PR #7 draft, unmerged, not released. Maintain backups before future client QA.
+
 ## Latest handover — 14 October 2026 (private database re-upload analyzed)
 
 **Private source is now available in this conversation:** The maintainer uploaded acore_world.zip, an offline HeidiSQL export. It was inspected read-only locally; 9,525 unique quest templates. Keep the original SQL/ZIP private and OFF GitHub.
