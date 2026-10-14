@@ -80,15 +80,88 @@ ok(not r, "unknown export status rejected")
 r = mut(function(d) d.private = nil end)
 ok(not r, "report must be marked private")
 
--- Rejection diagnostic (batch-level only)
-local diag = { schema = "nq-m2-3-rejection", schemaVersion = 1, private = true, rejection = "REJECTED_MALFORMED_INPUT", checks = { "server: provenance.exporter" } }
-ok(R.ValidateDiagnostic(diag, OPT), "diagnostic valid")
-local d2 = copy(diag); d2.rows = { { questId = 1203 } }
-ok(not R.ValidateDiagnostic(d2, OPT), "diagnostic may not carry quest rows (no partial report)")
-d2 = copy(diag); d2.rejection = "EXPORTED"
-ok(not R.ValidateDiagnostic(d2, OPT), "diagnostic code must be a rejection code")
-d2 = copy(diag); d2.checks = {}
-ok(not R.ValidateDiagnostic(d2, OPT), "diagnostic names the failed checks")
+-- 1A: explicit m1Supported == true for any CONFIRMED outcome
+for _, v in ipairs({ { nil, "nil" }, { false, "false" }, { "unknown", "'unknown'" }, { "true", "'true'" }, { 1, "1" }, { {}, "table" } }) do
+    local rm = mut(function(d) row(d, 2001).m1Supported = v[1] end)
+    ok(not rm, "1A CONFIRMED_MATCH rejected with m1Supported = " .. v[2])
+    local rx = mut(function(d) row(d, 900007).m1Supported = v[1] end)
+    ok(not rx, "1A CONFIRMED_MISMATCH rejected with m1Supported = " .. v[2])
+    ok(not R.OutcomeAllowed({ m1Supported = v[1], m1Classes = {}, outcome = "CONFIRMED_MATCH",
+        evidence = { killCredit = "complete", conditions = "complete", scripts = "complete", ip = "complete", objectiveData = "complete" } }),
+        "1A OutcomeAllowed: no CONFIRMED_MATCH with m1Supported = " .. v[2])
+end
+r, e = mut(function(d) row(d, 498).m1Supported = nil end)
+ok(not r and has(e, "explicit true or false"), "1A EXPORTED row without m1Supported rejected even for NEEDS_MANUAL_REVIEW")
+r = mut(function(d) row(d, 25199).m1Classes = { "CONFIRMED_MISMATCH" } end)
+ok(not r, "1A M1-unsupported row may not carry M1 findings")
+r = mut(function(d) row(d, 25199).m1Supported = "unknown" end)
+ok(not r, "1A M1_UNSUPPORTED_BY_RULES needs explicit false")
+
+-- 1D: no rejection file; fixed codes on stderr only
+ok(R.ValidateDiagnostic == nil, "1D no rejection-file format exists")
+for code in pairs(R.REJECTION) do
+    ok(R.CheckStderr(R.StderrLine(code) .. "\n", OPT), "1D fixed line accepted: " .. code)
+end
+ok(R.CheckStderr(R.StderrLine("REJECTED_PAIRING") .. "\n" .. R.StderrLine("REJECTED_MEMBERSHIP") .. "\n", OPT), "1D several fixed lines accepted")
+ok(not pcall(R.StderrLine, "quest 1203 missing"), "1D StderrLine refuses free text")
+local bads = {
+    { "nq-m2-3: REJECTED_SELECTION_MISMATCH quest 1203\n", "quest ID digits" },
+    { "nq-m2-3: REJECTED_UNSAFE_OUTPUT\n/home/user/private/out.lua\n", "path" },
+    { "nq-m2-3: REJECTED_PAIRING sha256:" .. string.rep("ab", 32) .. "\n", "fingerprint" },
+    { "nq-m2-3: REJECTED_PAIRING deadbeef\n", "hex run" },
+    { "nq-m2-3: SOMETHING_ELSE\n", "unknown code" },
+    { "REJECTED_PAIRING\n", "missing prefix" },
+    { "nq-m2-3: REJECTED_PAIRING\nsourceLabel=prod-realm\n", "extra line" },
+    { "", "empty" },
+}
+for _, bd in ipairs(bads) do ok(not R.CheckStderr(bd[1], OPT), "1D stderr rejected: " .. bd[2]) end
+
+-- 1B: one atomic bundle, published by a single no-clobber install
+local agg0 = { schema = "nq-m2-3-aggregate", schemaVersion = 1, reasonVocabVersion = 1, selectedCount = 8,
+    exportStatus = { EXPORTED = 5, UNSUPPORTED_BY_SCHEMA_VERSION = 2, ABSENT_FROM_EFFECTIVE_DB = 1 },
+    outcome = { EXPECTED_REPRESENTATION_DIFF = 1, CONFIRMED_MATCH = 1, NEEDS_MANUAL_REVIEW = 1, M1_UNSUPPORTED_BY_RULES = 1, CONFIRMED_MISMATCH = 1 },
+    reasons = { KILLCREDIT_FIRST_REORDER = 1, DUPLICATE_OBJECT = 1, EXTRA_CREATURE_REF = 1 } }
+local bundle = R.BuildBundle(base, agg0, OPT)
+ok(bundle and bundle.report and bundle.aggregate, "1B bundle built from a validated pair")
+local badAgg = copy(agg0); badAgg.outcome.CONFIRMED_MATCH = 2
+ok(R.BuildBundle(base, badAgg, OPT) == nil, "1B no bundle when the aggregate does not reconcile")
+local badRep = copy(base); row(badRep, 2001).m1Supported = nil
+ok(R.BuildBundle(badRep, agg0, OPT) == nil, "1B no bundle when the report is invalid")
+local function fakeFs(failAt)
+    local st = { files = {}, temps = {} }
+    local fs = {}
+    function fs.exists(p) return st.files[p] ~= nil end
+    function fs.writeTemp(c)
+        if failAt == "writeTemp" then return nil end
+        if failAt == "partialTemp" then st.temps.t1 = c:sub(1, 10); return nil end
+        st.temps.t1 = c; return "t1"
+    end
+    function fs.fsync() return failAt ~= "fsync" end
+    function fs.link(t, p)
+        if failAt == "link" or failAt == "crashBeforeLink" then return false end
+        if st.files[p] then return false end
+        st.files[p] = st.temps[t]; return true
+    end
+    function fs.unlink(t) if failAt ~= "unlink" then st.temps[t] = nil end return true end
+    return fs, st
+end
+local function ser(b) return "BUNDLE:" .. b.schema .. ":" .. #b.report.rows end
+for _, fp in ipairs({ "writeTemp", "partialTemp", "fsync", "link", "crashBeforeLink" }) do
+    local fs, fst = fakeFs(fp)
+    local okp, code = R.PublishBundle(bundle, "out.lua", fs, ser, OPT)
+    ok(not okp and code == "REJECTED_UNSAFE_OUTPUT" and fst.files["out.lua"] == nil, "1B failure at " .. fp .. ": no published file")
+end
+do
+    local fs, fst = fakeFs(nil)
+    ok(R.PublishBundle(bundle, "out.lua", fs, ser, OPT) and fst.files["out.lua"] == ser(bundle) and next(fst.temps) == nil, "1B success: one complete file, temp removed")
+    ok(not R.PublishBundle(bundle, "out.lua", fs, ser, OPT) and fst.files["out.lua"] == ser(bundle), "1B no-clobber: existing bundle untouched")
+end
+do
+    local fs, fst = fakeFs("unlink")
+    ok(R.PublishBundle(bundle, "out.lua", fs, ser, OPT) and fst.files["out.lua"] == ser(bundle) and fst.temps.t1 ~= nil,
+       "1B crash after link: final complete, stray temp left for documented cleanup")
+end
+ok(not R.PublishBundle({ schema = "x" }, "o2.lua", fakeFs(nil), ser, OPT), "1B only a validated bundle can be published")
 
 -- Aggregate
 local agg = { schema = "nq-m2-3-aggregate", schemaVersion = 1, reasonVocabVersion = 1, selectedCount = 8,
@@ -139,7 +212,7 @@ for _, c in ipairs(Mx.cases) do
         for k, v in pairs(c.expect) do ok(s and table.concat(s[k], ",") == table.concat(v, ","), c.id .. ": " .. k) end
     end
 end
-ok(executed == 18 and design == 3, ("matrix: %d executed, %d design assertions"):format(executed, design))
+ok(executed == 21 and design == 3, ("matrix: %d executed, %d design assertions"):format(executed, design))
 
 -- Server and pairing gates (executed via the v2 draft validator)
 local srv = dofile("tests/fixtures/m2_input/private_adapter_v3_synthetic.lua")

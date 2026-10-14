@@ -163,7 +163,7 @@ Two separate axes per server-selected quest. Nothing is filtered silently: every
 | `UNSUPPORTED_BY_SCHEMA_VERSION` | in the manifest as UNSUPPORTED and the effective file's schema version cannot represent it (v1); reason codes from the manifest |
 | `EXPORTED` | represented in the effective file |
 
-A successful report has only these three statuses. `REJECTED_MALFORMED_INPUT` is **not** a report status: any malformed input rejects the whole batch, and the code appears only in the private rejection diagnostic (batch-level). A manifest-REPRESENTABLE quest that the selected export does not contain is a whole-batch **selection mismatch**, not ABSENT. Final details: `docs/NQ-VALIDATION-M2.3-DESIGN.md` (stacked PR).
+A successful report has only these three statuses. `REJECTED_MALFORMED_INPUT` is **not** a report status: any malformed input rejects the whole batch, and the code appears only as a fixed stderr line (batch-level; no rejection file). A manifest-REPRESENTABLE quest that the selected export does not contain is a whole-batch **selection mismatch**, not ABSENT. Final details: `docs/NQ-VALIDATION-M2.3-DESIGN.md` (stacked PR).
 
 **M1 outcome** (only for `EXPORTED`)
 

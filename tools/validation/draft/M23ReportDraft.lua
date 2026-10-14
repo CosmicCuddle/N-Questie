@@ -13,7 +13,10 @@ M.EXPORT_STATUS = { ABSENT_FROM_EFFECTIVE_DB = true, UNSUPPORTED_BY_SCHEMA_VERSI
 -- never in a report. REJECTED_MALFORMED_INPUT is batch-level only.
 M.REJECTION = { REJECTED_MALFORMED_INPUT = true, REJECTED_DUPLICATE_ID = true, REJECTED_PAIRING = true,
     REJECTED_MEMBERSHIP = true, REJECTED_SELECTION_MISMATCH = true, REJECTED_MANIFEST_INCOMPLETE = true,
-    REJECTED_INPUT_CHANGED = true, REJECTED_UNSAFE_OUTPUT = true }
+    REJECTED_INPUT_CHANGED = true, REJECTED_UNSAFE_OUTPUT = true,
+    -- v1 cannot write zero records (questCount > 0): a v1 batch whose preflight
+    -- v1Request is empty is refused; such selections need a full v2 export.
+    REJECTED_V1_SELECTION_EMPTY_AFTER_PREFLIGHT = true }
 M.OUTCOME = { M1_UNSUPPORTED_BY_RULES = true, NEEDS_MANUAL_REVIEW = true,
     EXPECTED_REPRESENTATION_DIFF = true, CONFIRMED_MATCH = true, CONFIRMED_MISMATCH = true }
 -- M1 finding classes (tools/validation/ObjectiveRules.lua M.CLASS, unchanged).
@@ -115,6 +118,9 @@ function M.PlanSelection(serverIds, manifest, export, opts)
         end
         inExport[id] = true
     end
+    if export.schemaVersion == 1 and #split.v1Request == 0 then
+        return nil, "REJECTED_V1_SELECTION_EMPTY_AFTER_PREFLIGHT", { "no v1-representable quest selected; use a full v2 export" }
+    end
     if export.schemaVersion == 1 then
         -- exact set: export == preflight v1Request
         if #export.ids ~= #split.v1Request then
@@ -159,7 +165,13 @@ end
 -- finding; an empty list means no findings.
 function M.OutcomeAllowed(row)
     local o, cls = row.outcome, row.m1Classes
-    if row.m1Supported == false then return o == "M1_UNSUPPORTED_BY_RULES" end
+    -- Support must be an explicit boolean. Only false may get
+    -- M1_UNSUPPORTED_BY_RULES (and then carries no M1 findings); only true may
+    -- get any other outcome. nil, "unknown" or anything else never passes.
+    if row.m1Supported == false then
+        return o == "M1_UNSUPPORTED_BY_RULES" and (cls == nil or (type(cls) == "table" and #cls == 0))
+    end
+    if row.m1Supported ~= true then return false end
     if o == "M1_UNSUPPORTED_BY_RULES" then return false end
     if type(cls) ~= "table" then return o == "NEEDS_MANUAL_REVIEW" end
     for _, c in ipairs(cls) do if not M.M1_CLASS[c] then return false end end
@@ -198,6 +210,7 @@ function M.ValidateReport(doc, opts)
             err(w .. ".exportStatus: " .. r.exportStatus .. " is a batch rejection code, never a report status")
         elseif not M.EXPORT_STATUS[r.exportStatus] then err(w .. ".exportStatus: unknown") end
         if r.exportStatus == "EXPORTED" then
+            if type(r.m1Supported) ~= "boolean" then err(w .. ".m1Supported: explicit true or false required for an EXPORTED row") end
             if not M.OUTCOME[r.outcome] then err(w .. ".outcome: EXPORTED quest needs exactly one known outcome")
             elseif not M.OutcomeAllowed(r) then err(w .. ": outcome " .. r.outcome .. " not supported by the M1 findings and evidence") end
         elseif r.outcome ~= nil then
@@ -216,20 +229,58 @@ function M.ValidateReport(doc, opts)
     return #errs == 0, errs
 end
 
--- Private rejection diagnostic: written instead of nothing ONLY if the
--- design's optional diagnostic is enabled; it holds the code and failed
--- check names, never quest rows.
-function M.ValidateDiagnostic(d, opts)
+-- Rejection output: there is NO rejection file. A rejected batch prints
+-- exactly one fixed line per failed gate to stderr, "nq-m2-3: <CODE>", with
+-- CODE from the closed REJECTION vocabulary. No paths, quest IDs, records,
+-- labels or fingerprints.
+M.STDERR_PREFIX = "nq-m2-3: "
+function M.StderrLine(code)
+    if not M.REJECTION[code] then error("StderrLine: code not in the closed vocabulary", 2) end
+    return M.STDERR_PREFIX .. code
+end
+function M.CheckStderr(text, opts)
     guard(opts)
     local errs = {}
-    if type(d) ~= "table" then return false, { "diagnostic: table required" } end
-    for k in pairs(d) do
-        if not ({ schema = 1, schemaVersion = 1, private = 1, rejection = 1, checks = 1 })[k] then errs[#errs + 1] = "diagnostic: field not allowed: " .. tostring(k) end
+    if type(text) ~= "string" or text == "" then return false, { "stderr: at least one rejection line required" } end
+    if text:find("/", 1, true) then errs[#errs + 1] = "stderr: path character '/'" end
+    if text:find("%x%x%x%x%x%x%x%x") then
+        errs[#errs + 1] = "stderr: hex run (possible fingerprint)"
     end
-    if d.schema ~= "nq-m2-3-rejection" or d.schemaVersion ~= 1 or d.private ~= true then errs[#errs + 1] = "diagnostic: schema/private" end
-    if not M.REJECTION[d.rejection] then errs[#errs + 1] = "diagnostic: unknown rejection code" end
-    if type(d.checks) ~= "table" or #d.checks == 0 then errs[#errs + 1] = "diagnostic: failed check names required" end
+    for line in (text:sub(-1) == "\n" and text or text .. "\n"):gmatch("(.-)\n") do
+        local code = line:sub(#M.STDERR_PREFIX + 1)
+        if line:sub(1, #M.STDERR_PREFIX) ~= M.STDERR_PREFIX or not M.REJECTION[code] then
+            errs[#errs + 1] = "stderr: line is not a fixed rejection code line"
+        end
+    end
+    -- Digits may appear only inside the fixed prefix and codes.
+    local stripped = text:gsub("nq%-m2%-3: ", ""):gsub("REJECTED_V1_SELECTION_EMPTY_AFTER_PREFLIGHT", "")
+    if stripped:find("%d") then errs[#errs + 1] = "stderr: digits outside the code set" end
     return #errs == 0, errs
+end
+
+-- Atomic publication (design section 7a): report and aggregate travel as ONE
+-- bundle file, published by a single no-clobber install. `fs` is an injected
+-- set of primitives so failure and crash points can be simulated in tests;
+-- the production engine would pass SafeWrite (temp file + fsync + link(2)).
+-- fs = { writeTemp(content) -> tmp|nil, fsync(tmp) -> ok, link(tmp, final) -> ok, unlink(tmp) -> ok, exists(final) -> bool }
+function M.BuildBundle(report, aggregate, opts)
+    guard(opts)
+    local ok1, e1 = M.ValidateReport(report, opts)
+    if not ok1 then return nil, e1 end
+    local ok2, e2 = M.ValidateAggregate(aggregate, report, opts)
+    if not ok2 then return nil, e2 end
+    return { schema = "nq-m2-3-bundle", schemaVersion = 1, private = true, report = report, aggregate = aggregate }
+end
+function M.PublishBundle(bundle, finalPath, fs, serialise, opts)
+    guard(opts)
+    if type(bundle) ~= "table" or bundle.schema ~= "nq-m2-3-bundle" then return false, "REJECTED_UNSAFE_OUTPUT" end
+    if fs.exists(finalPath) then return false, "REJECTED_UNSAFE_OUTPUT" end
+    local tmp = fs.writeTemp(serialise(bundle))
+    if not tmp then return false, "REJECTED_UNSAFE_OUTPUT" end
+    if not fs.fsync(tmp) then fs.unlink(tmp); return false, "REJECTED_UNSAFE_OUTPUT" end
+    if not fs.link(tmp, finalPath) then fs.unlink(tmp); return false, "REJECTED_UNSAFE_OUTPUT" end
+    fs.unlink(tmp) -- a failure here leaves a stray temp beside a complete final file
+    return true
 end
 
 -- Aggregate: counts only, closed key sets, exact reconciliation.
