@@ -67,7 +67,9 @@ reject "reject executable Lua in private input" "$T/exec.lua" "input rejected"
 [ ! -e "$T/should-not-exist" ] && ok "untrusted Lua not executed" || bad "untrusted Lua was executed"
 
 reject "reject relative input path" "tests/fixtures/m2_input/quest1203_single_synthetic.lua" "input rejected"
-reject "reject public checkout input path" "$(pwd -P)/tests/fixtures/m2_input/quest1203_single_synthetic.lua" "input rejected"
+reject "reject public checkout input path" "$(pwd -P)/tests/fixtures/m2_input/quest1203_single_synthetic.lua" "must resolve outside the public checkout"
+ln -s "$(pwd -P)/tests/fixtures/m2_input/quest1203_single_synthetic.lua" "$T/public-symlink.lua"
+reject "reject symlink to a public synthetic fixture" "$T/public-symlink.lua" "must resolve outside the public checkout"
 reject "reject nonexistent input path" "$T/does-not-exist.lua" "input rejected"
 out=$(NQ_M2_INPUT="$T/valid.lua" lua5.1 cli/check-private-1203.lua 2>&1); code=$?
 [ "$code" -eq 0 ] && [[ "$out" == *"PASS: quest 1203"* ]] && ok "optional environment input works" || bad "optional env input"
