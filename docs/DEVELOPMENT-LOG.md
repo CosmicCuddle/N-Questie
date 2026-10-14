@@ -1,5 +1,15 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — Quest 2001 completed-state marker QA
+
+**In-game screenshot evidence:** Shadow Priest Allister's map tooltip lists **Ravenclaw Cleanup (2001) — (Complete)** in both compact and expanded views. Other quests (including Border Crossings 477 and Lost Deathstalkers 428) continue to be listed alongside it.
+
+**PASS:** Quest 2001's completed/ready-to-turn-in state is correctly represented in map tooltips at its NPC turn-in location; previous objective marker tooltip and available-state checks remain verified.
+
+**Not yet verified:** Quest hand-in and post-turn-in marker disappearance, independent comparison of all NPC pin locations against active spawns, or objective counter progression during kills (only initial 0/8 and eventual Complete observed). Do not claim these checks passed without separate evidence.
+
+**Safety:** No addon reinstall, live DB edits, character progression overrides, PR merge or release performed by development. Maintain existing installed test build and SavedVariables.
+
 ## 14 October 2026 — Quest 2001 objective tooltips verified in-game
 
 **Evidence:** Maintainer screenshots of normal and Shift-modified objective marker tooltips for active Ravenclaw Cleanup (2001). Both list 0/8 Ravenclaw Servants and 0/8 Ravenclaw Champions; Shift view identifies the NPC names and level ranges (Servant 13–14, Champion 14–15). **PASS:** quest 2001 objective marker tooltip associations, both NPC objective names, and displayed quest-log progress counts. Normal and modifier tooltip modes work.
