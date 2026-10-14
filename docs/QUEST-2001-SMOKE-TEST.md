@@ -21,7 +21,7 @@
 - [x] Existing minimap quest objective icons still work
 - [x] Questie settings and existing preferences remain intact
 
-**Custom quest 2001 test: NOT YET RUN / NOT YET REPORTED.** An eligible character must meet the quest's actual server eligibility and prerequisite quest 437. Do not bypass progression or mark quest-marker tests passed based only on standard icon functionality.
+**Update:** The custom quest 2001 visual marker lifecycle was subsequently tested and passed; see the confirmed in-game acceptance results above. The server prerequisite quest 437 remains authoritative and must not be bypassed for testing.
 
 **Next:** Confirm whether the maintainer can access the quest naturally, then test the starter at NPC 2121, objective markers for NPCs 1868 and 1869, and ender NPC 2121 in the world map and minimap. If not accessible, choose a different ordinary playable custom quest from the private audit. Always back up the previous installed Questie folder and relevant SavedVariables before any subsequent addon replacement.
 
@@ -49,7 +49,7 @@ The inherited Questie WotLK NPC database already contains entries for NPCs **212
 - \`Modules/QuestieInit.lua\` tracks \`nQuestieDataRevision\` and recompiles Questie's saved binary DB whenever the curated records change.
 - \`Questie-335.toc\` continues to define the installed WoW addon identity and both Questie SavedVariables. The display name is N-Questie and version \`9.5.1.1\` in this **test branch only**, distinguishing it from upstream v9.5.1.
 
-## Safe manual test (pending)
+## Original safe manual test procedure (now executed for quest 2001 marker lifecycle)
 
 1. **Close WoW** and back up the existing Questie-335 addon folder and the relevant account/character Questie SavedVariables. Do not delete or overwrite them.
 2. Install **one copy** of the draft test addon (once a validated QA build exists); do not install two Questies simultaneously.
