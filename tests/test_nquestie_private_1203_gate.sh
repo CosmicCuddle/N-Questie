@@ -194,6 +194,48 @@ archiveOut=$(NQ_TEST_FALSE_DIGEST="$digest" PATH="$T/fake-hash-bin:$PATH" \
     && ok "reject plausible hash stdout from failed sha256sum process" \
     || bad "failed sha256sum stdout was trusted"
 
+# Quote/space/shell-metacharacter paths must be treated as literal paths:
+# both realpath and stat/hash use subprocess commands with shell escaping.
+oddInput="$T/private ' quote ; dollar \$HOME sample.lua"
+cp "$T/valid.lua" "$oddInput"
+chmod 600 "$oddInput"
+oddOut=$(run "$oddInput"); oddCode=$?
+[ "$oddCode" -eq 0 ] && [[ "$oddOut" == *"PASS: quest 1203 M2.1 schema"* ]] \
+    && [[ "$oddOut" != *"$T"* ]] && ok "literal private filename with apostrophe, spaces and metacharacters" \
+    || bad "quoted private filename was mishandled"
+
+oddArchive="$T/original ' quote ; dollar \$HOME.zip"
+cp "$T/source-archive.zip" "$oddArchive"
+chmod 600 "$oddArchive"
+oddOut=$(lua5.1 cli/check-private-1203.lua "$T/with-archive.lua" --archive "$oddArchive" 2>&1); oddCode=$?
+[ "$oddCode" -eq 0 ] && [[ "$oddOut" == *"PASS: supplied offline archive SHA-256 matches"* ]] \
+    && [[ "$oddOut" != *"$T"* ]] && [[ "$oddOut" != *"$digest"* ]] \
+    && ok "literal offline archive filename with apostrophe, spaces and metacharacters" \
+    || bad "quoted archive filename was mishandled"
+
+ln -s "$T/source-archive.zip" "$T/private-source-alias.zip"
+oddOut=$(lua5.1 cli/check-private-1203.lua "$T/with-archive.lua" --archive "$T/private-source-alias.zip" 2>&1); oddCode=$?
+[ "$oddCode" -eq 0 ] && [[ "$oddOut" == *"PASS: supplied offline archive SHA-256 matches"* ]] \
+    && ok "stable symlink to a protected private archive accepted" \
+    || bad "protected archive symlink rejected"
+
+ln -s "$(pwd -P)/tests/fixtures/m2_input/quest1203_single_synthetic.lua" "$T/public-source-alias.zip"
+oddOut=$(lua5.1 cli/check-private-1203.lua "$T/with-archive.lua" --archive "$T/public-source-alias.zip" 2>&1); oddCode=$?
+[ "$oddCode" -ne 0 ] && [[ "$oddOut" == *"source archive must resolve outside"* ]] \
+    && [[ "$oddOut" != *"$T"* ]] && ok "reject archive symlink resolving into public checkout" \
+    || bad "public-checkout archive symlink not rejected"
+
+oddOut=$(run "$T/"
+    && [ "$(stat -c %a "$T/source-archive.zip")" = 600 ] \
+    && ok "synthetic input and source bytes remained untouched" || bad "synthetic source/input changed"
+
+echo "M2 private 1203 gate synthetic: $passes passed, $fails failed"
+[ "$fails" -eq 0 ]
+newline\nname.lua'); oddCode=$?
+[ "$oddCode" -ne 0 ] && [[ "$oddOut" == *"input rejected"* ]] && [[ "$oddOut" != *"$T"* ]] \
+    && ok "reject newline control character in input path without disclosing it" \
+    || bad "unsafe control-character input path was not rejected"
+
 [ -f "$T/with-archive.lua" ] && [ -f "$T/source-archive.zip" ] \
     && [ "$(stat -c %a "$T/source-archive.zip")" = 600 ] \
     && ok "synthetic input and source bytes remained untouched" || bad "synthetic source/input changed"
