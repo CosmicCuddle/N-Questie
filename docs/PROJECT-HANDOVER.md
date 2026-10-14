@@ -1,5 +1,11 @@
 # N-Questie — Development Handover
 
+## Collaboration checkpoint — 14 October 2026
+
+**Second-reviewer coordination:** The maintainer plans to invite Grok as a collaborating reviewer. The public handoff and defined work boundaries are in [EXTERNAL-COLLABORATION-REVIEW-BRIEF.md](EXTERNAL-COLLABORATION-REVIEW-BRIEF.md). Assign **read-only integration review** of stacked PRs #2/#3/#5/#6/#7 and independent CI fix #4 first; focus on Questie correction registration, database decode timing, cache revision, multiple overlay composition, and Lua 5.1 test fidelity. The existing-quest source audit, approved corrections and private world data stay with the main development workflow.
+
+Any suggested implementation must be a **separately coordinated draft PR**, with tests and clear change ownership. Do not upload the private SQL/Excel audit, silently edit another contributor's branch, merge, release or modify the installed addon/live server without maintainer approval.
+
 **Project:** N-Questie  
 **Maintainer:** CosmicCuddle  
 **Established:** 13 October 2026  
