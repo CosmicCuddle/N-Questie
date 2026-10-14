@@ -71,5 +71,18 @@ result=$(LUA=bash bash "$SCRIPT" "$D" 1203 2>&1); code=$?
     && ok "fixture log private (0600)" || bad "fixture log permissions"
 [ ! -e "$D/effective-1203.lua" ] && ok "no export on negative fixture failure" || bad "unexpected export"
 
+# Pin the checksum guard: it must validate the hash before publishing a
+# sha256sum-format manifest and must never use the OUT path in sed substitution.
+if grep -qF 'hash_line=$(sha256sum -- "$FILE") || die' "$SCRIPT" \
+   && grep -qF '[[ "$digest" =~ ^[0-9a-f]{64}$ ]] || die' "$SCRIPT"; then
+    ok "checksum failure and invalid SHA-256 cannot be reported as pilot PASS"
+else
+    bad "checksum failure guard missing"
+fi
+if grep -qF 'sha256sum "$FILE" | sed' "$SCRIPT"; then
+    bad "checksum still interpolates output folder into sed"
+else
+    ok "checksum manifest no longer interpolates output directory into sed"
+fi
 echo "M2 pilot preflight: $passes passed, $fails failed"
 [ "$fails" -eq 0 ]
