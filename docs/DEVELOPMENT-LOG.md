@@ -1,5 +1,13 @@
 # N-Questie — Development Log
 
+## 14 October 2026 — M2 private selected-quest objective exporter pilot
+
+Grok shared [draft PR #18](https://github.com/CosmicCuddle/N-Questie/pull/18), implementing stricter M1 kill-credit completeness, ambiguous item/NPC set-level review and explicit tri-state script/conditions/IP flags. Public PR #18 M1/overlay/M0 CI passed, inherited Busted `unit-tests` remains blocked without independent PR #4; Grok has three further local QA tasks before final approval.
+
+The lead workstream prepared a **standalone, local-only offline objective intake adapter**. It streams the private user-supplied `acore_world.zip` without extraction and collects selected quest objectives only. Optional per-quest reviewed creature-ID manifest retrieves exact `creature_template.KillCredit1/2` rows but never asserts full coverage. Explicit `"unknown"` tri-state condition/IP/script flags, `killCreditComplete=false`, private SHA256/date provenance and atomic restrictive-permission output protect confidence/privacy. **12 synthetic Python tests passed**; offline private trial verified Jarl Needs a Blade (1203, one Moonsteel Broadsword 3853) and Ravenclaw Cleanup (2001, 1868×8 and 1869×8, selected KillCredit rows). No M2 batch comparisons or effective 3.3.5a export have yet been performed.
+
+The actual adapter code and private generated Lua/JSON remain **outside GitHub**, per M2 ownership/privacy plan. Opened documentation-only [draft PR #19](https://github.com/CosmicCuddle/N-Questie/pull/19) stacked on 28-quest validation PR #16, with [M2 intake handover](M2-PRIVATE-OBJECTIVE-INTAKE-HANDOVER.md). A PR #18 coordination comment informs Grok of the data contract and stronger preference for private outputs outside the public checkout. No live SQL/realm, client/SavedVariables, GitHub PR merges or stable releases were touched.
+
 ## 14 October 2026 — Combined correction and validation branch PR #16
 
 Created a **separate testing-only** branch `integration/nquestie-28quest-full-ci-2026-10-14` on top of source-reviewed correction draft #13. Copied M0 Lua 5.1 validator and synthetic fixtures from Grok's draft #11, M0 workflow (#10), Grok's independent revision guard (#12/#14), and the independent inherited Busted fixture repair (#4). None of the original heads was edited or merged.
