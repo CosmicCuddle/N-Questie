@@ -26,7 +26,9 @@ Dedicated M1 GitHub [run 38580760515](https://github.com/CosmicCuddle/N-Questie/
 
 Dedicated overlay [run 38580760610](https://github.com/CosmicCuddle/N-Questie/actions/runs/38580760610) and revision guard [run 38580760706](https://github.com/CosmicCuddle/N-Questie/actions/runs/38580760706) **PASS** on initial source commit.
 
-**Full combined acceptance also requires green M0 3.3.5a real compiled database validation and inherited CI on the SAME final commit.** The M0 suite must check all 28 curated level IDs, 82,431 source-to-compiled quest fields and 5 negative fixtures. The inherited CI must pass Busted (with PR #4 shim), LuaCheck, and Era/SoD/WotLK data validators. Confirm latest workflow status after this documentation commit; do not assume older runs validate newer commits.
+**Full combined acceptance: achieved on source + handover commit `4470f3657483dfcdee08a080f22f258f6c1a51bd`.** All five GitHub workflows PASSED on that exact head: [M1 38581451391](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451391), [M0 38581451396](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451396), [overlay 38581451217](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451217), [revision guard 38581451165](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451165), [inherited full CI 38581451178](https://github.com/CosmicCuddle/N-Questie/actions/runs/38581451178). The inherited run passed LuaCheck, Busted with PR #4 shim, WotLK/Era/SoD database validators, and appropriately skipped tag-only publishing.
+
+Detailed [first integrated M0 run 38580760502](https://github.com/CosmicCuddle/N-Questie/actions/runs/38580760502) reports **232 assertions**, **28** reviewed level corrections, **82,431** quest fields checked (zero mismatches), five expected synthetic rejections and quest 1203 stock/effective M1 classifications. **Later documentation commits start new CI; check PR #20's newest head rather than assuming a previous green SHA validates future changes.** None of these automated results constitutes in-game QA or release permission.
 
 ## M2 interface handoff
 
