@@ -55,24 +55,63 @@ local function guard(opts)
 end
 
 -- Expected M1 status of a record under the design's rule.
+-- M1 classification of a v2 record, in the ESTABLISHED codes of the frozen
+-- v1 exporter (EffectiveExport.Record), so the two can be compared code for
+-- code (Stage A1 parity). Every v1 refusal a valid v2 record can carry:
+--   requiredSourceItems repeated            DUPLICATE_SOURCE_ITEM
+--   creature / object / item / spell repeat DUPLICATE_CREATURE/_OBJECT/_ITEM/_SPELL
+--   killCredit entry repeating an id        DUPLICATE_KILLCREDIT_ID
+--   reputation objective (any value, 0 too) REPUTATION_OBJECTIVE
+--   spell objective with itemSourceId       SHAPE_UNUSUAL (v1 has no field for it)
+--   extra ref monster / object              EXTRA_CREATURE_REF / EXTRA_OBJECT_REF
+--   extra item ref repeated in the quest    DUPLICATE_EXTRA_ITEM
+--   killCreditFirst that really reorders    KILLCREDIT_FIRST_REORDER
+-- killCreditFirst reorders only when another ordinary objective exists (the
+-- killCredit line moves before it) or there are several killCredit entries
+-- (they are reversed). One killCredit entry alone is shown where v1 puts it:
+-- SUPPORTED, with the v2 flag kept. The repeated killCredit rootId across
+-- entries is not a v1 refusal and is not one here. v1 codes that a valid v2
+-- record cannot reach (the builder refuses those inputs first):
+-- LEVEL_INVALID, SOURCE_ITEM_INVALID, EXTRA_OTHER_REF, the other SHAPE_UNUSUAL
+-- cases, and UNCLASSIFIED.
 function M.ExpectedM1(q)
     local reasons, seen = {}, {}
     local function add(r) if not seen[r] then seen[r] = true; reasons[#reasons + 1] = r end end
+    local DUP = { creature = "DUPLICATE_CREATURE", object = "DUPLICATE_OBJECT", item = "DUPLICATE_ITEM", spell = "DUPLICATE_SPELL" }
+    local rs = {}
+    for _, v in ipairs(q.requiredSourceItems or {}) do
+        if rs[v] then add("DUPLICATE_SOURCE_ITEM") end
+        rs[v] = true
+    end
+    local nKc, nOther = 0, 0
     for _, o in ipairs(q.objectives or {}) do
-        if o.kind == "reputation" then add("REPUTATION_OBJECTIVE") end
-        if (o.occurrence or 1) > 1 then
-            add(o.kind == "creature" and "DUPLICATE_CREATURE" or o.kind == "object" and "DUPLICATE_OBJECT" or "DUPLICATE_OTHER")
+        if o.kind == "killCredit" then
+            nKc = nKc + 1
+            local ids = {}
+            for _, v in ipairs(o.ids or {}) do
+                if ids[v] then add("DUPLICATE_KILLCREDIT_ID") end
+                ids[v] = true
+            end
+        else
+            nOther = nOther + 1
+            if o.kind == "reputation" then add("REPUTATION_OBJECTIVE") end
+            if (o.occurrence or 1) > 1 and DUP[o.kind] then add(DUP[o.kind]) end
+            if o.kind == "spell" and o.itemSourceId ~= nil then add("SHAPE_UNUSUAL") end
         end
     end
+    local extraItems = {}
     for _, e in ipairs(q.extraObjectives or {}) do
         for _, r in ipairs(e.refs or {}) do
-            if r.type == "monster" then add("EXTRA_CREATURE_REF") elseif r.type == "object" then add("EXTRA_OBJECT_REF") end
+            if r.type == "monster" then add("EXTRA_CREATURE_REF")
+            elseif r.type == "object" then add("EXTRA_OBJECT_REF")
+            elseif r.type == "item" then
+                if extraItems[r.id] then add("DUPLICATE_EXTRA_ITEM") end
+                extraItems[r.id] = true
+            end
         end
     end
+    if q.killCreditFirst and nKc > 0 and (nOther > 0 or nKc > 1) then add("KILLCREDIT_FIRST_REORDER") end
     table.sort(reasons)
-    -- killCreditFirst content is representable in v2 but the M1 rules have no
-    -- quest-log position semantics, so it is not M1-evaluable either.
-    if q.killCreditFirst then add("KILLCREDIT_FIRST_REORDER"); table.sort(reasons) end
     return (#reasons == 0) and "SUPPORTED" or "UNSUPPORTED_BY_RULES", reasons
 end
 

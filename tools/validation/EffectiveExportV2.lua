@@ -53,7 +53,10 @@ local function sortedKeys(t)
     return ks
 end
 
--- Highest valid extra objectiveIndex for a record (see BuildRecord).
+-- Highest valid extra objectiveIndex for a record. Normally the number of
+-- ordinary objectives n. n + 1 only when that quest-log line exists without
+-- an ordinary objective: the triggerEnd event line (hasTriggerEnd), or a
+-- client-only log line on a quest with no ordinary objectives (n == 0).
 function M.MaxObjectiveIndex(rec)
     local n = #rec.objectives
     if n == 0 or rec.hasTriggerEnd then return n + 1 end

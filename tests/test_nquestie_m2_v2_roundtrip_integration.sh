@@ -81,6 +81,7 @@ want "extra objectiveIndex past DB objectives" 5
 want "reputation pairs" 181
 want "reputation pairs with value 0" 22
 want "killCreditFirst quests" 16
+want "  killCreditFirst flagged, nothing reordered" 0
 want "duplicate objective occurrences" 10
 want "  duplicate creature" 9
 want "  duplicate object" 1

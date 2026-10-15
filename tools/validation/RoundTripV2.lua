@@ -279,6 +279,10 @@ function M.Aggregate(results)
             if #q.objectives == 0 then a.noObjectives = a.noObjectives + 1 end
             if q.killCreditFirst then
                 a.killCreditFirstQuests = a.killCreditFirstQuests + 1
+                -- Flagged but nothing reorders (decision t54u: SUPPORTED).
+                local reorders = false
+                for _, r in ipairs(q.m1Reasons) do if r == "KILLCREDIT_FIRST_REORDER" then reorders = true end end
+                if not reorders then a.killCreditFirstFlaggedSingle = a.killCreditFirstFlaggedSingle + 1 end
                 if uns then a.unsupported758.killCreditFirst = a.unsupported758.killCreditFirst + 1 end
             end
             for _, o in ipairs(q.objectives) do
@@ -360,6 +364,7 @@ function M.FormatAggregate(a)
     line(out, "reputation pairs", a.reputation)
     line(out, "reputation pairs with value 0", a.reputationZero)
     line(out, "killCreditFirst quests", a.killCreditFirstQuests)
+    line(out, "  killCreditFirst flagged, nothing reordered", a.killCreditFirstFlaggedSingle)
     line(out, "duplicate objective occurrences", a.duplicateOccurrences)
     for k, v in sortedPairs(a.duplicateByKind) do line(out, "  duplicate " .. k, v) end
     line(out, "scaling questLevel -1", a.scalingLevel)

@@ -15,10 +15,10 @@ copy() {
     rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests/fixtures"
     cp tools/validation/*.lua "$T/w/tools/validation/"
     cp tools/validation/draft/*.lua "$T/w/tools/validation/draft/"
-    cp tests/test_nquestie_m2_v2_builder.lua tests/test_nquestie_m2_no_write_guard.lua "$T/w/tests/"
+    cp tests/test_nquestie_m2_v2_builder.lua tests/test_nquestie_m2_no_write_guard.lua tests/test_nquestie_m2_v2_m1_parity.lua "$T/w/tests/"
     cp -r tests/fixtures/m2_v2_builder "$T/w/tests/fixtures/"
 }
-run_tests() { (cd "$T/w" && "$LUA" tests/test_nquestie_m2_v2_builder.lua >/dev/null 2>&1 && "$LUA" tests/test_nquestie_m2_no_write_guard.lua >/dev/null 2>&1); }
+run_tests() { (cd "$T/w" && "$LUA" tests/test_nquestie_m2_v2_builder.lua >/dev/null 2>&1 && "$LUA" tests/test_nquestie_m2_no_write_guard.lua >/dev/null 2>&1 && "$LUA" tests/test_nquestie_m2_v2_m1_parity.lua >/dev/null 2>&1); }
 # mutant FILE 'exact old text' 'new text' 'label'
 mutant() {
     local file="$1" old="$2" new="$3" label="$4"
@@ -39,6 +39,21 @@ run_tests && ok "unmutated copy passes" || bad "unmutated copy fails"
 B=tools/validation/EffectiveExportV2.lua
 R=tools/validation/RoundTripV2.lua
 G=tools/validation/NoWriteGuard.lua
+D=tools/validation/draft/EffectiveSchemaV2Draft.lua
+# M1 parity (decision t54u): each mutant breaks one v1-equivalent rule.
+mutant $D 'if rs[v] then add("DUPLICATE_SOURCE_ITEM") end' '' "parity: repeated requiredSourceItems not classified"
+mutant $D 'item = "DUPLICATE_ITEM"' 'item = "DUPLICATE_OTHER"' "parity: generic code for repeated item"
+mutant $D 'spell = "DUPLICATE_SPELL"' 'spell = "DUPLICATE_OTHER"' "parity: generic code for repeated spell"
+mutant $D 'if ids[v] then add("DUPLICATE_KILLCREDIT_ID") end' '' "parity: repeated killCredit id not classified"
+mutant $D 'if o.kind == "spell" and o.itemSourceId ~= nil then add("SHAPE_UNUSUAL") end' '' "parity: spell itemSourceId not classified"
+mutant $D 'if extraItems[r.id] then add("DUPLICATE_EXTRA_ITEM") end' '' "parity: repeated extra item not classified"
+mutant $D 'if o.kind == "reputation" then add("REPUTATION_OBJECTIVE") end' '' "parity: reputation not classified"
+mutant $D 'elseif r.type == "object" then add("EXTRA_OBJECT_REF")' 'elseif r.type == "object" then add("EXTRA_CREATURE_REF")' "parity: object ref given the creature code"
+mutant $D 'if q.killCreditFirst and nKc > 0 and (nOther > 0 or nKc > 1) then' 'if q.killCreditFirst then' "parity: killCreditFirst always reorders (old rule)"
+mutant $D '(nOther > 0 or nKc > 1)' '(nOther > 0)' "parity: several killCredit entries not seen as reversed"
+mutant $D '(nOther > 0 or nKc > 1)' '(nKc > 1)' "parity: killCredit moved before other kinds not seen"
+mutant $D '            nOther = nOther + 1' '' "parity: other objectives not counted"
+mutant $R 'if not reorders then a.killCreditFirstFlaggedSingle = a.killCreditFirstFlaggedSingle + 1 end' '' "flagged-not-reordered counter dead"
 mutant $B 'table.insert(list, 1, o)' 'list[#list + 1] = o' "killCreditFirst not inserted first (no reversal)"
 mutant $B 'o.occurrence = occ[key]' 'o.occurrence = 1' "duplicate occurrences not numbered"
 mutant $B 'requiredValue = list[2] }' 'requiredValue = (list[2] ~= 0) and list[2] or nil }' "reputation value 0 dropped"

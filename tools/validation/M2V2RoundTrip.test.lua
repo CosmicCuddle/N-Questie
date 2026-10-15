@@ -9,6 +9,7 @@ describe("N-Questie Stage A1 v2 round trip", function()
     local db = base and sh("lua5.1 -e 'require(\"bit32\")' >/dev/null 2>&1 && command -v git >/dev/null 2>&1")
     for _, t in ipairs({
         { "v2 builder and round trip (synthetic, negative, tamper)", "lua5.1 tests/test_nquestie_m2_v2_builder.lua", base },
+        { "M1 parity with frozen v1 (synthetic matrix)", "lua5.1 tests/test_nquestie_m2_v2_m1_parity.lua", base },
         { "no-write guard", "lua5.1 tests/test_nquestie_m2_no_write_guard.lua", base },
         { "frozen v1 exporter byte-identical to base", "lua5.1 tests/test_nquestie_m2_v1_frozen.lua", base },
         { "mutation test (every mutant killed)", "bash tests/test_nquestie_m2_v2_mutation.sh", base },

@@ -50,14 +50,12 @@ S.quests = {
     [910014] = { requiredLevel = 15, questLevel = 18, objectives = { { { 914, "Slay" } }, nil, { { 915 } } },
         extraObjectives = { { nil, 4, "Use", 0, { { "item", 916 } } } } },
 }
--- Spec conflict cases (not in the real compiled DB, measured 0): v1 codes and
--- the v2 ExpectedM1 rule disagree, so the round trip must fail closed.
-S.conflicts = {
-    -- killCreditFirst flagged, a single killCredit and nothing else: v1 SUPPORTED,
-    -- v2 ExpectedM1 UNSUPPORTED (KILLCREDIT_FIRST_REORDER)
-    [910013] = true,
-    -- repeated requiredSourceItems: v1 DUPLICATE_SOURCE_ITEM, v2 ExpectedM1 SUPPORTED
-    [910015] = true,
-}
+-- Former spec conflicts, resolved by decision t54u (ExpectedM1 now matches
+-- the frozen v1 classification). Kept as positive parity cases:
+--   910013 killCreditFirst flagged, a single killCredit and nothing else:
+--          nothing reorders, so SUPPORTED in both (v2 keeps the flag).
+--   910015 repeated requiredSourceItems: v2 keeps every occurrence, the
+--          classification keeps v1's DUPLICATE_SOURCE_ITEM.
+S.conflicts = {}
 S.quests[910015] = { requiredLevel = 10, questLevel = 12, sourceItemId = 701, requiredSourceItems = { 701, 702, 701 } }
 return S

@@ -95,7 +95,7 @@ ok(agg.questsDiffering == 0 and agg.diffs == 0 and agg.v1Differing == 0 and agg.
    "round trip: 0 differences, 0 v1 differences, m1 agrees")
 ok(agg.refs == 9 and agg.refsByType.monster == 5 and agg.refsByType.object == 2 and agg.refsByType.item == 2,
    "aggregate counts refs by type (monster 5, object 2, item 2): " .. agg.refs)
-ok(agg.reputation == 2 and agg.reputationZero == 1 and agg.killCreditFirstQuests == 2 and agg.duplicateOccurrences == 4
+ok(agg.reputation == 2 and agg.reputationZero == 1 and agg.killCreditFirstQuests == 3 and agg.killCreditFirstFlaggedSingle == 1 and agg.duplicateOccurrences == 4
    and agg.spawnOnlyEntries == 1 and agg.objectiveIndexLogOnly == 2 and agg.scalingLevel == 1,
    "aggregate counts reputation, zero values, killCreditFirst, duplicates, spawn-only, log-only index, scaling")
 ok(agg.supported + agg.unsupported == #clean, "statuses sum to quests")
@@ -138,14 +138,25 @@ dbM[910009].extraObjectives[1][5][1][2] = 1; dbM[910009].objectives[1][1][1] = 2
 ok(rC.extraObjectives[1].refs[1].id == 907 and rC.objectives[1].id == 905, "changing the source after building does not change the record")
 local _ = rr
 
--- Spec conflicts fail closed in the round trip
-for id in pairs(S.conflicts) do
+-- Former conflicts (decision t54u): v2 ExpectedM1 now agrees with v1.
+local r13 = build(910013)
+ok(r13 and r13.killCreditFirst == true and r13.m1Status == "SUPPORTED" and #r13.m1Reasons == 0,
+   "910013 single killCredit under killCreditFirst: flag kept, SUPPORTED (nothing reorders, as v1)")
+local r15 = build(910015)
+ok(r15 and #r15.requiredSourceItems == 3 and r15.requiredSourceItems[3] == 701 and r15.m1Status == "UNSUPPORTED_BY_RULES"
+   and table.concat(r15.m1Reasons, "+") == "DUPLICATE_SOURCE_ITEM",
+   "910015 repeated requiredSourceItems: every occurrence kept, DUPLICATE_SOURCE_ITEM as v1")
+for _, id in ipairs({ 910013, 910015 }) do
     local res = RT.Check(Q, id, CTX)
-    ok(res.record and (res.validateError ~= nil) and res.expectedM1Agrees == false,
-       "conflict " .. id .. ": v1 codes vs v2 ExpectedM1 disagree -> validation error (fail closed)")
+    ok(res.record and res.validateError == nil and res.expectedM1Agrees == true, id .. ": ExpectedM1 agrees with v1, record valid")
 end
 local _, aggC = RT.Run(Q, ids, CTX)
-ok(aggC.expectedM1Disagree == 2 and aggC.validateErrors == 2, "conflicts counted in the aggregate, never hidden")
+ok(aggC.expectedM1Disagree == 0 and aggC.validateErrors == 0 and aggC.diffs == 0, "all synthetic quests: 0 disagreements, 0 errors")
+-- A disagreement still fails closed.
+do
+    local t = build(910013); t.m1Reasons = { "KILLCREDIT_FIRST_REORDER" }; t.m1Status = "UNSUPPORTED_BY_RULES"
+    ok(not Draft.ValidateQuest(t, { allowDraft = true }), "record whose m1 differs from ExpectedM1 is rejected (fail closed)")
+end
 
 -- ---------------------------------------------------------------- negative inputs
 local function bad(label, mutateDb, want, id, ctx)

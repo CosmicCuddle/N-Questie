@@ -26,6 +26,7 @@ step "M2.2 objective order (killCreditObjectiveFirst)" "$LUA" tests/test_nquesti
 step "M2 v2 DRAFT prototype (design validation only)" "$LUA" tests/test_nquestie_m2_effective_v2_draft.lua
 step "M2 v2 exporter acceptance DRAFT (spec only)" "$LUA" tests/test_nquestie_m2_v2_acceptance.lua
 step "Stage A1 v2 builder and round trip (synthetic)" "$LUA" tests/test_nquestie_m2_v2_builder.lua
+step "Stage A1 M1 parity with frozen v1 (synthetic matrix)" "$LUA" tests/test_nquestie_m2_v2_m1_parity.lua
 step "Stage A1 no-write guard" "$LUA" tests/test_nquestie_m2_no_write_guard.lua
 step "Stage A1 frozen v1 exporter (byte-identical to base)" "$LUA" tests/test_nquestie_m2_v1_frozen.lua
 step "Stage A1 mutation test" bash tests/test_nquestie_m2_v2_mutation.sh

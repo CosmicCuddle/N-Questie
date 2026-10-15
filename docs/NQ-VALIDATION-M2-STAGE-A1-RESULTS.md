@@ -83,25 +83,56 @@ with no DB objectives (5 real quests). The first run produced 5 build errors.
 They were investigated, not forced, and the rule now matches the data
 exactly. Positive and negative tests cover it.
 
-## Known synthetic conflicts (0 in real data)
+## M1 parity with frozen v1 (hardening, decision t54u)
 
-* A killCreditFirst quest with a single kill-credit entry: v1 says
-  SUPPORTED, while the v2 ExpectedM1 rule says UNSUPPORTED.
-* Repeated requiredSourceItems: v1 says DUPLICATE_SOURCE_ITEM, while
-  ExpectedM1 says SUPPORTED.
+`EffectiveSchemaV2Draft.ExpectedM1` now emits the established v1
+`EffectiveExport.Record` codes. The two former synthetic conflicts are
+resolved:
 
-Both fail closed in the round trip (fixture quests 910013 and 910015). This
-needs a decision before Stage A2.
+* killCreditFirst with exactly one killCredit and no other ordinary
+  objective reorders nothing, so it is SUPPORTED (as v1). The v2 flag and
+  order are kept. It is a reorder (`KILLCREDIT_FIRST_REORDER`) only when a
+  killCredit moves before another kind or several killCredit entries are
+  reversed.
+* Repeated requiredSourceItems: v2 keeps every occurrence and the
+  classification keeps v1's `DUPLICATE_SOURCE_ITEM`.
+
+| v1 reason (EffectiveExport.Record) | v2 ExpectedM1 before | v2 ExpectedM1 after |
+|---|---|---|
+| DUPLICATE_SOURCE_ITEM | none (SUPPORTED) | DUPLICATE_SOURCE_ITEM |
+| DUPLICATE_CREATURE | DUPLICATE_CREATURE | same |
+| DUPLICATE_OBJECT | DUPLICATE_OBJECT | same |
+| DUPLICATE_ITEM | DUPLICATE_OTHER | DUPLICATE_ITEM |
+| DUPLICATE_SPELL | DUPLICATE_OTHER | DUPLICATE_SPELL |
+| DUPLICATE_KILLCREDIT_ID | none | DUPLICATE_KILLCREDIT_ID |
+| REPUTATION_OBJECTIVE | REPUTATION_OBJECTIVE | same |
+| SHAPE_UNUSUAL (spell itemSourceId) | none | SHAPE_UNUSUAL |
+| EXTRA_CREATURE_REF / EXTRA_OBJECT_REF | same codes | same |
+| DUPLICATE_EXTRA_ITEM | none | DUPLICATE_EXTRA_ITEM |
+| KILLCREDIT_FIRST_REORDER | whenever flagged | only on a real reorder (v1 rule) |
+| EXTRA_OTHER_REF, LEVEL_INVALID, SOURCE_ITEM_INVALID, QUERY_FAILED, other SHAPE_UNUSUAL, UNCLASSIFIED | not reachable | not reachable (the builder refuses those inputs first) |
+
+No new code was introduced. The acceptance fixture's quest 900001 (spell
+with itemSourceId) now carries the SHAPE_UNUSUAL that v1 gives it.
+
+Synthetic parity matrix: 3,281 cases (each reason alone, killCreditFirst
+edge cases, all 350 compatible pairs and 2,900 compatible triples of 27
+features, all features together), 364 SUPPORTED and 2,917 UNSUPPORTED, 0
+disagreements in status or reason set. Run against the previous ExpectedM1,
+the same matrix fails 5,844 checks. Real database: all 9,159 quests agree
+(`m1 status disagreeing with v2 ExpectedM1 0`, and 0 killCreditFirst quests
+flagged without a reorder). The baseline is unchanged.
 
 ## Tests
 
 | Test | Checks |
 |---|---|
-| `tests/test_nquestie_m2_v2_builder.lua` | 145: exact records, round trip, determinism, aliasing, about 60 negative inputs, 27 tamper cases, conflicts fail closed |
+| `tests/test_nquestie_m2_v2_builder.lua` | 150: exact records, round trip, determinism, aliasing, about 60 negative inputs, 27 tamper cases, former conflicts now agree, m1 mismatch fails closed |
+| `tests/test_nquestie_m2_v2_m1_parity.lua` | 9,907 checks over 3,281 cases: ExpectedM1 against frozen V1.Record, status and reasons |
 | `tests/test_nquestie_m2_no_write_guard.lua` | 20 |
 | `tests/test_nquestie_m2_v1_frozen.lua` | v1 output byte-identical to a golden file made with the base commit's exporter (accepted and refused quests) |
-| `tests/test_nquestie_m2_v2_mutation.sh` | 27 mutants, all killed; the unmutated copy passes |
-| `tests/test_nquestie_m2_v2_roundtrip_integration.sh` | 68: refusals, unchanged checkout and empty HOME/TMPDIR, every baseline, determinism across processes, default run unchanged |
+| `tests/test_nquestie_m2_v2_mutation.sh` | 40 mutants (13 on the parity logic), all killed; the unmutated copy passes |
+| `tests/test_nquestie_m2_v2_roundtrip_integration.sh` | 69: refusals, unchanged checkout and empty HOME/TMPDIR, every baseline, determinism across processes, default run unchanged |
 | `tests/test_nquestie_m2_v2_acceptance.lua` | 41 (objectiveIndex rule) |
 
 All of these run from `tests/run_m2_suite.sh` and from busted
