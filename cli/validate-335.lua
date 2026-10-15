@@ -425,8 +425,10 @@ end
 -- Main
 -------------------------------------------------------------------------------
 -- 1.2.0: kill-credit ordering protection (killCreditObjectiveFirst refusal,
--- KILLCREDIT_FIRST_REORDER coverage reason). Pinned by tests; bump with care.
-local HARNESS_VERSION = "1.2.0"
+-- KILLCREDIT_FIRST_REORDER coverage reason).
+-- 1.3.0: Stage A2 opt-in nq-m2-effective v2 export mode
+-- (NQ_EXPORT_SCHEMA_VERSION=2 + NQ_EXPORT_V2_OUT). Pinned by tests; bump with care.
+local HARNESS_VERSION = "1.3.0"
 
 -- M2.2 export options. Parsed and checked before M0 runs; nil when off.
 local function exportOptions()
@@ -669,6 +671,107 @@ local function runRoundTrip(QuestieDB, Q)
     return true
 end
 
+-- Stage A2: opt-in v2 export. Both NQ_EXPORT_SCHEMA_VERSION=2 and
+-- NQ_EXPORT_V2_OUT=<absolute path> are required; either alone, any other
+-- mode's variable, a relative or unsafe path, a destination inside the git
+-- checkout (private/ included) or an existing destination is refused here,
+-- before compile and M0. false when off, nil + errors when misconfigured.
+local function v2ExportOptions()
+    local sv, out = os.getenv("NQ_EXPORT_SCHEMA_VERSION"), os.getenv("NQ_EXPORT_V2_OUT")
+    local hasSv, hasOut = sv ~= nil and sv ~= "", out ~= nil and out ~= ""
+    if not hasSv and not hasOut then return false end
+    local errs = {}
+    if not hasSv then errs[#errs + 1] = "v2 export: NQ_EXPORT_V2_OUT given without NQ_EXPORT_SCHEMA_VERSION=2" end
+    if not hasOut then errs[#errs + 1] = "v2 export: NQ_EXPORT_SCHEMA_VERSION given without NQ_EXPORT_V2_OUT" end
+    if hasSv and sv ~= "2" then errs[#errs + 1] = "v2 export: NQ_EXPORT_SCHEMA_VERSION must be 2 (v1 uses its own variables)" end
+    for _, name in ipairs({ "NQ_EXPORT_EFFECTIVE_OUT", "NQ_EXPORT_QUESTS", "NQ_EXPORT_SELECTION", "NQ_EXPORT_FORCE",
+        "NQ_COVERAGE_MANIFEST_OUT", "NQ_COVERAGE_AGGREGATE_OUT", "NQ_V2_ROUNDTRIP", "NQ_VALIDATE_FIXTURE" }) do
+        local x = os.getenv(name)
+        if x and x ~= "" then errs[#errs + 1] = "v2 export: not allowed together with " .. name .. " (one mode per run; v2 never replaces a file)" end
+    end
+    if os.getenv("NQ_VALIDATE_SKIP_COMPILE") == "1" then
+        errs[#errs + 1] = "v2 export: needs the compiled database (unset NQ_VALIDATE_SKIP_COMPILE)"
+    end
+    if not tonumber(os.getenv("NQ_VALIDATE_EXPECT_LEVEL_COUNT") or "") then
+        errs[#errs + 1] = "v2 export: NQ_VALIDATE_EXPECT_LEVEL_COUNT must be set so the correction count is asserted"
+    end
+    local root = io.popen("pwd -P"):read("*l")
+    if hasOut then
+        local Writer = dofile("tools/validation/SafeWrite.lua")
+        local dest, why = Writer.CheckDestination(out, root)
+        if not dest then
+            errs[#errs + 1] = "v2 export: " .. why
+        else
+            local dirText = out:match("^(.*)/[^/]+$")
+            if dirText == "" then dirText = "/" end
+            if dest.dir ~= dirText then
+                errs[#errs + 1] = "v2 export: the output directory path contains a symlink or is not canonical; give the real directory"
+            end
+            local rroot = io.popen("realpath -e -- '" .. root:gsub("'", "'\\''") .. "' 2>/dev/null"):read("*l")
+            if not rroot or dest.dir == rroot or dest.dir:sub(1, #rroot + 1) == rroot .. "/" then
+                errs[#errs + 1] = "v2 export: the output directory is inside the git checkout (private/ included); use a private directory outside it"
+            end
+            local qf = "'" .. dest.final:gsub("'", "'\\''") .. "'"
+            local exists = os.execute("test -e " .. qf .. " || test -L " .. qf)
+            if exists == 0 or exists == true then
+                errs[#errs + 1] = "v2 export: output file already exists or is a symlink; v2 never replaces a file"
+            end
+        end
+    end
+    if #errs > 0 then return nil, errs end
+    return { out = out, root = root }
+end
+
+-- Runs after every M0 check passed. Returns true, info or false, errors.
+local function runExportV2(opts, QuestieDB, Q, levelCount)
+    local ExportV2 = dofile("tools/validation/ExportV2.lua")
+    local Prov = dofile("tools/validation/ExportProvenance.lua")
+    local ids = {}
+    for id in pairs(QuestieDB.QuestPointers) do ids[#ids + 1] = id end
+    table.sort(ids)
+    local ctx, cerr = exportContext()
+    if not ctx then return false, { cerr } end
+    local before = roundTripFingerprint(QuestieDB, Q, ids)
+    local modules = {}
+    for _, f in ipairs(loadedFiles) do
+        if f:find("^Compat/NQuestie") then modules[#modules + 1] = f end
+    end
+    local tocInterface
+    for l in io.lines("Questie-335.toc") do
+        local v = l:match("^##%s*Interface:%s*(%d+)")
+        if v then tocInterface = tonumber(v) end
+    end
+    local _, _, _, build = GetBuildInfo()
+    local nq = rawget(_G, "NQuestieCustomQuestData")
+    local prov, perr = Prov.Collect(opts.root, modules, {
+        revision = type(nq) == "table" and nq.revision or nil,
+        correctionCount = levelCount,
+        expectedCorrectionCount = tonumber(os.getenv("NQ_VALIDATE_EXPECT_LEVEL_COUNT") or ""),
+        m0Checks = passes, tocInterface = tocInterface, buildInterface = build,
+        harnessVersion = HARNESS_VERSION,
+    })
+    if not prov then return false, perr end
+    collectgarbage("collect")
+    local mem0, c0 = collectgarbage("count"), os.clock()
+    local ok, info = ExportV2.Export({
+        query = Q, ids = ids, ctx = ctx, provenance = prov, out = opts.out, repoRoot = opts.root,
+        expectCorrectionCount = levelCount, expectHarnessVersion = HARNESS_VERSION,
+        preWrite = function()
+            if roundTripFingerprint(QuestieDB, Q, ids) ~= before then return false, "compiled data changed during the export" end
+            return true
+        end,
+    })
+    if not ok then return false, info end
+    local a = info.aggregate
+    io.write(dofile("tools/validation/RoundTripV2.lua").FormatAggregate(a))
+    io.write(string.format("%-44s %d\n", "compiled quest IDs", #ids))
+    io.write(string.format("%-44s %d\n", "quests exported", a.processed))
+    io.write(string.format("%-44s %d\n", "output bytes", info.bytes))
+    io.write(string.format("%-44s %.2f\n", "cpu seconds (build, check, write)", os.clock() - c0))
+    io.write(string.format("%-44s %.1f\n", "lua heap growth (MiB, no GC forced)", (collectgarbage("count") - mem0) / 1024))
+    return true, info.final
+end
+
 -- Runs after every M0 check passed. Returns true or false, errors.
 local function runExport(opts, QuestieDB, Q, levelCount)
     local Export = dofile("tools/validation/EffectiveExport.lua")
@@ -730,6 +833,12 @@ local function run()
     if rtOpts == nil then
         for _, e in ipairs(rtErr) do print("\27[31m" .. e .. "\27[0m") end
         print("\27[31m[validate-335] v2 round trip refused before validation; nothing run\27[0m")
+        os.exit(1)
+    end
+    local v2Opts, v2Err = v2ExportOptions()
+    if v2Opts == nil then
+        for _, e in ipairs(v2Err) do print("\27[31m" .. e .. "\27[0m") end
+        print("\27[31m[validate-335] v2 export refused before validation; nothing written\27[0m")
         os.exit(1)
     end
     local exportOpts, exportErr = exportOptions()
@@ -1046,6 +1155,20 @@ local function run()
             os.exit(1)
         end
         print("\27[32m[validate-335] effective export written: " .. #exportOpts.ids .. " quest(s) -> " .. res .. "\27[0m")
+    end
+    if v2Opts then
+        if not snapshots.afterNormalized then
+            print("\27[31m[validate-335] v2 export refused: compiled round trip did not run\27[0m")
+            os.exit(1)
+        end
+        local QDB = QuestieLoader:ImportModule("QuestieDB")
+        local ok, res = runExportV2(v2Opts, QDB, QDB.QueryQuestSingle, levelCount)
+        if not ok then
+            for _, e in ipairs(res) do print("\27[31m" .. e .. "\27[0m") end
+            print("\27[31m[validate-335] V2 EXPORT FAILED\27[0m")
+            os.exit(1)
+        end
+        print("\27[32m[validate-335] v2 export written (all compiled quests): " .. res .. "\27[0m")
     end
     if rtOpts then
         if not snapshots.afterNormalized then
