@@ -203,11 +203,16 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
         SeasonOfDiscovery.Initialize()
     end
 
+    -- N-Questie data revisions invalidate the compiled cache without
+    -- resetting the player's profiles or saved quest preferences.
+    local nQuestieData = rawget(_G, "NQuestieCustomQuestData")
+    local nQuestieRevision = (type(nQuestieData) == "table" and nQuestieData.revision) or 0
     -- Check if the DB needs to be recompiled
-    if (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID) then
+    if (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID) or (Questie.db.global.nQuestieDataRevision ~= nQuestieRevision) then
         print("\124cFFAAEEFF" .. l10n("Questie DB has updated!") .. "\124r\124cFFFF6F22 " .. l10n("Data is being processed, this may take a few moments and cause some lag..."))
         loadFullDatabase()
         QuestieDBCompiler:Compile()
+        Questie.db.global.nQuestieDataRevision = nQuestieRevision
         dbCompiled = true
     else
         l10n:Initialize()

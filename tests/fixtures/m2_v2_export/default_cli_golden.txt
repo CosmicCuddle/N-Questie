@@ -1,0 +1,24 @@
+== stdout
+|cFF4DDBFF [6/9] Updating NPCs...
+|cFF4DDBFF [7/9] Updating objects...
+|cFF4DDBFF [8/9] Updating quests...
+|cFF4DDBFF [9/9] Updating items...
+|cFFAAEEFFQuestie DB update complete!
+== stderr
+[36m[validate-335] Loading Questie-335.toc as a 3.3.5a client[0m
+note: headless load skipped Modules/Tracker/QuestieTracker.lua (Modules/Tracker/QuestieTracker.lua:61: attempt to index global 'DurabilityFrame')
+note: headless load skipped Modules/Tracker/TrackerMenu.lua (Modules/Tracker/TrackerMenu.lua:37: attempt to call method 'Create_UIDropDownMen)
+note: headless load skipped Modules/Libs/MessageHandler.lua (Modules/Libs/MessageHandler.lua:172: attempt to call method 'Colorize' (a nil va)
+note: headless load skipped Modules/Tracker/TrackerUtils.lua (Modules/Tracker/TrackerUtils.lua:71: attempt to index global 'QuestLogListScroll)
+[validate-335] Corrections applied in N.Ns
+[validate-335] questData  records=9158 before=f84abb0a after=d317619f unexpected=0
+[validate-335] questData IDs added by N-Questie: 2001; removed: none
+[validate-335] npcData    records=29615 before=d6e37a01 after=46c35e05 unexpected=0
+[validate-335] objectData records=13043 before=8082022e after=8082022e unexpected=0
+[validate-335] itemData   records=36767 before=441bb1af after=441bb1af unexpected=0
+[validate-335] M1 rules on quest 1203: stock Questie = CONFIRMED_MISMATCH, effective N-Questie = EXPECTED_REPRESENTATION_DIFF
+[validate-335] level corrections asserted: 28
+[validate-335] Compiled in N.Ns
+[validate-335] runtime questDataOverrides entries set aside: 22
+[validate-335] compiled round trip: 82431 quest fields compared, 0 mismatches
+[32m[validate-335] PASS: 232 checks[0m
