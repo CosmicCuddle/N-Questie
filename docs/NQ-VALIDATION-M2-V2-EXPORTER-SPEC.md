@@ -36,7 +36,7 @@ Every compiled quest gets exactly one record. Field definitions are those in the
 | `killCreditFirst` | true only if the quest is in the kill-credit-first set **and** has at least one killCredit objective |
 | `hasTriggerEnd` | boolean presence of `triggerEnd` (contents not exported) |
 | `extraObjectives` | every entry in compiled order (section 5) |
-| `m1Status`, `m1Reasons` | `SUPPORTED` with empty reasons, or `UNSUPPORTED_BY_RULES` with the sorted unique reason codes; must equal `ExpectedM1` in the draft validator |
+| `m1Status`, `m1Reasons` | `SUPPORTED` with empty reasons, or `UNSUPPORTED_BY_RULES` with the sorted unique reason codes; must equal `ExpectedM1` in the draft validator, which emits the established v1 `EffectiveExport.Record` codes (parity, decision t54u; see "M1 parity" below) |
 
 ## 4. Objective ordering, repeats and kill credit
 
@@ -56,7 +56,7 @@ The exporter reproduces `QuestieDB.GetQuest` exactly, because quest-log line N m
 Each entry `{spawns, icon, text, objectiveIndex, refs}` becomes `{position, icon, hasText, spawnZones, objectiveIndex, refs}`.
 
 - `spawnZones`: sorted list of zone IDs that have spawns; coordinates are not exported.
-- `objectiveIndex`: always exported, including 0 (696 of 730 entries). Must be ≤ number of objectives.
+- `objectiveIndex`: always exported, including 0 (696 of 730 entries). Must be ≤ number of objectives, with one exception found by the Stage A1 measurement: it may be number of objectives + 1 when the quest has a triggerEnd (that line is the event objective) or has no DB objectives at all (a client-only quest-log line). 5 real quests use this: 10985 and 13429 (triggerEnd), 12124, 13418 and 13419 (no objectives). Anything larger is rejected.
 - `refs`: every `{type, id}` with `refIndex`, in compiled order. Note: at runtime Questie takes `Type`/`Id` from the first reference only but merges the spawns of **all** references (`QuestieDB.GetQuest`, extraObjectives loop); the export keeps all of them so neither behaviour is lost.
 - Baseline: 632 quests, 730 entries, 801 refs (monster 466, object 335, item 0), 78 spawn-only entries.
 
@@ -92,7 +92,7 @@ Synthetic tests (run in CI, no private data):
 |---|---|---|
 | A1 | category fixture (10 real-shape quests) valid | `tests/test_nquestie_m2_effective_v2_draft.lua` |
 | A2 | acceptance fixture (6 synthetic quests, IDs 900001-900006) valid; covers no-objective quest, all six kinds, multi-ID kill credit, three reversed kill-credit entries, required source items, spell item source, trigger end, objectiveIndex 0 and maximum, spawn-only extra | `tests/test_nquestie_m2_v2_acceptance.lua` |
-| A3 | negative: kill credit not reversed, reputation 0 dropped, objectiveIndex too large, quest dropped, display text present, unknown version | same |
+| A3 | negative: kill credit not reversed, reputation 0 dropped, objectiveIndex too large (n+2, or n+1 without triggerEnd), quest dropped, display text present, unknown version | same |
 | A4 | migration refusals and downgrade refusal | v2 draft test |
 | A5 | reproducible comparison: exportedAt excluded explicitly, record and non-run provenance differences still detected, non-run exclusion refused, v1 golden fixture | acceptance test |
 
@@ -140,3 +140,37 @@ For each SUPPORTED quest, the v1 record and the v2 record are equivalent when al
 - Exporter entry point: **decided** (maintainer, 14 October 2026): an explicit opt-in v2 mode in `cli/validate-335.lua`. See `docs/NQ-VALIDATION-M2-V2-EXPORTER-PROPOSAL.md` for the trade-off and the mode contract.
 - Performance figures (none measured).
 - HARNESS_VERSION: **decided**, 1.1.0 → 1.2.0 with the kill-credit ordering protection, in a separate draft PR on the #38 line (not in this design stack). The production v2 exporter bumps it again (proposed 1.3.0).
+
+## M1 parity with the frozen v1 classification (decision t54u)
+
+`ExpectedM1(record)` must give the same status and reason set as the frozen
+v1 `EffectiveExport.Record` on the same compiled quest. It uses only
+established v1 codes. No new code was needed.
+
+| Record content | Code |
+|---|---|
+| a requiredSourceItems ID repeated (every occurrence is kept in v2) | `DUPLICATE_SOURCE_ITEM` |
+| creature, object, item or spell objective with occurrence > 1 | `DUPLICATE_CREATURE`, `DUPLICATE_OBJECT`, `DUPLICATE_ITEM`, `DUPLICATE_SPELL` |
+| a killCredit entry repeating an ID in its ids | `DUPLICATE_KILLCREDIT_ID` |
+| any reputation objective, value 0 included | `REPUTATION_OBJECTIVE` |
+| spell objective with itemSourceId (v1 has no field for it) | `SHAPE_UNUSUAL` |
+| extra ref of type monster / object | `EXTRA_CREATURE_REF` / `EXTRA_OBJECT_REF` |
+| an extra item ref repeated anywhere in the quest | `DUPLICATE_EXTRA_ITEM` |
+| killCreditFirst and a real reorder: a killCredit plus another ordinary objective, or several killCredit entries | `KILLCREDIT_FIRST_REORDER` |
+
+killCreditFirst with exactly one killCredit and no other ordinary objective
+reorders nothing. It is `SUPPORTED`, and the v2 flag and order are kept.
+Extras and the triggerEnd are not ordinary objectives. Two killCredit
+entries sharing a rootId, or repeated extra monster refs, are not v1
+refusals and give no extra code.
+
+The v1 codes `LEVEL_INVALID`, `SOURCE_ITEM_INVALID`, `EXTRA_OTHER_REF`,
+`QUERY_FAILED`, the other `SHAPE_UNUSUAL` cases and `UNCLASSIFIED` cannot
+occur in a valid v2 record, because the builder refuses those inputs first.
+The earlier generic `DUPLICATE_OTHER` is removed.
+
+Tests: `tests/test_nquestie_m2_v2_m1_parity.lua` compares both sides over a
+matrix of 3,281 synthetic cases (each reason alone, all pairs and triples of
+27 features, all features together, edge cases). On the real database the
+round trip checks every one of the 9,159 records the same way. 0
+disagreements.

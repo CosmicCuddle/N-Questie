@@ -1,0 +1,172 @@
+-- v1 frozen check
+return {
+    provenance = {
+        note = "synthetic",
+    },
+    quests = {
+        {
+            ID = 910002,
+            extraObjectiveItems = {},
+            hasExtraObjectives = false,
+            hasTriggerEnd = false,
+            objectives = {
+                creatures = {},
+                items = {
+                    701,
+                },
+                killCredit = {},
+                objects = {},
+                spells = {},
+            },
+            questLevel = 12,
+            requiredLevel = 10,
+            requiredSourceItems = {
+                701,
+                702,
+            },
+            sourceItemId = 701,
+        },
+        {
+            ID = 910005,
+            extraObjectiveItems = {},
+            hasExtraObjectives = false,
+            hasTriggerEnd = false,
+            objectives = {
+                creatures = {},
+                items = {},
+                killCredit = {},
+                objects = {},
+                spells = {},
+            },
+            questLevel = 5,
+            requiredLevel = 1,
+            requiredSourceItems = {},
+            sourceItemId = 0,
+        },
+        {
+            ID = 910006,
+            extraObjectiveItems = {},
+            hasExtraObjectives = false,
+            hasTriggerEnd = false,
+            objectives = {
+                creatures = {},
+                items = {},
+                killCredit = {},
+                objects = {},
+                spells = {},
+            },
+            questLevel = 5,
+            requiredLevel = 1,
+            requiredSourceItems = {},
+            sourceItemId = 0,
+        },
+        {
+            ID = 910014,
+            extraObjectiveItems = {
+                916,
+            },
+            hasExtraObjectives = true,
+            hasTriggerEnd = false,
+            objectives = {
+                creatures = {
+                    914,
+                },
+                items = {
+                    915,
+                },
+                killCredit = {},
+                objects = {},
+                spells = {},
+            },
+            questLevel = 18,
+            requiredLevel = 15,
+            requiredSourceItems = {},
+            sourceItemId = 0,
+        },
+    },
+    schema = "nq-m2-effective",
+    schemaVersion = 1,
+}
+REFUSED 910001
+quest 910001: objectives[4] reputation objective present (v1 cannot represent reputation)
+quest 910001: extraObjectives[1] ref 1 is 'object' (v1 can only represent item references)
+quest 910001: refused, reasons: REPUTATION_OBJECTIVE,EXTRA_OBJECT_REF
+REFUSED 910003
+quest 910003: killCreditObjectiveFirst reorders objectives (killCredit shown first, 3 killCredit entries reversed); v1 cannot represent quest-log position
+quest 910003: refused, reasons: KILLCREDIT_FIRST_REORDER
+REFUSED 910004
+quest 910004: killCreditObjectiveFirst reorders objectives (killCredit shown first); v1 cannot represent quest-log position
+quest 910004: refused, reasons: KILLCREDIT_FIRST_REORDER
+REFUSED 910007
+quest 910007: objectives[1] creatures: id 901 appears more than once (v1 cannot represent duplicates)
+quest 910007: objectives[1] creatures: id 901 appears more than once (v1 cannot represent duplicates)
+quest 910007: objectives[1] creatures: id 901 appears more than once (v1 cannot represent duplicates)
+quest 910007: objectives[2] objects: id 903 appears more than once (v1 cannot represent duplicates)
+quest 910007: refused, reasons: DUPLICATE_CREATURE,DUPLICATE_OBJECT
+ACCEPTED 910008
+return {
+    {
+        ID = 910008,
+        extraObjectiveItems = {},
+        hasExtraObjectives = true,
+        hasTriggerEnd = false,
+        objectives = {
+            creatures = {
+                904,
+            },
+            items = {},
+            killCredit = {},
+            objects = {},
+            spells = {},
+        },
+        questLevel = 6,
+        requiredLevel = 5,
+        requiredSourceItems = {},
+        sourceItemId = 0,
+    },
+}
+REFUSED 910009
+quest 910009: extraObjectives[1] ref 1 is 'monster' (v1 can only represent item references)
+quest 910009: extraObjectives[1] ref 2 is 'object' (v1 can only represent item references)
+quest 910009: extraObjectives[1] ref 4 is 'monster' (v1 can only represent item references)
+quest 910009: extraObjectives[2] ref 1 is 'monster' (v1 can only represent item references)
+quest 910009: refused, reasons: EXTRA_CREATURE_REF,EXTRA_OBJECT_REF
+REFUSED 910010
+quest 910010: extraObjectives[1] ref 1 is 'monster' (v1 can only represent item references)
+quest 910010: refused, reasons: EXTRA_CREATURE_REF
+REFUSED 910011
+quest 910011: extraObjectives[1] ref 1 is 'monster' (v1 can only represent item references)
+quest 910011: refused, reasons: EXTRA_CREATURE_REF
+REFUSED 910012
+quest 910012: objectives[4] reputation objective present (v1 cannot represent reputation)
+quest 910012: refused, reasons: REPUTATION_OBJECTIVE
+ACCEPTED 910013
+return {
+    {
+        ID = 910013,
+        extraObjectiveItems = {},
+        hasExtraObjectives = false,
+        hasTriggerEnd = false,
+        objectives = {
+            creatures = {},
+            items = {},
+            killCredit = {
+                {
+                    ids = {
+                        821,
+                    },
+                    rootId = 821,
+                },
+            },
+            objects = {},
+            spells = {},
+        },
+        questLevel = 72,
+        requiredLevel = 70,
+        requiredSourceItems = {},
+        sourceItemId = 0,
+    },
+}
+REFUSED 910015
+quest 910015: requiredSourceItems: id 701 appears more than once (v1 cannot represent duplicates)
+quest 910015: refused, reasons: DUPLICATE_SOURCE_ITEM

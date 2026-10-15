@@ -56,8 +56,18 @@ r = mut(function(d) local o = q(d, 900003).objectives; o[1], o[3] = o[3], o[1]; 
 ok(not r, "kill-credit not reversed under killCreditFirst rejected")
 r = mut(function(d) q(d, 900001).objectives[4].requiredValue = nil end)
 ok(not r, "reputation zero dropped to nil rejected")
-r = mut(function(d) q(d, 900001).extraObjectives[1].objectiveIndex = 7 end)
+-- objectiveIndex rule (Stage A1 measurement): n+1 is a real quest-log line
+-- only for the triggerEnd event or a quest with no DB objectives.
+local nObj = #q(A, 900001).objectives
+r = mut(function(d) local x = q(d, 900001); x.hasTriggerEnd = true; x.extraObjectives[1].objectiveIndex = nObj + 1 end)
+ok(r, "objectiveIndex n+1 accepted with triggerEnd")
+r = mut(function(d) local x = q(d, 900001); x.hasTriggerEnd = false; x.extraObjectives[1].objectiveIndex = nObj + 1 end)
+ok(not r, "objectiveIndex n+1 without triggerEnd rejected")
+r = mut(function(d) local x = q(d, 900001); x.hasTriggerEnd = true; x.extraObjectives[1].objectiveIndex = nObj + 2 end)
 ok(not r, "objectiveIndex beyond objective count rejected")
+r = mut(function(d) local x = q(d, 900001); x.objectives = {}; x.hasTriggerEnd = false
+    for _, ex in ipairs(x.extraObjectives) do ex.objectiveIndex = 2 end end)
+ok(not r, "objectiveIndex 2 on a quest with no objectives rejected")
 r, e = mut(function(d) table.remove(d.quests, 5) end)
 ok(not r and has(e, "questCount"), "silently dropped quest (questCount mismatch) rejected")
 r = mut(function(d) q(d, 900001).objectives[6].text = "Cast it" end)

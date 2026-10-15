@@ -22,7 +22,7 @@ return {
           killCreditFirst = false, hasTriggerEnd = true,
           extraObjectives = { { position = 1, icon = 2, hasText = true, spawnZones = {}, objectiveIndex = 6,
               refs = { { type = "object", id = 202, refIndex = 1 } } } },
-          m1Status = "UNSUPPORTED_BY_RULES", m1Reasons = { "EXTRA_OBJECT_REF", "REPUTATION_OBJECTIVE" } },
+          m1Status = "UNSUPPORTED_BY_RULES", m1Reasons = { "EXTRA_OBJECT_REF", "REPUTATION_OBJECTIVE", "SHAPE_UNUSUAL" } },
         -- required source items and a source item, item objective repeated id elsewhere
         { ID = 900002, requiredLevel = 10, questLevel = 12, sourceItemId = 701, requiredSourceItems = { 701, 702 },
           objectives = { { position = 1, kind = "item", slotIndex = 1, id = 301, occurrence = 1 } },
