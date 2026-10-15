@@ -1,0 +1,40 @@
+name: N-Questie 3.3.5a QA package (isolated, do not merge)
+
+on:
+  push:
+    branches:
+      - review/nq-a2-qa-package-2026-10-15
+
+permissions:
+  contents: read
+
+jobs:
+  package-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout review-only packaging instructions
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: control
+          persist-credentials: false
+      - name: Checkout exact reviewed PR 66 source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 0b4bd40f32658ca96d7816e08edf478aef45300d
+          path: source
+          persist-credentials: false
+      - name: Build and audit QA ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd source
+          QA_OUTPUT_DIR="$RUNNER_TEMP/nquestie-qa" python3 ../control/tools/review/build_qa_zip.py
+          test -z "$(git status --porcelain)"
+      - name: Upload QA-only build artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: N-Questie-335-QA-0b4bd40f3265
+          path: ${{ runner.temp }}/nquestie-qa/*
+          if-no-files-found: error
+          retention-days: 30
