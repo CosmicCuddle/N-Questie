@@ -16,17 +16,28 @@ T="$(mktemp -d)"; trap 'rm -rf -- "$T"' EXIT
 HAVE_CLI=0; "$LUA" -e 'require("bit32")' >/dev/null 2>&1 && command -v git >/dev/null 2>&1 && HAVE_CLI=1
 skipped=0
 copy() {
-    rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests" "$T/w/cli"
+    rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests" "$T/w/cli" "$T/w/docs"
+    # The standalone SafeWrite regression expects a real checkout docs path
+    # for its symlink-into-checkout refusal case. Populate that public fixture
+    # in the *temporary* mutation copy; never weaken the path assertion.
+    cp docs/ROADMAP.md "$T/w/docs/ROADMAP.md"
     cp cli/validate-335.lua "$T/w/cli/"
     cp tools/validation/*.lua "$T/w/tools/validation/"
     cp tools/validation/draft/*.lua "$T/w/tools/validation/draft/"
     cp tests/test_nquestie_m2_v2_builder.lua tests/test_nquestie_m2_no_write_guard.lua tests/test_nquestie_m2_v2_m1_parity.lua \
-       tests/test_nquestie_m2_v2_export.lua tests/test_nquestie_m2_v2_verify_clean.lua tests/test_nquestie_m2_v2_acceptance.lua tests/test_nquestie_m2_effective_v2_draft.lua "$T/w/tests/"
+       tests/test_nquestie_m2_v2_export.lua tests/test_nquestie_m2_v2_verify_clean.lua tests/test_nquestie_m2_v2_acceptance.lua tests/test_nquestie_m2_effective_v2_draft.lua \
+       tests/test_nquestie_m2_safe_write.lua "$T/w/tests/"
     cp -r tests/fixtures "$T/w/tests/"
 }
 run_tests() { mkdir -p "$T/tmp"; (cd "$T/w" && export TMPDIR="$T/tmp" && for t in test_nquestie_m2_v2_builder test_nquestie_m2_no_write_guard test_nquestie_m2_v2_m1_parity \
     test_nquestie_m2_v2_export test_nquestie_m2_v2_verify_clean test_nquestie_m2_v2_acceptance test_nquestie_m2_effective_v2_draft; do
     "$LUA" "tests/$t.lua" >/dev/null 2>&1 || exit 1; done) || return 1
+    # SafeWrite-specific mutations need the standalone writer test, which
+    # deliberately injects failed commands that return plausible stdout.
+    # Running only the v2 exporter unit tests would miss this safety gate.
+    if [ "${WITH_WRITER:-0}" = 1 ]; then
+        (cd "$T/w" && export TMPDIR="$T/tmp" && "$LUA" tests/test_nquestie_m2_safe_write.lua >/dev/null 2>&1) || return 1
+    fi
     # the CLI gate test (temporary clone with the mutated sources committed) only
     # for mutants of the CLI or the checkout-state module
     if [ "${WITH_CLI:-0}" = 1 ]; then NQ_VERIFY_CLI_SRC="$T/w" bash tests/test_nquestie_m2_v2_verify_cli.sh >/dev/null 2>&1 || return 1; fi
@@ -44,11 +55,12 @@ mutant() {
         bad "mutant not applied (text not found): $label"; return
     fi
     WITH_CLI=0; case "$file" in cli/*|*CheckoutState.lua) WITH_CLI=$HAVE_CLI;; esac
+    WITH_WRITER=0; case "$file" in *SafeWrite.lua) WITH_WRITER=1;; esac
     case "$file" in cli/*) if [ $HAVE_CLI = 0 ]; then skipped=$((skipped+1)); echo "SKIP (no bit32/git): $label"; return; fi;; esac
     if run_tests; then bad "mutant SURVIVED: $label"; else ok "mutant killed: $label"; fi
 }
 copy
-WITH_CLI=$HAVE_CLI run_tests && ok "unmutated copy passes (CLI gate test included: $HAVE_CLI)" || bad "unmutated copy fails"
+WITH_CLI=$HAVE_CLI WITH_WRITER=1 run_tests && ok "unmutated copy passes (CLI gate test included: $HAVE_CLI; SafeWrite checks included)" || bad "unmutated copy fails"
 
 B=tools/validation/EffectiveExportV2.lua
 R=tools/validation/RoundTripV2.lua
@@ -126,6 +138,12 @@ mutant $P 'if a.questsDiffering > 0 then' 'if false then' "pipeline: differing q
 mutant $D 'if doc.schemaVersion ~= 2 then' 'if false then' "schema: unknown version accepted"
 mutant $D 'if doc.displayScope ~= M.DISPLAY_SCOPE then' 'if false then' "schema: displayScope not enforced"
 mutant $D 'for k in pairs(q) do if not QUEST_KEYS[k] then' 'for k in pairs(q) do if false then' "schema: unknown quest field accepted"
+# t65u safety follow-up: all three independently killed mutations are now
+# executed by this script. The temp-unlink mutant must also die at ExportV2.
+W=tools/validation/SafeWrite.lua
+mutant $P 'if type(writerState) == "table" and writerState.published == true then' 'if false then' "post-publication writer status must reach the export error"
+mutant $W '{ published = true, final = final }' 'nil' "failed temp unlink must preserve published state"
+mutant $W 'if status ~= "0" then return nil end' 'if false then return nil end' "SafeWrite cannot trust nonzero-exit plausible stdout"
 # t56u: clean-checkout gate of NQ_V2_VERIFY_IN
 K=tools/validation/CheckoutState.lua
 V=cli/validate-335.lua

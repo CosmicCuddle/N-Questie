@@ -249,6 +249,42 @@ do
     ok(listDir(PP) == "v2.lua" and readAll(postFile) ~= nil,
         "writer post-install failure: published file preserved without temp")
 end
+-- The real SafeWrite unlink failure occurs AFTER ln -T has published the
+-- output. Force only that rm to fail; leave every other real filesystem
+-- operation intact. Exercise SafeWrite through ExportV2 rather than merely
+-- simulating the writer's published-status table.
+do
+    local PP = tmpdir()
+    local postFile = PP .. "/v2.lua"
+    local realWriter = dofile("tools/validation/SafeWrite.lua")
+    local originalExecute = os.execute
+    local failedUnlink = 0
+    local writer = { WriteFile = function(path, contents, opts)
+        os.execute = function(command)
+            if command:sub(1, 9) == "rm -f -- " and command:find(".nq-write.", 1, true) then
+                failedUnlink = failedUnlink + 1
+                return 17
+            end
+            return originalExecute(command)
+        end
+        local succeeded, wOk, reason, state = pcall(realWriter.WriteFile, path, contents, opts)
+        os.execute = originalExecute
+        if not succeeded then error(wOk) end
+        return wOk, reason, state
+    end }
+    local publishedOk, publishedErrors = X.Export(args(postFile), { writer = writer })
+    ok(failedUnlink == 1, "writer temp-unlink failure: only active temp removal deliberately failed")
+    ok(publishedOk == false and publishedErrors and publishedErrors[1] == X.POST_PUBLICATION_FAILED,
+       "writer temp-unlink failure: ExportV2 returns fixed post-publication error")
+    ok(publishedErrors and has(publishedErrors, "needs human review")
+        and has(publishedErrors, "temp cleanup failed")
+        and has(publishedErrors, "left for review: " .. postFile),
+       "writer temp-unlink failure: human review and unlink cause retained")
+    ok(readAll(postFile) == t1 and cap("stat -c %a -- " .. q(postFile)) == "600"
+        and cap("stat -c %h -- " .. q(postFile)) == "2"
+        and listDir(PP):find(".nq-write.", 1, true) ~= nil,
+       "writer temp-unlink failure: 0600 final remains with its private hard-link temp")
+end
 ok(X.POST_PUBLICATION_FAILED == "v2 export: POST-PUBLICATION VERIFICATION FAILED: the output file was published but did not verify on read-back; it has been left in place and needs human review before any use",
     "post-publication message is fixed text")
 local fake3 = { WriteFile = function() return false, "disk full" end }
