@@ -1,3 +1,19 @@
+# N-Questie — Naxxramas Questie Fork
+
+**Status:** WoW 3.3.5a custom-server fork in development; **no N-Questie release is published yet**.
+
+This repository preserves upstream Questie-335 history and credits from [divial28/Questie-335](https://github.com/divial28/Questie-335). The installed addon folder and TOC remain `Questie-335` for compatibility, even though its in-game display title is **N-Questie** on our development branch. Never install two copies of Questie together.
+
+The first **unmerged** prototype adds a server-specific custom quest (Ravenclaw Cleanup, quest 2001) through an isolated, reviewable correction layer and automatically invalidates Questie's compiled database when its curated data revision changes. It has **not yet been confirmed in WoW**, and should not be treated as a finished release. No live SQL or server progression change is required.
+
+Before any QA install, back up the existing `Interface/AddOns/Questie-335/` folder and the relevant account and character Questie SavedVariables. Do not publish or commit full world database exports.
+
+**Project references:** [Handover](docs/PROJECT-HANDOVER.md) · [Roadmap](docs/ROADMAP.md) · [Private export workflow](docs/IMPORT-GUIDE.md) · [First quest test](docs/QUEST-2001-SMOKE-TEST.md)
+
+---
+
+## Inherited Questie-335 README
+
 # Questie-335
 A fork of the WoW Classic Questie addon aiming to provide compatibility with Wrath of the Lich King client version 3.3.5a (12340).
 # Installation
