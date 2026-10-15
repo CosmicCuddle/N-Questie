@@ -181,7 +181,11 @@ function M.WriteFile(path, content, opts)
     local fst = statInfo(final)
     if resolve(final) ~= final or not fst or fst.kind ~= "regular file" or fst.uid ~= dest.uid
        or fst.mode ~= tonumber("600", 8) or readAll(final) ~= content then
-        return false, "post-install check failed for " .. final .. " (file left in place for inspection)"
+        -- Publication already occurred. Supply structured status without changing
+        -- the existing two-return-value contract for older callers. The v2
+        -- exporter must distinguish this from a refusal before publication.
+        return false, "post-install check failed for " .. final .. " (file left in place for inspection)",
+            { published = true, final = final }
     end
     return true, final
 end

@@ -221,6 +221,34 @@ for _, case in ipairs({ { "appended byte", function(c) return c .. " " end, "dif
         "post-publication (" .. case[1] .. "): path and cause reported")
     ok(listDir(P) == "v2.lua" and readAll(P .. "/v2.lua") == changed, "post-publication (" .. case[1] .. "): published file preserved, no temp")
 end
+-- The real SafeWrite can also fail AFTER linking its output, during its own
+-- post-install path/metadata/content check. The exporter must not describe that
+-- as a pre-publication refusal. No file may be silently removed or used.
+do
+    local PP = tmpdir()
+    local postFile = PP .. "/v2.lua"
+    local realWriter = dofile("tools/validation/SafeWrite.lua")
+    local savedResolver = realWriter.Input.resolver
+    local ready = false
+    realWriter.Input.resolver = function(path)
+        if ready and path == postFile then return nil end
+        return savedResolver(path)
+    end
+    local publishedOk, publishedErrors = X.Export(args(postFile), {
+        writer = realWriter,
+        writeOpts = { hooks = { beforeInstall = function() ready = true end } },
+    })
+    realWriter.Input.resolver = savedResolver
+    ok(publishedOk == false, "writer post-install failure: hard failure")
+    ok(publishedErrors and publishedErrors[1] == X.POST_PUBLICATION_FAILED,
+        "writer post-install failure: fixed post-publication message first")
+    ok(publishedErrors and has(publishedErrors, "needs human review")
+        and has(publishedErrors, "writer post-install verification")
+        and has(publishedErrors, "left for review: " .. postFile),
+        "writer post-install failure: review instruction and cause retained")
+    ok(listDir(PP) == "v2.lua" and readAll(postFile) ~= nil,
+        "writer post-install failure: published file preserved without temp")
+end
 ok(X.POST_PUBLICATION_FAILED == "v2 export: POST-PUBLICATION VERIFICATION FAILED: the output file was published but did not verify on read-back; it has been left in place and needs human review before any use",
     "post-publication message is fixed text")
 local fake3 = { WriteFile = function() return false, "disk full" end }
