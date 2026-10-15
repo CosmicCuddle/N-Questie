@@ -28,7 +28,7 @@ refuse() { # name expected-text env...
     env "$@" "$LUA" cli/validate-335.lua >"$T/log" 2>&1; local c=$?
     if [ $c -ne 0 ] && strip <"$T/log" | grep -qF -- "$want" && ! strip <"$T/log" | grep -q "PASS: 232"; then
         ok "refused before M0: $name"; else bad "refused before M0: $name (exit $c)"; strip <"$T/log" | grep -v Updating | tail -3; fi
-    [ -z "$(find "$T/g" -mindepth 1 -not -name keep -not -name link -not -name dlink -not -path "$T/g/sub*" -not -path "$T/g/real*" -print -quit)" ] \
+    [ -z "$(find "$T/g" -mindepth 1 -not -name keep -not -name link -not -name dlink -not -name repolink -not -path "$T/g/sub*" -not -path "$T/g/real*" -print -quit)" ] \
         || bad "file appeared after refusal: $name"
 }
 OUT="$T/g/v2.lua"
