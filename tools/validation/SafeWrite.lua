@@ -35,11 +35,22 @@ local function run(cmd)
 end
 
 local function capture(cmd)
-    local h = io.popen(cmd .. " 2>/dev/null")
-    if not h then return nil end
+    -- Lua 5.1 io.popen():close() can succeed even if the child command exits
+    -- nonzero. Never treat stat/id/mktemp stdout as successful unless the
+    -- original command itself returned status 0. In particular, a failed
+    -- mktemp that prints a plausible name must not become io.open(...,"wb").
+    -- A marker emitted by the parent shell AFTER the child has exited is
+    -- anchored at the end, so an earlier stdout line cannot forge success.
+    local shell = "( " .. cmd .. " ) 2>/dev/null; " ..
+        "nq_safe_status=$?; printf '\\nNQ_SAFEWRITE_EXIT:%s\\n' \"$nq_safe_status\""
+    local ok, h = pcall(io.popen, shell)
+    if not ok or not h then return nil end
     local out = h:read("*a")
     h:close()
-    return out and out:match("^(.-)\n?$")
+    if type(out) ~= "string" then return nil end
+    local data, status = out:match("^(.*)\nNQ_SAFEWRITE_EXIT:(%d+)\n$")
+    if status ~= "0" then return nil end
+    return data and data:match("^(.-)\n?$")
 end
 
 local function resolve(path)
