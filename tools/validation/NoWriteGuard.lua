@@ -1,8 +1,9 @@
 -- N-Questie M2 Stage A1: in-process guard that detects any attempt to write
 -- or touch the filesystem or start a process while a read-only mode runs.
 --
--- Install() wraps io.open (write/append/update modes), io.output with an
--- argument, io.lines/io.input are left alone (read-only), os.rename,
+-- Install() wraps io.open (write/append/update modes), io.tmpfile (creates
+-- a writable temporary file), io.output with an argument; io.lines/io.input
+-- are left alone (read-only). It also wraps os.rename,
 -- os.remove, os.tmpname, os.execute and io.popen (a shell can write
 -- anything, so ANY call counts). The wrapped call is BLOCKED (it raises an
 -- error) and counted. Remove() restores the originals and returns the count
@@ -15,6 +16,7 @@ function M.Install(env)
     env = env or { io = io, os = os }
     local saved = {
         open = env.io.open, output = env.io.output, popen = env.io.popen,
+        tmpfile = env.io.tmpfile,
         rename = env.os.rename, remove = env.os.remove, tmpname = env.os.tmpname, execute = env.os.execute,
     }
     local state = { count = 0, kinds = {}, env = env, saved = saved }
@@ -33,6 +35,7 @@ function M.Install(env)
         return saved.output()
     end
     env.io.popen = function() block("io.popen") end
+    env.io.tmpfile = function() block("io.tmpfile") end
     env.os.rename = function() block("os.rename") end
     env.os.remove = function() block("os.remove") end
     env.os.tmpname = function() block("os.tmpname") end
@@ -42,7 +45,7 @@ end
 
 function M.Remove(state)
     local env, s = state.env, state.saved
-    env.io.open, env.io.output, env.io.popen = s.open, s.output, s.popen
+    env.io.open, env.io.output, env.io.popen, env.io.tmpfile = s.open, s.output, s.popen, s.tmpfile
     env.os.rename, env.os.remove, env.os.tmpname, env.os.execute = s.rename, s.remove, s.tmpname, s.execute
     return state.count, state.kinds
 end

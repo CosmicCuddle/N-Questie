@@ -42,6 +42,33 @@ P._capture = function() return "", 128 end
 p, e = P.Collect(root, MODS, facts()); check(not p and has(e, "not a git checkout"), "git unavailable refused")
 P._capture = function(cmd) if cmd:find("sha256sum") then return "", 1 end return withStatus("")(cmd) end
 p, e = P.Collect(root, MODS, facts()); check(not p and has(e, "cannot hash"), "hash failure refused")
+
+-- Valid-looking stdout does not override the actual nonzero subprocess exit.
+-- Lua 5.1 pclose success alone is insufficient; _capture already records rc.
+P._capture = function(cmd)
+    if cmd:find("realpath %-e") then return root, 17 end
+    return withStatus("")(cmd)
+end
+p, e = P.Collect(root, MODS, facts())
+check(not p and has(e, "cannot verify that the harness root"), "realpath stdout with exit 17 refused")
+
+P._capture = function(cmd)
+    local stdout, rc = withStatus("")(cmd)
+    if cmd:find("sha256sum %-%-") then return stdout, 17 end
+    return stdout, rc
+end
+p, e = P.Collect(root, MODS, facts())
+check(not p and has(e, "cannot hash"), "valid-looking module sha256sum stdout with exit 17 refused")
+
+P._capture = function(cmd)
+    local stdout, rc = withStatus("")(cmd)
+    if cmd:find("| sha256sum", 1, true) then return stdout, 17 end
+    return stdout, rc
+end
+p, e = P.Collect(root, MODS, facts())
+check(not p and has(e, "cannot compute correction fingerprint"),
+    "valid-looking correction fingerprint stdout with exit 17 refused")
+
 P._capture = withStatus("")
 for _, c in ipairs({
     { "missing revision", { revision = false }, "revision not loaded" },
