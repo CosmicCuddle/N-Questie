@@ -15,7 +15,7 @@ The command `cli/check-private-1203.lua` is a deliberately narrow **read-only** 
 
 It does **not** execute the supplied Lua data, connect to MySQL/AzerothCore or write files. It never prints paths, source fingerprints, private row values or labels. Exit status 0 means this **limited input-format and objective-shape gate** passed; nonzero means stop and investigate privately.
 
-**Not verified by PASS:** whether the source archive is authentic, the archive SHA-256 matches `sourceFingerprint`, the snapshot matches today's running world DB, KillCredit/conditions/script/IP evidence is complete, client quest text or in-game availability, or an M2.3 comparison. Never call this a `CONFIRMED_MATCH`.
+**What PASS does not prove:** Without `--archive`, the source SHA-256 has **not** been checked. With `--archive`, a separate PASS means only that the *operator-supplied offline file's bytes* hash to the value declared in the selected Lua document. It does **not** authenticate which archive the exporter actually read or whether the snapshot matches today's running world DB. Neither mode verifies KillCredit/conditions/script/IP completeness, client quest text, in-game availability or an M2.3 comparison. Never call this a `CONFIRMED_MATCH`.
 
 ## Safe usage from MobaXterm (connected to a trusted Linux development checkout)
 
@@ -29,6 +29,7 @@ git status --porcelain --untracked-files=all
 git rev-parse HEAD
 command -v lua5.1
 command -v realpath
+command -v sha256sum
 ```
 
 4. Run the *read-only* selected-quest check, replacing the placeholder **only locally**:
@@ -60,6 +61,6 @@ No backup of a running installation is needed for **this read-only command**, be
 
 ## Public CI coverage
 
-The test fixture `tests/fixtures/m2_input/quest1203_single_synthetic.lua` and the checksum test archive's bytes are **invented/public**, not server data or a real ZIP export. `tests/test_nquestie_private_1203_gate.sh` checks the synthetic positive case, wrong quest/item/count/extra-target cases, schema and provenance rejection, rejected executable Lua, safe absolute paths and privacy-minimised output. It is wired to `tests/run_m2_suite.sh` and `tools/validation/M21Private1203Gate.test.lua`.
+The test fixture `tests/fixtures/m2_input/quest1203_single_synthetic.lua` and the checksum test archive's bytes are **invented/public**, not server data or a real ZIP export. The synthetic suite also explicitly rejects plausible SHA-256 output from a subprocess that exited unsuccessfully; this was caught and repaired under Lua 5.1 before the integration. `tests/test_nquestie_private_1203_gate.sh` checks the synthetic positive case, wrong quest/item/count/extra-target cases, schema and provenance rejection, rejected executable Lua, safe absolute paths and privacy-minimised output. It is wired to `tests/run_m2_suite.sh` and `tools/validation/M21Private1203Gate.test.lua`.
 
 The minimal inherited Busted container lacks Bash/GNU tools, so its wrapper reports `pending` there; the full Bash-capable M2 framework CI **must run and pass** the test. No CI result can validate the private server input.

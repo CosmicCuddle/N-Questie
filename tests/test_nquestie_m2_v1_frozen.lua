@@ -22,23 +22,58 @@ local f = assert(io.open("tests/fixtures/m2_v2_builder/v1_golden.txt", "rb"))
 local golden = f:read("*a"); f:close()
 local now = render()
 if now ~= golden then print("FAIL: v1 exporter output differs from the base-commit golden file"); os.exit(1) end
--- Stage A2: the frozen v1 sources and the shared v1-era helpers are
--- byte-identical to integration base 780e89cbe (sha256 of the blobs there).
-local PINS = {
+-- Current Stage A2 compatibility candidate: use only the frozen base, not
+-- a moving Grok development branch. This ensures these pins are tested
+-- together on the same exact candidate tree, without future in-flight edits.
+-- The v1 exporter, schema and Coverage implementation remain BYTE-IDENTICAL
+-- to the six-green integration baseline. Their original SHA-256 pins NEVER
+-- change to accommodate the independent safety fixes in this test-only stack.
+--
+-- Shared InputSchema, SafeWrite and ExportProvenance are intentionally hardened
+-- by PRs #52/#53/#54. Requiring their original hashes would contradict the
+-- explicitly scoped safety fixes; pin the exact REVIEWED replacement Git blob
+-- objects separately, without pretending those helpers were left untouched.
+local FROZEN_V1_SHA256 = {
     ["tools/validation/EffectiveExport.lua"] = "849ddb20648d545990f404fb2c6caa61c06274b9d66c804eb2008413ac01c489",
     ["tools/validation/EffectiveSchema.lua"] = "bcac0e53d9b0286dfe89714b67bf186143333dac3c7235a28dab5717ccb06696",
-    ["tools/validation/InputSchema.lua"] = "ae7eab552152f9de58309cf5b8677e52141b172c08a56db2128c66c1fd822ce4",
-    ["tools/validation/SafeWrite.lua"] = "7e9630ebccc132e4dec8e03c15b7c0929bbc1629667da47c7ea8cd7f4783be0e",
-    ["tools/validation/ExportProvenance.lua"] = "79c1209a3fc4bafd0a029853ee87a55de298eedb508b48e2736bc75c1dd6a0ba",
     ["tools/validation/Coverage.lua"] = "6010f6b37c9f74b97ee19c08144feab1cb99b3dae3d1d7091ca9673de2c6d7c3",
 }
-local names = {}
-for k in pairs(PINS) do names[#names + 1] = k end
-table.sort(names)
-for _, file in ipairs(names) do
-    local h = io.popen("sha256sum -- '" .. file .. "' 2>/dev/null")
-    local got = h and h:read("*a"):match("^(%x+)") or nil
-    if h then h:close() end
-    if got ~= PINS[file] then print("FAIL: " .. file .. " differs from the frozen base (sha256)"); os.exit(1) end
+local APPROVED_SHARED_BLOBS = {
+    -- Exact Git blob identities of independently reviewed shared helpers.
+    -- SafeWrite additionally carries this draft-only publication-status change.
+    ["tools/validation/InputSchema.lua"] = "af1a212fa68f0a6c073e27faa6b56ee3ff3db9ee", -- #52
+    ["tools/validation/SafeWrite.lua"] = "49fce2d4f60b378d3047771ae247d7a512670fe6", -- #53 plus isolated post-publication status review
+    ["tools/validation/ExportProvenance.lua"] = "71ba299cc06b6c9083b952fcb36beb65a0f779f5", -- #54
+}
+local function sortedKeys(t)
+    local names = {}
+    for k in pairs(t) do names[#names + 1] = k end
+    table.sort(names)
+    return names
 end
-print("PASS: frozen v1 exporter byte-identical to the base-commit golden (" .. #golden .. " bytes); " .. #names .. " v1 sources pinned")
+local function capturedHash(cmd)
+    local h = io.popen(cmd .. " 2>/dev/null")
+    if not h then return nil end
+    local out = h:read("*a")
+    h:close()
+    -- sha256sum appends the filename; git hash-object prints just a digest.
+    -- Both tools print the digest first, separated by whitespace.
+    return out and out:match("^(%x+)%s")
+end
+for _, file in ipairs(sortedKeys(FROZEN_V1_SHA256)) do
+    local got = capturedHash("sha256sum -- '" .. file .. "'")
+    if got ~= FROZEN_V1_SHA256[file] then
+        print("FAIL: frozen v1 module changed from the original baseline: " .. file)
+        os.exit(1)
+    end
+end
+for _, file in ipairs(sortedKeys(APPROVED_SHARED_BLOBS)) do
+    local got = capturedHash("git hash-object -- '" .. file .. "'")
+    if got ~= APPROVED_SHARED_BLOBS[file] then
+        print("FAIL: hardened shared helper differs from its independently tested blob: " .. file)
+        os.exit(1)
+    end
+end
+print("PASS: frozen v1 golden (" .. #golden .. " bytes), " ..
+    #sortedKeys(FROZEN_V1_SHA256) .. " original-module pins and " ..
+    #sortedKeys(APPROVED_SHARED_BLOBS) .. " separately approved safety-helper blob pins")

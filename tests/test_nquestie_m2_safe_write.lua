@@ -79,6 +79,141 @@ local okRun, err = pcall(function()
     local leftovers = tonumber(line("ls -A " .. q(out) .. " | grep -c '^.nq-write' || true"))
     if leftovers == 0 then pass("no temp files left after simulated failures") else fail(leftovers .. " temp files left") end
 
+    -- Publish a file, then force the real writer's own *post-install*
+    -- path recheck to fail. It must preserve the file and explicitly report
+    -- publication, not return the same shape as pre-install failures.
+    local postFinal = out .. "/writer-post-install.lua"
+    local savedResolve = Input.resolver
+    local afterPreInstall = false
+    Input.resolver = function(path)
+        if afterPreInstall and path == postFinal then return nil end
+        return savedResolve(path)
+    end
+    local postOk, postReason, postState = W.WriteFile(postFinal, "PUBLISHED", {
+        repoRoot = root, hooks = { beforeInstall = function() afterPreInstall = true end },
+    })
+    Input.resolver = savedResolve
+    if postOk == false and tostring(postReason):find("post-install check failed", 1, true)
+       and type(postState) == "table" and postState.published == true
+       and postState.final == postFinal and read(postFinal) == "PUBLISHED" then
+        pass("post-install verification failure explicitly reports published file")
+    else
+        fail("post-install verification failure lost publication status or file")
+    end
+
+    -- A mock mktemp emits a believable already-existing filename, but exits
+    -- 17. Old Lua 5.1 io.popen():close() code trusted stdout, opened that file
+    -- with "wb" and silently destroyed its previous bytes. Reject before ANY
+    -- attempted file open, and prove both sentinel and final remain untouched.
+    local failbin = base .. "/fake-mktemp-bin"
+    assert(sh("mkdir -m 700 " .. q(failbin)))
+    local sentinel = out .. "/.nq-write.DO_NOT_OVERWRITE"
+    local sf = assert(io.open(sentinel, "wb"))
+    sf:write("SENTINEL_CONTENTS_UNCHANGED\n"); sf:close()
+    assert(sh("chmod 600 " .. q(sentinel)))
+    local fake = assert(io.open(failbin .. "/mktemp", "wb"))
+    fake:write("#!/bin/sh\n" ..
+        ": > \"$NQ_TEST_MKTEMP_MARKER\"\n" ..
+        "printf '%s\\n' \"$NQ_TEST_MKTEMP_SENTINEL\"\n" ..
+        "exit 17\n")
+    fake:close()
+    assert(sh("chmod 700 " .. q(failbin .. "/mktemp")))
+
+    local realLua = line("command -v lua5.1")
+    assert(realLua and realLua:sub(1, 1) == "/")
+    local probe = base .. "/check-safe-capture.lua"
+    local pf = assert(io.open(probe, "wb"))
+    pf:write("local W = dofile('tools/validation/SafeWrite.lua')\n" ..
+        "local yes, why = W.WriteFile(arg[1], 'NEW_PRIVATE_CONTENTS', {repoRoot=arg[2]})\n" ..
+        "if yes then os.exit(11) end\n" ..
+        "if not tostring(why):find(arg[3], 1, true) then os.exit(12) end\n" ..
+        "os.exit(0)\n")
+    pf:close()
+    local mark = base .. "/failed-mktemp-was-invoked"
+    local final = out .. "/should-not-be-created.lua"
+    local command = "PATH=" .. q(failbin .. ":" .. (os.getenv("PATH") or "")) ..
+        " NQ_TEST_MKTEMP_SENTINEL=" .. q(sentinel) ..
+        " NQ_TEST_MKTEMP_MARKER=" .. q(mark) ..
+        " " .. q(realLua) .. " " .. q(probe) .. " " .. q(final) .. " " .. q(root) ..
+        " " .. q("cannot create a temporary file") .. " >/dev/null 2>&1"
+    if sh(command) and sh("test -f " .. q(mark)) and read(sentinel) == "SENTINEL_CONTENTS_UNCHANGED\n"
+        and not read(final) then
+        pass("failed mktemp plausible stdout cannot overwrite a preexisting private sentinel")
+    else
+        fail("failed mktemp stdout was trusted or a preexisting private file was altered")
+    end
+
+    -- A mock stat prints the real directory ownership/mode, then exits 17.
+    -- Even a plausible trusted-looking stat line must not authorise a write.
+    local failStatBin = base .. "/fake-stat-bin"
+    assert(sh("mkdir -m 700 " .. q(failStatBin)))
+    local realStat = line("command -v stat")
+    assert(realStat and realStat:sub(1, 1) == "/")
+    local st = assert(io.open(failStatBin .. "/stat", "wb"))
+    st:write("#!/bin/sh\n" ..
+        "if [ \"$4\" = \"$NQ_TEST_STAT_TARGET\" ]; then\n" ..
+        "  : > \"$NQ_TEST_STAT_MARKER\"\n" ..
+        "  \"$NQ_REAL_STAT\" \"$@\"\n" ..
+        "  exit 17\n" ..
+        "fi\n" ..
+        "exec \"$NQ_REAL_STAT\" \"$@\"\n")
+    st:close()
+    assert(sh("chmod 700 " .. q(failStatBin .. "/stat")))
+    local statMark = base .. "/failed-stat-was-invoked"
+    local statDest = out .. "/should-not-stat-write.lua"
+    command = "PATH=" .. q(failStatBin .. ":" .. (os.getenv("PATH") or "")) ..
+        " NQ_TEST_STAT_TARGET=" .. q(out) ..
+        " NQ_TEST_STAT_MARKER=" .. q(statMark) ..
+        " NQ_REAL_STAT=" .. q(realStat) ..
+        " " .. q(realLua) .. " " .. q(probe) .. " " .. q(statDest) .. " " .. q(root) ..
+        " " .. q("cannot stat output directory") .. " >/dev/null 2>&1"
+    if sh(command) and sh("test -f " .. q(statMark)) and not read(statDest) then
+        pass("failed stat with plausible metadata cannot authorise a private output")
+    else
+        fail("failed stat stdout was trusted or write survived failed destination check")
+    end
+
+
+    -- A hard link has already published the output when SafeWrite removes
+    -- the temporary name. Simulate failed rm ONLY for the temporary link:
+    -- the writer must report publication+failure, preserve the output, and
+    -- must not falsely claim that the temporary hard link was removed.
+    local rmOut = base .. "/failed-rm-out"
+    local rmBin = base .. "/fake-rm-bin"
+    assert(sh("mkdir -m 700 " .. q(rmOut) .. " " .. q(rmBin)))
+    local realRm = line("command -v rm")
+    assert(realRm and realRm:sub(1, 1) == "/")
+    local fakeRm = assert(io.open(rmBin .. "/rm", "wb"))
+    fakeRm:write("#!/bin/sh\n" ..
+        "case \"$*\" in\n" ..
+        "  *'.nq-write.'*) : > \"$NQ_TEST_RM_MARK\"; exit 17 ;;\n" ..
+        "esac\n" ..
+        "exec \"$NQ_TEST_RM_REAL\" \"$@\"\n")
+    fakeRm:close()
+    assert(sh("chmod 700 " .. q(rmBin .. "/rm")))
+    local rmProbe = base .. "/check-failed-temp-cleanup.lua"
+    local rpf = assert(io.open(rmProbe, "wb"))
+    rpf:write("local W=dofile('tools/validation/SafeWrite.lua')\n" ..
+        "local ok,msg,state=W.WriteFile(arg[1], 'SYNTHETIC_PUBLISHED', {repoRoot=arg[2]})\n" ..
+        "if ok or not tostring(msg):find('temp cleanup failed',1,true) then os.exit(17) end\n" ..
+        "if type(state)~='table' or state.published~=true or state.final~=arg[1] then os.exit(18) end\n" ..
+        "os.exit(0)\n")
+    rpf:close()
+    local rmMark = base .. "/fake-rm-invoked"
+    local rmFinal = rmOut .. "/v2.lua"
+    local rmCommand = "PATH=" .. q(rmBin .. ":" .. (os.getenv("PATH") or "")) ..
+        " NQ_TEST_RM_REAL=" .. q(realRm) ..
+        " NQ_TEST_RM_MARK=" .. q(rmMark) ..
+        " " .. q(realLua) .. " " .. q(rmProbe) .. " " .. q(rmFinal) .. " " .. q(root) ..
+        " >/dev/null 2>&1"
+    if sh(rmCommand) and sh("test -f " .. q(rmMark))
+        and read(rmFinal) == "SYNTHETIC_PUBLISHED" and count(rmOut) == 2
+        and line("stat -c %a " .. q(rmFinal)) == "600" then
+        pass("failed temp unlink after no-clobber publication is a reported post-publication failure")
+    else
+        fail("failed temporary hard-link cleanup was ignored or published output was lost")
+    end
+
     -- resolver failure
     local saved = Input.resolver
     Input.resolver = function() return nil end

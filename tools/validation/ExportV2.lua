@@ -138,8 +138,21 @@ function M.Export(args, testHooks)
     local wopts = { repoRoot = args.repoRoot }
     for k, v in pairs(testHooks.writeOpts or {}) do wopts[k] = v end
     wopts.force = nil -- v2 never replaces a file
-    local wok, final = Writer.WriteFile(args.out, text, wopts)
-    if not wok then return false, { "v2 export: " .. tostring(final) } end
+    local wok, final, writerState = Writer.WriteFile(args.out, text, wopts)
+    if not wok then
+        -- SafeWrite can publish successfully and then fail its own post-install
+        -- validation. A generic pre-publication refusal would mislead the
+        -- operator into assuming that no output is left behind. Preserve the
+        -- already-published file for human review, with a fixed first line.
+        if type(writerState) == "table" and writerState.published == true then
+            return false, {
+                M.POST_PUBLICATION_FAILED,
+                "v2 export: published file left for review: " .. tostring(writerState.final),
+                "v2 export: writer post-install verification: " .. tostring(final),
+            }
+        end
+        return false, { "v2 export: " .. tostring(final) }
+    end
 
     -- Past this point the file is published. A verification failure is a hard
     -- failure; the file is left in place (never deleted) for human review.
