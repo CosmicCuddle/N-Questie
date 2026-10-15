@@ -32,10 +32,16 @@ for folder in ROOTS:
             sys.exit("FAIL: symlink in runtime folder " + str(p))
         if p.is_file():
             name = p.as_posix()
+            # These offline CSV/map-extraction helpers are not client assets.
+            # They are excluded by the repository's source-archive rules too.
+            if name.startswith("Compat/ExtractMapData/"):
+                continue
             if not name.endswith(".test.lua") and not name.endswith(".pyc") and "/__pycache__/" not in name:
                 source[name] = p
 if len(source) < 400 or "Compat/NQuestieExistingQuestCorrections.lua" not in source:
     sys.exit("FAIL: incomplete addon runtime source")
+if any(name.startswith("Compat/ExtractMapData/") for name in source):
+    sys.exit("FAIL: development-only map extraction files in QA package")
 toc = source["Questie-335.toc"].read_text(encoding="utf-8-sig")
 if "## Interface: 30300" not in toc or "## Title: N-Questie" not in toc:
     sys.exit("FAIL: wrong game client or addon TOC")
