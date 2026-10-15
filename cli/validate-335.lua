@@ -582,7 +582,7 @@ local function roundTripOptions()
     if v ~= "1" then errs[#errs + 1] = "v2 round trip: NQ_V2_ROUNDTRIP must be 1" end
     for _, name in ipairs({ "NQ_EXPORT_EFFECTIVE_OUT", "NQ_EXPORT_QUESTS", "NQ_EXPORT_SELECTION", "NQ_EXPORT_FORCE",
         "NQ_COVERAGE_MANIFEST_OUT", "NQ_COVERAGE_AGGREGATE_OUT", "NQ_EXPORT_SCHEMA_VERSION", "NQ_EXPORT_V2_OUT",
-        "NQ_VALIDATE_FIXTURE" }) do
+        "NQ_V2_VERIFY_IN", "NQ_VALIDATE_FIXTURE" }) do
         local x = os.getenv(name)
         if x and x ~= "" then errs[#errs + 1] = "v2 round trip: not allowed together with " .. name .. " (read-only mode, one mode per run)" end
     end
@@ -685,7 +685,7 @@ local function v2ExportOptions()
     if not hasOut then errs[#errs + 1] = "v2 export: NQ_EXPORT_SCHEMA_VERSION given without NQ_EXPORT_V2_OUT" end
     if hasSv and sv ~= "2" then errs[#errs + 1] = "v2 export: NQ_EXPORT_SCHEMA_VERSION must be 2 (v1 uses its own variables)" end
     for _, name in ipairs({ "NQ_EXPORT_EFFECTIVE_OUT", "NQ_EXPORT_QUESTS", "NQ_EXPORT_SELECTION", "NQ_EXPORT_FORCE",
-        "NQ_COVERAGE_MANIFEST_OUT", "NQ_COVERAGE_AGGREGATE_OUT", "NQ_V2_ROUNDTRIP", "NQ_VALIDATE_FIXTURE" }) do
+        "NQ_COVERAGE_MANIFEST_OUT", "NQ_COVERAGE_AGGREGATE_OUT", "NQ_V2_ROUNDTRIP", "NQ_V2_VERIFY_IN", "NQ_VALIDATE_FIXTURE" }) do
         local x = os.getenv(name)
         if x and x ~= "" then errs[#errs + 1] = "v2 export: not allowed together with " .. name .. " (one mode per run; v2 never replaces a file)" end
     end
@@ -763,13 +763,79 @@ local function runExportV2(opts, QuestieDB, Q, levelCount)
     })
     if not ok then return false, info end
     local a = info.aggregate
-    io.write(dofile("tools/validation/RoundTripV2.lua").FormatAggregate(a))
+    io.write(dofile("tools/validation/RoundTripV2.lua").FormatAggregate(a, "N-QUESTIE V2 EXPORT (checked on the parsed output text; counts only)"))
     io.write(string.format("%-44s %d\n", "compiled quest IDs", #ids))
     io.write(string.format("%-44s %d\n", "quests exported", a.processed))
     io.write(string.format("%-44s %d\n", "output bytes", info.bytes))
     io.write(string.format("%-44s %.2f\n", "cpu seconds (build, check, write)", os.clock() - c0))
     io.write(string.format("%-44s %.1f\n", "lua heap growth (MiB, no GC forced)", (collectgarbage("count") - mem0) / 1024))
     return true, info.final
+end
+
+-- Stage A2: opt-in READ-ONLY verification of a written v2 file
+-- (NQ_V2_VERIFY_IN=<absolute path>). After M0 it parses and validates the
+-- file and rebuilds every record against the freshly compiled database
+-- (spec F1-F5 on the file itself). Never writes; the check runs under
+-- NoWriteGuard. Refused with any other mode's variable.
+local function v2VerifyOptions()
+    local p = os.getenv("NQ_V2_VERIFY_IN")
+    if p == nil or p == "" then return false end
+    local errs = {}
+    for _, name in ipairs({ "NQ_EXPORT_EFFECTIVE_OUT", "NQ_EXPORT_QUESTS", "NQ_EXPORT_SELECTION", "NQ_EXPORT_FORCE",
+        "NQ_COVERAGE_MANIFEST_OUT", "NQ_COVERAGE_AGGREGATE_OUT", "NQ_V2_ROUNDTRIP", "NQ_EXPORT_SCHEMA_VERSION",
+        "NQ_EXPORT_V2_OUT", "NQ_VALIDATE_FIXTURE" }) do
+        local x = os.getenv(name)
+        if x and x ~= "" then errs[#errs + 1] = "v2 verify: not allowed together with " .. name .. " (read-only mode, one mode per run)" end
+    end
+    if os.getenv("NQ_VALIDATE_SKIP_COMPILE") == "1" then errs[#errs + 1] = "v2 verify: needs the compiled database (unset NQ_VALIDATE_SKIP_COMPILE)" end
+    if not tonumber(os.getenv("NQ_VALIDATE_EXPECT_LEVEL_COUNT") or "") then errs[#errs + 1] = "v2 verify: NQ_VALIDATE_EXPECT_LEVEL_COUNT must be set" end
+    local root = io.popen("pwd -P"):read("*l")
+    local Input = dofile("tools/validation/InputSchema.lua")
+    local okp, resolved = Input.CheckInputPath(p, root)
+    if not okp then errs[#errs + 1] = "v2 verify: " .. resolved end
+    local commit = io.popen("git -C '" .. root:gsub("'", "'\\''") .. "' rev-parse --verify HEAD 2>/dev/null"):read("*l")
+    local tree = io.popen("git -C '" .. root:gsub("'", "'\\''") .. "' rev-parse --verify 'HEAD^{tree}' 2>/dev/null"):read("*l")
+    if not (commit and tree) then errs[#errs + 1] = "v2 verify: cannot read the checkout commit/tree" end
+    if #errs > 0 then return nil, errs end
+    return { path = resolved, root = root, commit = commit, tree = tree }
+end
+
+local function runVerifyV2(opts, QuestieDB, Q, levelCount)
+    local ExportV2 = dofile("tools/validation/ExportV2.lua")
+    local RT = dofile("tools/validation/RoundTripV2.lua")
+    local Guard = dofile("tools/validation/NoWriteGuard.lua")
+    local Input = dofile("tools/validation/InputSchema.lua")
+    local f = io.open(opts.path, "rb")
+    if not f then return false, { "v2 verify: cannot open input" } end
+    local text = f:read(Input.MAX_BYTES + 1)
+    f:close()
+    local ids = {}
+    for id in pairs(QuestieDB.QuestPointers) do ids[#ids + 1] = id end
+    table.sort(ids)
+    local ctx, cerr = exportContext()
+    if not ctx then return false, { cerr } end
+    local guard = Guard.Install()
+    local okRun, doc, a, errs = pcall(function()
+        local d, perr = ExportV2.ParseAndValidate(text, { expectCorrectionCount = levelCount })
+        if not d then return nil, nil, perr end
+        local agg, rerr = ExportV2.CheckParsed(d, Q, ids, ctx)
+        return d, agg, rerr
+    end)
+    local blocked = Guard.Remove(guard)
+    if not okRun then return false, { "v2 verify: error: " .. tostring(doc) } end
+    if blocked > 0 then return false, { "v2 verify: " .. blocked .. " write/process attempt(s) blocked" } end
+    if not doc then return false, errs end
+    if not a then return false, errs end
+    local p = doc.provenance
+    local same = p.sourceCommit == opts.commit and p.sourceTree == opts.tree and p.sourceDirty == false
+    io.write(RT.FormatAggregate(a, "N-QUESTIE V2 VERIFY (written file re-read and rebuilt; nothing written; counts only)"))
+    io.write(string.format("%-44s %d\n", "compiled quest IDs", #ids))
+    io.write(string.format("%-44s %d\n", "quests in file", #doc.quests))
+    io.write(string.format("%-44s %s\n", "file provenance matches this checkout", same and "yes" or "NO"))
+    io.write(string.format("%-44s %s\n", "file harnessVersion", tostring(p.harnessVersion)))
+    io.write(string.format("%-44s %d\n", "write/process attempts blocked", blocked))
+    if not same then return false, { "v2 verify: the file was not exported from this clean commit/tree" } end
+    return true
 end
 
 -- Runs after every M0 check passed. Returns true or false, errors.
@@ -839,6 +905,12 @@ local function run()
     if v2Opts == nil then
         for _, e in ipairs(v2Err) do print("\27[31m" .. e .. "\27[0m") end
         print("\27[31m[validate-335] v2 export refused before validation; nothing written\27[0m")
+        os.exit(1)
+    end
+    local verifyOpts, verifyErr = v2VerifyOptions()
+    if verifyOpts == nil then
+        for _, e in ipairs(verifyErr) do print("\27[31m" .. e .. "\27[0m") end
+        print("\27[31m[validate-335] v2 verify refused before validation; nothing run\27[0m")
         os.exit(1)
     end
     local exportOpts, exportErr = exportOptions()
@@ -1169,6 +1241,20 @@ local function run()
             os.exit(1)
         end
         print("\27[32m[validate-335] v2 export written (all compiled quests): " .. res .. "\27[0m")
+    end
+    if verifyOpts then
+        if not snapshots.afterNormalized then
+            print("\27[31m[validate-335] v2 verify refused: compiled round trip did not run\27[0m")
+            os.exit(1)
+        end
+        local QDB = QuestieLoader:ImportModule("QuestieDB")
+        local ok, res = runVerifyV2(verifyOpts, QDB, QDB.QueryQuestSingle, levelCount)
+        if not ok then
+            for _, e in ipairs(res) do print("\27[31m" .. e .. "\27[0m") end
+            print("\27[31m[validate-335] V2 VERIFY FAILED (nothing written)\27[0m")
+            os.exit(1)
+        end
+        print("\27[32m[validate-335] v2 verify PASS (read-only, nothing written)\27[0m")
     end
     if rtOpts then
         if not snapshots.afterNormalized then

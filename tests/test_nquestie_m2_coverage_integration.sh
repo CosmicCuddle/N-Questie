@@ -61,7 +61,7 @@ for _, q in ipairs(d.quests) do
 end
 assert(#d.quests == d.aggregate.total and rep == d.aggregate.representable and uns == d.aggregate.unsupported, "reconcile")
 assert(d.provenance and #d.provenance.sourceCommit == 40, "provenance")
-assert(d.provenance.harnessVersion == "1.2.0", "manifest harnessVersion 1.2.0")
+assert(d.provenance.harnessVersion == "1.3.0", "manifest harnessVersion 1.3.0")
 local by = {}
 for _, q in ipairs(d.quests) do by[q.ID] = table.concat(q.reasons, "+") end
 assert(by[10503] == "KILLCREDIT_FIRST_REORDER" and by[11652] == "EXTRA_CREATURE_REF+KILLCREDIT_FIRST_REORDER", "order reasons")

@@ -332,8 +332,8 @@ local function sortedPairs(t)
 end
 
 -- Deterministic text (sorted keys, no IDs, no timings).
-function M.FormatAggregate(a)
-    local out = { "N-QUESTIE V2 ROUND TRIP (in memory; nothing written; counts only)" }
+function M.FormatAggregate(a, title)
+    local out = { title or "N-QUESTIE V2 ROUND TRIP (in memory; nothing written; counts only)" }
     line(out, "quests processed", a.processed)
     line(out, "records built", a.built)
     line(out, "build errors", a.buildErrors)
