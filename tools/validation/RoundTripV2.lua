@@ -281,7 +281,7 @@ function M.Aggregate(results)
                 a.killCreditFirstQuests = a.killCreditFirstQuests + 1
                 -- Flagged but nothing reorders (decision t54u: SUPPORTED).
                 local reorders = false
-                for _, r in ipairs(q.m1Reasons) do if r == "KILLCREDIT_FIRST_REORDER" then reorders = true end end
+                for _, code in ipairs(q.m1Reasons) do if code == "KILLCREDIT_FIRST_REORDER" then reorders = true end end
                 if not reorders then a.killCreditFirstFlaggedSingle = a.killCreditFirstFlaggedSingle + 1 end
                 if uns then a.unsupported758.killCreditFirst = a.unsupported758.killCreditFirst + 1 end
             end
