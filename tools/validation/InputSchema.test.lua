@@ -49,17 +49,38 @@ describe("N-Questie M2.1 input schema", function()
         end)
     end
 
+    -- The inherited Busted Docker image does not guarantee GNU realpath.
+    -- Mock only these already-known, literal unit-fixture paths to test the
+    -- M2.1 LoadFile location policy. The separate M2 workflow checks REAL
+    -- GNU realpath, symlinks, command failures and the default resolver.
+    local function withFixtureResolver(root, fn)
+        local saved = Schema.resolver
+        local fixture = root .. "/tests/fixtures/m2_input/valid_selected_quests.lua"
+        local tracked = root .. "/cli/validate-335.lua"
+        Schema.resolver = function(path)
+            if path == "/" or path == root or path == fixture or path == tracked then return path end
+            return nil, "unexpected path in isolated fixture test"
+        end
+        local ok, msg = pcall(fn)
+        Schema.resolver = saved
+        assert.is_true(ok, tostring(msg))
+    end
+
     it("LoadFile accepts the fixture under tests/fixtures/m2_input/", function()
         local root = assert(io.popen("pwd"):read("*l"))
-        local doc, errs = Schema.LoadFile(root .. "/tests/fixtures/m2_input/valid_selected_quests.lua", root)
-        assert.is_truthy(doc, table.concat(errs or {}, "; "))
-        assert.are.equal(4, #doc.quests)
+        withFixtureResolver(root, function()
+            local doc, errs = Schema.LoadFile(root .. "/tests/fixtures/m2_input/valid_selected_quests.lua", root)
+            assert.is_truthy(doc, table.concat(errs or {}, "; "))
+            assert.are.equal(4, #doc.quests)
+        end)
     end)
 
     it("LoadFile refuses a tracked public path", function()
         local root = assert(io.popen("pwd"):read("*l"))
-        local doc, errs = Schema.LoadFile(root .. "/cli/validate-335.lua", root)
-        assert.is_nil(doc)
-        assert.is_truthy(errs[1]:find("public checkout", 1, true))
+        withFixtureResolver(root, function()
+            local doc, errs = Schema.LoadFile(root .. "/cli/validate-335.lua", root)
+            assert.is_nil(doc)
+            assert.is_truthy(errs[1]:find("public checkout", 1, true))
+        end)
     end)
 end)
