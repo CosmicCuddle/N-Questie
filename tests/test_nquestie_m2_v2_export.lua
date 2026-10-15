@@ -203,6 +203,26 @@ refused("written file differs on re-read", args(W .. "/v2.lua"), { writer = fake
 ok(readAll(W .. "/v2.lua") == "return {}", "a file that is not provably ours is not deleted")
 local fake2 = { WriteFile = function(path, content) local ff = io.open(path, "wb"); ff:write((content:gsub("schemaVersion=2", "schemaVersion=3"))); ff:close(); return true, path end }
 refused("written file fails validation on re-read", args(tmpdir() .. "/v2.lua"), { writer = fake2 }, "left for inspection")
+-- post-publication: the real SafeWrite publishes, then the file changes before
+-- the read-back. Hard failure with the fixed message; published file preserved.
+local SW = dofile("tools/validation/SafeWrite.lua")
+for _, case in ipairs({ { "appended byte", function(c) return c .. " " end, "differs from the serialised text" },
+                        { "invalid content", function(c) return (c:gsub("schemaVersion=2", "schemaVersion=3")) end, "differs from the serialised text" } }) do
+    local P = tmpdir()
+    local changed
+    local real = { WriteFile = function(path, content, o)
+        local wok, fin = SW.WriteFile(path, content, o)
+        if wok then changed = case[2](content); local ff = io.open(fin, "wb"); ff:write(changed); ff:close() end
+        return wok, fin end }
+    local okP2, eP2 = X.Export(args(P .. "/v2.lua"), { writer = real })
+    ok(okP2 == false, "post-publication (" .. case[1] .. "): hard failure")
+    ok(eP2 and eP2[1] == X.POST_PUBLICATION_FAILED, "post-publication (" .. case[1] .. "): fixed message first")
+    ok(eP2 and has(eP2, "needs human review") and has(eP2, "left for review: " .. P .. "/v2.lua") and has(eP2, case[3]),
+        "post-publication (" .. case[1] .. "): path and cause reported")
+    ok(listDir(P) == "v2.lua" and readAll(P .. "/v2.lua") == changed, "post-publication (" .. case[1] .. "): published file preserved, no temp")
+end
+ok(X.POST_PUBLICATION_FAILED == "v2 export: POST-PUBLICATION VERIFICATION FAILED: the output file was published but did not verify on read-back; it has been left in place and needs human review before any use",
+    "post-publication message is fixed text")
 local fake3 = { WriteFile = function() return false, "disk full" end }
 refused("writer failure reported", args(tmpdir() .. "/v2.lua"), { writer = fake3 }, "disk full")
 

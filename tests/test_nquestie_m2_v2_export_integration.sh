@@ -169,6 +169,31 @@ mkdir -m 700 "$T/clone/private"
 [ $cp -ne 0 ] && strip <"$T/priv.err" | grep -q "inside the git checkout (private/ included)" && [ -z "$(ls -A "$T/clone/private")" ] \
     && ok "private/ inside the checkout refused before M0, no file" || bad "private/ destination (exit $cp)"
 
+# ---------------------------------------------------------------- verify mode needs a clean verifying checkout
+# The clone is at the same commit as $F1, so a clean clone verifies; any dirt or
+# an unreadable git status refuses before compile, and nothing is written.
+rmdir "$T/clone/private"
+snap() { (cd "$T/clone" && find . -path ./.git -prune -o -printf '%P %s %T@ %m\n' | LC_ALL=C sort)
+         find "$T/home" "$T/tmp" "$(dirname "$F1")" -printf '%p %s %T@ %m\n' | LC_ALL=C sort; }
+vclone() { (cd "$T/clone" && env HOME="$T/home" TMPDIR="$T/tmp" $E28 NQ_V2_VERIFY_IN="$F1" "$LUA" cli/validate-335.lua >"$T/vc.out" 2>"$T/vc.err"); }
+vrefuse() { # name expected-text
+    snap >"$T/vs.before"; vclone; local c=$?
+    snap >"$T/vs.after"
+    if [ $c -ne 0 ] && strip <"$T/vc.out" "$T/vc.err" | grep -qF "$2" && ! strip <"$T/vc.out" "$T/vc.err" | grep -q "v2 verify PASS" \
+        && ! grep -q "N-QUESTIE V2 VERIFY" "$T/vc.out" && cmp -s "$T/vs.before" "$T/vs.after"; then
+        ok "verify refused, nothing written: $1"
+    else bad "verify with $1 (exit $c)"; strip <"$T/vc.out" | tail -3; diff "$T/vs.before" "$T/vs.after" | head -5; fi
+}
+printf x >"$T/clone/untracked-verify.txt"; vrefuse "untracked file in the verifying checkout" "checkout is not clean"; rm -f "$T/clone/untracked-verify.txt"
+printf '\n' >>"$T/clone/README.md"; vrefuse "modified tracked file" "checkout is not clean"
+(cd "$T/clone" && git add README.md); vrefuse "staged change" "checkout is not clean"; (cd "$T/clone" && git reset -q --hard)
+cp "$T/clone/.git/index" "$T/clone/.git/index.keep"; printf garbage >"$T/clone/.git/index"
+vrefuse "git status failure (corrupt index)" "cannot read git status"; mv "$T/clone/.git/index.keep" "$T/clone/.git/index"
+snap >"$T/vs.before"; vclone; cvc=$?; snap >"$T/vs.after"
+[ $cvc -eq 0 ] && strip <"$T/vc.out" | grep -q "v2 verify PASS" && grep -Eq "^file provenance matches this checkout +yes$" "$T/vc.out" \
+    && cmp -s "$T/vs.before" "$T/vs.after" && grep -Eq "^write/process attempts blocked +0$" "$T/vc.out" \
+    && ok "verify in a truly clean checkout passes, nothing written" || { bad "clean clone verify (exit $cvc)"; strip <"$T/vc.out" | tail -5; }
+
 # ---------------------------------------------------------------- performance (informational)
 if grep -q "Maximum resident" "$T/r1.err"; then
     echo "info: wall $(grep 'Elapsed' "$T/r1.err" | sed 's/.*): //'), peak RSS $(grep 'Maximum resident' "$T/r1.err" | sed 's/.*: //') KiB, output $(stat -c %s "$F1") bytes"

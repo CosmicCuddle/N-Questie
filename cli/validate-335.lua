@@ -793,10 +793,12 @@ local function v2VerifyOptions()
     local Input = dofile("tools/validation/InputSchema.lua")
     local okp, resolved = Input.CheckInputPath(p, root)
     if not okp then errs[#errs + 1] = "v2 verify: " .. resolved end
-    local commit = io.popen("git -C '" .. root:gsub("'", "'\\''") .. "' rev-parse --verify HEAD 2>/dev/null"):read("*l")
-    local tree = io.popen("git -C '" .. root:gsub("'", "'\\''") .. "' rev-parse --verify 'HEAD^{tree}' 2>/dev/null"):read("*l")
-    if not (commit and tree) then errs[#errs + 1] = "v2 verify: cannot read the checkout commit/tree" end
+    local state, serr = dofile("tools/validation/CheckoutState.lua").Check(root, dofile("tools/validation/ExportProvenance.lua"))
+    if not state then
+        for _, e in ipairs(serr) do errs[#errs + 1] = "v2 verify: " .. e end
+    end
     if #errs > 0 then return nil, errs end
+    local commit, tree = state.commit, state.tree
     return { path = resolved, root = root, commit = commit, tree = tree }
 end
 
@@ -835,6 +837,16 @@ local function runVerifyV2(opts, QuestieDB, Q, levelCount)
     io.write(string.format("%-44s %s\n", "file harnessVersion", tostring(p.harnessVersion)))
     io.write(string.format("%-44s %d\n", "write/process attempts blocked", blocked))
     if not same then return false, { "v2 verify: the file was not exported from this clean commit/tree" } end
+    -- Re-check after the run: the checkout must still be clean and on the same commit.
+    local after, aerr = dofile("tools/validation/CheckoutState.lua").Check(opts.root, dofile("tools/validation/ExportProvenance.lua"))
+    if not after then
+        local out = {}
+        for _, e in ipairs(aerr) do out[#out + 1] = "v2 verify: " .. e end
+        return false, out
+    end
+    if after.commit ~= opts.commit or after.tree ~= opts.tree then
+        return false, { "v2 verify: checkout commit/tree changed during verification" }
+    end
     return true
 end
 
