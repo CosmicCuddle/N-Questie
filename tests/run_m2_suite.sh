@@ -8,7 +8,7 @@ LUA="${LUA:-lua5.1}"
 status=0
 step() { echo "== $1"; shift; if "$@"; then echo "   ok"; else echo "   FAILED"; status=1; fi; }
 step "GNU realpath available" bash -c 'realpath -e -- / >/dev/null && realpath --version | head -1 | grep -q GNU'
-step "Lua 5.1 syntax (M1, M2.1, M2.2 modules, fixtures, specs, tests)" bash -c "luac5.1 -p tools/validation/*.lua tools/validation/draft/*.lua tools/validation/fixtures/*.lua cli/validate-335.lua cli/validate-m2-input.lua cli/validate-objectives.lua tests/test_nquestie_m2_*.lua tests/check_m2_export_values.lua tests/fixtures/m2_input/*.lua tests/fixtures/m2_effective/*.lua tests/fixtures/m2_effective_v2_draft/*.lua tests/fixtures/m2_v2_builder/*.lua"
+step "Lua 5.1 syntax (M1, M2.1, M2.2 modules, fixtures, specs, tests)" bash -c "luac5.1 -p tools/validation/*.lua tools/validation/draft/*.lua tools/validation/fixtures/*.lua cli/validate-335.lua cli/validate-m2-input.lua cli/validate-objectives.lua tests/test_nquestie_m2_*.lua tests/check_m2_export_values.lua tests/check_m2_v2_export_file.lua tests/fixtures/m2_input/*.lua tests/fixtures/m2_effective/*.lua tests/fixtures/m2_effective_v2_draft/*.lua tests/fixtures/m2_v2_builder/*.lua"
 step "private/ guard" bash tests/check_no_tracked_private.sh
 step "private/ guard self-test" bash tests/test_check_no_tracked_private.sh
 step "M1 objective rules" "$LUA" tests/test_nquestie_objective_rules.lua
@@ -29,7 +29,8 @@ step "Stage A1 v2 builder and round trip (synthetic)" "$LUA" tests/test_nquestie
 step "Stage A1 M1 parity with frozen v1 (synthetic matrix)" "$LUA" tests/test_nquestie_m2_v2_m1_parity.lua
 step "Stage A1 no-write guard" "$LUA" tests/test_nquestie_m2_no_write_guard.lua
 step "Stage A1 frozen v1 exporter (byte-identical to base)" "$LUA" tests/test_nquestie_m2_v1_frozen.lua
-step "Stage A1 mutation test" bash tests/test_nquestie_m2_v2_mutation.sh
+step "Stage A2 v2 serialiser and export pipeline (synthetic)" "$LUA" tests/test_nquestie_m2_v2_export.lua
+step "Stage A1/A2 mutation test" bash tests/test_nquestie_m2_v2_mutation.sh
 step "M2.3 contract DRAFT (design only)" "$LUA" tests/test_nquestie_m2_3_report_draft.lua
 step "nq-m2-markers DRAFT (design only)" "$LUA" tests/test_nquestie_m2_markers_draft.lua
 step "Correction regression and text QA DRAFT" "$LUA" tests/test_nquestie_m2_qa_draft.lua
@@ -40,5 +41,6 @@ if [ "${NQ_M2_SKIP_INTEGRATION:-0}" != "1" ]; then
     step "M2.2 real-DB export integration (M0 + export)" bash tests/test_nquestie_m2_export_integration.sh
     step "M2.2 real-DB coverage integration" bash tests/test_nquestie_m2_coverage_integration.sh
     step "Stage A1 real-DB read-only v2 round trip" bash tests/test_nquestie_m2_v2_roundtrip_integration.sh
+    step "Stage A2 real-DB v2 export acceptance (F1-F8)" bash tests/test_nquestie_m2_v2_export_integration.sh
 fi
 [ $status -eq 0 ] && echo "PASS: M2 suite" || { echo "FAILED: M2 suite"; exit 1; }

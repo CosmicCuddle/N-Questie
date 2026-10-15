@@ -81,7 +81,7 @@ growth.
 `objectiveIndex` may be number of objectives + 1 only with a triggerEnd or
 with no DB objectives (5 real quests). The first run produced 5 build errors.
 They were investigated, not forced, and the rule now matches the data
-exactly. Positive and negative tests cover it.
+exactly. Positive and negative tests cover it. In-game verification of the 5 quests (10985, 13429, 12124, 13418, 13419) is still pending.
 
 ## M1 parity with frozen v1 (hardening, decision t54u)
 

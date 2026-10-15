@@ -12,13 +12,16 @@ ok()  { passes=$((passes+1)); echo "PASS: $1"; }
 bad() { fails=$((fails+1)); echo "FAIL: $1"; }
 T="$(mktemp -d)"; trap 'rm -rf -- "$T"' EXIT
 copy() {
-    rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests/fixtures"
+    rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests"
     cp tools/validation/*.lua "$T/w/tools/validation/"
     cp tools/validation/draft/*.lua "$T/w/tools/validation/draft/"
-    cp tests/test_nquestie_m2_v2_builder.lua tests/test_nquestie_m2_no_write_guard.lua tests/test_nquestie_m2_v2_m1_parity.lua "$T/w/tests/"
-    cp -r tests/fixtures/m2_v2_builder "$T/w/tests/fixtures/"
+    cp tests/test_nquestie_m2_v2_builder.lua tests/test_nquestie_m2_no_write_guard.lua tests/test_nquestie_m2_v2_m1_parity.lua \
+       tests/test_nquestie_m2_v2_export.lua tests/test_nquestie_m2_v2_acceptance.lua tests/test_nquestie_m2_effective_v2_draft.lua "$T/w/tests/"
+    cp -r tests/fixtures "$T/w/tests/"
 }
-run_tests() { (cd "$T/w" && "$LUA" tests/test_nquestie_m2_v2_builder.lua >/dev/null 2>&1 && "$LUA" tests/test_nquestie_m2_no_write_guard.lua >/dev/null 2>&1 && "$LUA" tests/test_nquestie_m2_v2_m1_parity.lua >/dev/null 2>&1); }
+run_tests() { (cd "$T/w" && for t in test_nquestie_m2_v2_builder test_nquestie_m2_no_write_guard test_nquestie_m2_v2_m1_parity \
+    test_nquestie_m2_v2_export test_nquestie_m2_v2_acceptance test_nquestie_m2_effective_v2_draft; do
+    "$LUA" "tests/$t.lua" >/dev/null 2>&1 || exit 1; done); }
 # mutant FILE 'exact old text' 'new text' 'label'
 mutant() {
     local file="$1" old="$2" new="$3" label="$4"
@@ -39,7 +42,9 @@ run_tests && ok "unmutated copy passes" || bad "unmutated copy fails"
 B=tools/validation/EffectiveExportV2.lua
 R=tools/validation/RoundTripV2.lua
 G=tools/validation/NoWriteGuard.lua
-D=tools/validation/draft/EffectiveSchemaV2Draft.lua
+D=tools/validation/EffectiveSchemaV2.lua
+S=tools/validation/EffectiveExportV2.lua
+P=tools/validation/ExportV2.lua
 # M1 parity (decision t54u): each mutant breaks one v1-equivalent rule.
 mutant $D 'if rs[v] then add("DUPLICATE_SOURCE_ITEM") end' '' "parity: repeated requiredSourceItems not classified"
 mutant $D 'item = "DUPLICATE_ITEM"' 'item = "DUPLICATE_OTHER"' "parity: generic code for repeated item"
@@ -83,5 +88,32 @@ mutant $R 'for _, p in ipairs(M.Compare(rebuilt, projected)) do' 'for _, p in ip
 mutant $G 'state.count = state.count + 1' '' "guard does not count"
 mutant $G 'if m:find("[wa+]") then block("io.open:" .. m) end' '' "guard lets write-mode io.open through"
 mutant $G 'env.os.execute = function() block("os.execute") end' '' "guard lets os.execute through"
+# Stage A2: serialiser, document, export pipeline and schema gates.
+mutant $S 'for k in pairs(t) do if not known[k] then serr(path, "field "' 'for k in pairs(t) do if false then serr(path, "field "' "serialiser: unknown record field silently dropped"
+mutant $S 'if v ~= v or v ~= math.floor(v) or' 'if v ~= v or' "serialiser: non-integer numbers accepted"
+mutant $S 'if not v:match' 'if false and not v:match' "serialiser: unsafe strings accepted"
+mutant $S 'if not isList(t) then serr(path, "plain list required") end' '' "serialiser: maps written as lists"
+mutant $S 'p.questCount = #records' '' "document: questCount not set"
+mutant $S 'quests = copy(records) }' 'quests = records }' "document: records aliased"
+mutant $S 'local p = copy(provenance)' 'local p = provenance' "document: caller provenance mutated"
+mutant $S 'if not first then out[#out + 1] = "," end' '' "serialiser: separators dropped"
+mutant $P 'if Schema.Canonical(parsed, {}) ~= Schema.Canonical(doc, {}) then' 'if false then' "pipeline: parsed text not compared with the document"
+mutant $P 'if not agg then return false, rerr end' '' "pipeline: round trip result ignored"
+mutant $P 'wopts.force = nil' '' "pipeline: force passed through"
+mutant $P 'if back ~= text then' 'if false then' "pipeline: re-read byte check removed"
+mutant $P 'if args.preWrite then' 'if false then' "pipeline: preWrite check skipped"
+mutant $P 'if opts.expectCorrectionCount and p.correctionCount ~= opts.expectCorrectionCount then' 'if false then' "pipeline: correction count not checked"
+mutant $P 'if opts.expectHarnessVersion and p.harnessVersion ~= opts.expectHarnessVersion then' 'if false then' "pipeline: harness version not checked"
+# Equivalent mutants, deliberately not listed (the check is repeated by
+# another layer, so no test can kill them): removing the re-read validation
+# in ExportV2.Export (the re-read bytes are already proven equal to text that
+# was parsed and validated before writing), and removing the pipeline's own
+# CheckContext call (BuildAll checks the same context first). Both checks
+# are kept as defence in depth.
+mutant $P 'if not q then' 'if false then' "pipeline: quest missing from the document not detected"
+mutant $P 'if a.questsDiffering > 0 then' 'if false then' "pipeline: differing quests not refused"
+mutant $D 'if doc.schemaVersion ~= 2 then' 'if false then' "schema: unknown version accepted"
+mutant $D 'if doc.displayScope ~= M.DISPLAY_SCOPE then' 'if false then' "schema: displayScope not enforced"
+mutant $D 'for k in pairs(q) do if not QUEST_KEYS[k] then' 'for k in pairs(q) do if false then' "schema: unknown quest field accepted"
 echo "mutation test: $passes passed, $fails failed"
 [ $fails -eq 0 ]
