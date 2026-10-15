@@ -52,7 +52,9 @@ local function capturedHash(cmd)
     if not h then return nil end
     local out = h:read("*a")
     h:close()
-    return out and out:match("^(%x+)%s*$")
+    -- sha256sum appends the filename; git hash-object prints just a digest.
+    -- Both tools print the digest first, separated by whitespace.
+    return out and out:match("^(%x+)%s")
 end
 for _, file in ipairs(sortedKeys(FROZEN_V1_SHA256)) do
     local got = capturedHash("sha256sum -- '" .. file .. "'")
