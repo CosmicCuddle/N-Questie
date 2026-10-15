@@ -74,13 +74,16 @@ written. There is no development flag.
    0600 in a 0700 directory.
 8. Re-read the file, require byte equality, then parse and validate it again.
 
-The nothing-left-behind guarantee covers only failures before successful
-publication. A failure in steps 1 to 7 leaves no output file, and SafeWrite
-removes its temp file.
+The nothing-left-behind guarantee covers only failures before publication.
+A failure before SafeWrite's no-clobber install leaves no new output file;
+its temporary file is removed. Publication can occur during step 7.
+If SafeWrite publishes successfully but its **own post-install safety check**
+then fails, the file is retained and the exporter reports the post-publication
+hard-failure warning, not a generic pre-publication refusal.
 
 Step 8 runs after publication. If it fails, the installed file changed after
-SafeWrite's own check. That is a hard failure with a non-zero exit. The first
-error line is the fixed text `ExportV2.POST_PUBLICATION_FAILED`:
+SafeWrite's own check. Both failure points return a non-zero exit with the
+fixed first error line `ExportV2.POST_PUBLICATION_FAILED`:
 
     v2 export: POST-PUBLICATION VERIFICATION FAILED: the output file was published but did not verify on read-back; it has been left in place and needs human review before any use
 

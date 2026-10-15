@@ -79,6 +79,28 @@ local okRun, err = pcall(function()
     local leftovers = tonumber(line("ls -A " .. q(out) .. " | grep -c '^.nq-write' || true"))
     if leftovers == 0 then pass("no temp files left after simulated failures") else fail(leftovers .. " temp files left") end
 
+    -- Publish a file, then force the real writer's own *post-install*
+    -- path recheck to fail. It must preserve the file and explicitly report
+    -- publication, not return the same shape as pre-install failures.
+    local postFinal = out .. "/writer-post-install.lua"
+    local savedResolve = Input.resolver
+    local afterPreInstall = false
+    Input.resolver = function(path)
+        if afterPreInstall and path == postFinal then return nil end
+        return savedResolve(path)
+    end
+    local postOk, postReason, postState = W.WriteFile(postFinal, "PUBLISHED", {
+        repoRoot = root, hooks = { beforeInstall = function() afterPreInstall = true end },
+    })
+    Input.resolver = savedResolve
+    if postOk == false and tostring(postReason):find("post-install check failed", 1, true)
+       and type(postState) == "table" and postState.published == true
+       and postState.final == postFinal and read(postFinal) == "PUBLISHED" then
+        pass("post-install verification failure explicitly reports published file")
+    else
+        fail("post-install verification failure lost publication status or file")
+    end
+
     -- A mock mktemp emits a believable already-existing filename, but exits
     -- 17. Old Lua 5.1 io.popen():close() code trusted stdout, opened that file
     -- with "wb" and silently destroyed its previous bytes. Reject before ANY
