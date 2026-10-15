@@ -190,9 +190,9 @@ printf '\n' >>"$T/clone/README.md"; vrefuse "modified tracked file" "checkout is
 cp "$T/clone/.git/index" "$T/clone/.git/index.keep"; printf garbage >"$T/clone/.git/index"
 vrefuse "git status failure (corrupt index)" "cannot read git status"; mv "$T/clone/.git/index.keep" "$T/clone/.git/index"
 snap >"$T/vs.before"; vclone; cvc=$?; snap >"$T/vs.after"
-[ $cvc -eq 0 ] && strip <"$T/vc.out" | grep -q "v2 verify PASS" && grep -Eq "^file provenance matches this checkout +yes$" "$T/vc.out" \
+[ $cvc -eq 0 ] && cat "$T/vc.out" "$T/vc.err" | strip | grep -q "v2 verify PASS" && grep -Eq "^file provenance matches this checkout +yes$" "$T/vc.out" \
     && cmp -s "$T/vs.before" "$T/vs.after" && grep -Eq "^write/process attempts blocked +0$" "$T/vc.out" \
-    && ok "verify in a truly clean checkout passes, nothing written" || { bad "clean clone verify (exit $cvc)"; strip <"$T/vc.out" | tail -5; }
+    && ok "verify in a truly clean checkout passes, nothing written" || { bad "clean clone verify (exit $cvc)"; cat "$T/vc.out" "$T/vc.err" | strip | tail -5; diff "$T/vs.before" "$T/vs.after" | head -5; }
 
 # ---------------------------------------------------------------- performance (informational)
 if grep -q "Maximum resident" "$T/r1.err"; then
