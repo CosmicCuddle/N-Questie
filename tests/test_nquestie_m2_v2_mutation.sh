@@ -20,7 +20,7 @@ copy() {
        tests/test_nquestie_m2_v2_export.lua tests/test_nquestie_m2_v2_verify_clean.lua tests/test_nquestie_m2_v2_acceptance.lua tests/test_nquestie_m2_effective_v2_draft.lua "$T/w/tests/"
     cp -r tests/fixtures "$T/w/tests/"
 }
-run_tests() { (cd "$T/w" && for t in test_nquestie_m2_v2_builder test_nquestie_m2_no_write_guard test_nquestie_m2_v2_m1_parity \
+run_tests() { mkdir -p "$T/tmp"; (cd "$T/w" && export TMPDIR="$T/tmp" && for t in test_nquestie_m2_v2_builder test_nquestie_m2_no_write_guard test_nquestie_m2_v2_m1_parity \
     test_nquestie_m2_v2_export test_nquestie_m2_v2_verify_clean test_nquestie_m2_v2_acceptance test_nquestie_m2_effective_v2_draft; do
     "$LUA" "tests/$t.lua" >/dev/null 2>&1 || exit 1; done) || return 1
     # the CLI gate test (temporary clone with the mutated sources committed) only

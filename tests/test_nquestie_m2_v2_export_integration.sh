@@ -179,7 +179,7 @@ vclone() { (cd "$T/clone" && env HOME="$T/home" TMPDIR="$T/tmp" $E28 NQ_V2_VERIF
 vrefuse() { # name expected-text
     snap >"$T/vs.before"; vclone; local c=$?
     snap >"$T/vs.after"
-    if [ $c -ne 0 ] && strip <"$T/vc.out" "$T/vc.err" | grep -qF "$2" && ! strip <"$T/vc.out" "$T/vc.err" | grep -q "v2 verify PASS" \
+    if [ $c -ne 0 ] && cat "$T/vc.out" "$T/vc.err" | strip | grep -qF "v2 verify: provenance: $2" && ! cat "$T/vc.out" "$T/vc.err" | strip | grep -q "v2 verify PASS" \
         && ! grep -q "N-QUESTIE V2 VERIFY" "$T/vc.out" && cmp -s "$T/vs.before" "$T/vs.after"; then
         ok "verify refused, nothing written: $1"
     else bad "verify with $1 (exit $c)"; strip <"$T/vc.out" | tail -3; diff "$T/vs.before" "$T/vs.after" | head -5; fi
