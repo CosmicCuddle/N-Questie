@@ -22,6 +22,9 @@ local f = assert(io.open("tests/fixtures/m2_v2_builder/v1_golden.txt", "rb"))
 local golden = f:read("*a"); f:close()
 local now = render()
 if now ~= golden then print("FAIL: v1 exporter output differs from the base-commit golden file"); os.exit(1) end
+-- Integration rehearsal #58: use only the frozen Stage A2 base ref, not
+-- a moving Grok development branch. This ensures these pins are tested
+-- together on the same exact candidate tree, without future in-flight edits.
 -- The v1 exporter, schema and Coverage implementation remain BYTE-IDENTICAL
 -- to the six-green integration baseline. Their original SHA-256 pins NEVER
 -- change to accommodate the independent safety fixes in this test-only stack.
