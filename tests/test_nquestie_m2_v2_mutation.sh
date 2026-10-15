@@ -126,6 +126,12 @@ mutant $P 'if a.questsDiffering > 0 then' 'if false then' "pipeline: differing q
 mutant $D 'if doc.schemaVersion ~= 2 then' 'if false then' "schema: unknown version accepted"
 mutant $D 'if doc.displayScope ~= M.DISPLAY_SCOPE then' 'if false then' "schema: displayScope not enforced"
 mutant $D 'for k in pairs(q) do if not QUEST_KEYS[k] then' 'for k in pairs(q) do if false then' "schema: unknown quest field accepted"
+# t65u safety follow-up: all three independently killed mutations are now
+# executed by this script. The temp-unlink mutant must also die at ExportV2.
+W=tools/validation/SafeWrite.lua
+mutant $P 'if type(writerState) == "table" and writerState.published == true then' 'if false then' "post-publication writer status must reach the export error"
+mutant $W '{ published = true, final = final }' 'nil' "failed temp unlink must preserve published state"
+mutant $W 'if status ~= "0" then return nil end' 'if false then return nil end' "SafeWrite cannot trust nonzero-exit plausible stdout"
 # t56u: clean-checkout gate of NQ_V2_VERIFY_IN
 K=tools/validation/CheckoutState.lua
 V=cli/validate-335.lua
