@@ -173,6 +173,47 @@ local okRun, err = pcall(function()
         fail("failed stat stdout was trusted or write survived failed destination check")
     end
 
+
+    -- A hard link has already published the output when SafeWrite removes
+    -- the temporary name. Simulate failed rm ONLY for the temporary link:
+    -- the writer must report publication+failure, preserve the output, and
+    -- must not falsely claim that the temporary hard link was removed.
+    local rmOut = base .. "/failed-rm-out"
+    local rmBin = base .. "/fake-rm-bin"
+    assert(sh("mkdir -m 700 " .. q(rmOut) .. " " .. q(rmBin)))
+    local realRm = line("command -v rm")
+    assert(realRm and realRm:sub(1, 1) == "/")
+    local fakeRm = assert(io.open(rmBin .. "/rm", "wb"))
+    fakeRm:write("#!/bin/sh\n" ..
+        "case \"$*\" in\n" ..
+        "  *'.nq-write.'*) : > \"$NQ_TEST_RM_MARK\"; exit 17 ;;\n" ..
+        "esac\n" ..
+        "exec \"$NQ_TEST_RM_REAL\" \"$@\"\n")
+    fakeRm:close()
+    assert(sh("chmod 700 " .. q(rmBin .. "/rm")))
+    local rmProbe = base .. "/check-failed-temp-cleanup.lua"
+    local rpf = assert(io.open(rmProbe, "wb"))
+    rpf:write("local W=dofile('tools/validation/SafeWrite.lua')\n" ..
+        "local ok,msg,state=W.WriteFile(arg[1], 'SYNTHETIC_PUBLISHED', {repoRoot=arg[2]})\n" ..
+        "if ok or not tostring(msg):find('temp cleanup failed',1,true) then os.exit(17) end\n" ..
+        "if type(state)~='table' or state.published~=true or state.final~=arg[1] then os.exit(18) end\n" ..
+        "os.exit(0)\n")
+    rpf:close()
+    local rmMark = base .. "/fake-rm-invoked"
+    local rmFinal = rmOut .. "/v2.lua"
+    local rmCommand = "PATH=" .. q(rmBin .. ":" .. (os.getenv("PATH") or "")) ..
+        " NQ_TEST_RM_REAL=" .. q(realRm) ..
+        " NQ_TEST_RM_MARK=" .. q(rmMark) ..
+        " " .. q(realLua) .. " " .. q(rmProbe) .. " " .. q(rmFinal) .. " " .. q(root) ..
+        " >/dev/null 2>&1"
+    if sh(rmCommand) and sh("test -f " .. q(rmMark))
+        and read(rmFinal) == "SYNTHETIC_PUBLISHED" and count(rmOut) == 2
+        and line("stat -c %a " .. q(rmFinal)) == "600" then
+        pass("failed temp unlink after no-clobber publication is a reported post-publication failure")
+    else
+        fail("failed temporary hard-link cleanup was ignored or published output was lost")
+    end
+
     -- resolver failure
     local saved = Input.resolver
     Input.resolver = function() return nil end

@@ -79,7 +79,11 @@ A failure before SafeWrite's no-clobber install leaves no new output file;
 its temporary file is removed. Publication can occur during step 7.
 If SafeWrite publishes successfully but its **own post-install safety check**
 then fails, the file is retained and the exporter reports the post-publication
-hard-failure warning, not a generic pre-publication refusal.
+hard-failure warning, not a generic pre-publication refusal. The same rule
+applies if removal of SafeWrite's temporary hard-link name fails **after**
+the final no-clobber link succeeds: the writer refuses success, keeps the
+published file and warns that a second private temporary hard link may remain.
+This does not promise crash durability or successful cleanup on filesystem error.
 
 Step 8 runs after publication. If it fails, the installed file changed after
 SafeWrite's own check. Both failure points return a non-zero exit with the

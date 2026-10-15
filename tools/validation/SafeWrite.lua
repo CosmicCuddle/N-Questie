@@ -170,7 +170,17 @@ function M.WriteFile(path, content, opts)
         installed = run("mv -fT -- " .. q(temp) .. " " .. q(final))
     else
         installed = run("ln -T -- " .. q(temp) .. " " .. q(final))
-        if installed then run("rm -f -- " .. q(temp)) end
+        if installed then
+            -- The final name is already published by the hard link. If the
+            -- temporary name cannot be removed, a second copy may remain.
+            -- This is a POST-publication safety failure, never success.
+            -- Do not remove the published output or claim no file remains.
+            if not run("rm -f -- " .. q(temp)) then
+                return false, "post-install temp cleanup failed for " .. final ..
+                    " (published file left in place for inspection; a private temp link may remain)",
+                    { published = true, final = final }
+            end
+        end
     end
     if not installed then
         cleanup()

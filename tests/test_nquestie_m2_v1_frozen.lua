@@ -42,7 +42,7 @@ local APPROVED_SHARED_BLOBS = {
     -- Exact Git blob identities of independently reviewed shared helpers.
     -- SafeWrite additionally carries this draft-only publication-status change.
     ["tools/validation/InputSchema.lua"] = "af1a212fa68f0a6c073e27faa6b56ee3ff3db9ee", -- #52
-    ["tools/validation/SafeWrite.lua"] = "6b387332b9df9e6833c953d70bf48230ef9a6db1", -- #53 plus isolated post-publication status review
+    ["tools/validation/SafeWrite.lua"] = "49fce2d4f60b378d3047771ae247d7a512670fe6", -- #53 plus isolated post-publication status review
     ["tools/validation/ExportProvenance.lua"] = "71ba299cc06b6c9083b952fcb36beb65a0f779f5", -- #54
 }
 local function sortedKeys(t)
