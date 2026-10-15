@@ -716,7 +716,10 @@ local function v2ExportOptions()
             local rok, rh = pcall(io.popen, rcmd)
             local rtext = (rok and rh) and (rh:read("*a") or "") or nil
             if rok and rh then rh:close() end
-            local rdata, rstatus = rtext and rtext:match("^(.*)\nNQ_A2_ROOT_EXIT:(%d+)\n$")
+            local rdata, rstatus
+            if type(rtext) == "string" then
+                rdata, rstatus = rtext:match("^(.*)\nNQ_A2_ROOT_EXIT:(%d+)\n$")
+            end
             local rroot = rstatus == "0" and rdata and rdata:match("^([^\n]*)\n?$") or nil
             if not rroot or rroot ~= root then
                 errs[#errs + 1] = "v2 export: cannot verify the canonical checkout root; refusing output path"
