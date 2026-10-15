@@ -367,11 +367,20 @@ end
 -- Default resolver. Returns an absolute canonical path or nil, reason.
 local function systemResolve(path)
     if path:find("[%z\n\r]") then return nil, "path contains control characters" end
-    local ok, h = pcall(io.popen, "realpath -e -- " .. shellQuote(path) .. " 2>/dev/null")
+    -- Lua 5.1 io.popen():close() is NOT a reliable child exit-status check:
+    -- it can succeed even when realpath printed plausible stdout and exited
+    -- nonzero. Keep a shell-owned terminal status marker and fail closed.
+    local command = "( realpath -e -- " .. shellQuote(path) .. " ) 2>/dev/null; " ..
+        "nq_realpath_status=$?; printf '\\nNQ_REALPATH_EXIT:%s\\n' \"$nq_realpath_status\""
+    local ok, h = pcall(io.popen, command)
     if not ok or not h then return nil, "path resolver unavailable" end
     local out = h:read("*a") or ""
     h:close()
-    local line = out:match("^([^\n]*)\n?$")
+    local data, status = out:match("^(.*)\nNQ_REALPATH_EXIT:(%d+)\n$")
+    if status ~= "0" then
+        return nil, "cannot resolve (realpath command failed or returned no trusted status)"
+    end
+    local line = data and data:match("^([^\n]*)\n?$")
     if not line or line:sub(1, 1) ~= "/" then
         return nil, "cannot resolve (missing file, broken symlink, symlink loop, permission error or no realpath)"
     end

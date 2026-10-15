@@ -119,6 +119,47 @@ local okRun, err = pcall(function()
     expectReject("resolver returns a relative path", outside .. "/input.lua", "no absolute path")
     Schema.resolver = saved
 
+    -- Exit-status regression: GNU realpath prints an absolute path, but an
+    -- injected wrapper returns failure (17) after printing it. Lua 5.1
+    -- io.popen():close() alone cannot be trusted to expose this failure.
+    -- Both CheckInputPath and LoadFile must reject the plausible stdout.
+    local realpathBin = readLine("command -v realpath")
+    local luaBin = readLine("command -v lua5.1")
+    assert(realpathBin and realpathBin:sub(1, 1) == "/" and luaBin and luaBin:sub(1, 1) == "/")
+    local fakeDir = outside .. "/fake-realpath-bin"
+    assert(sh("mkdir -m 700 " .. q(fakeDir)))
+    local wrapper = assert(io.open(fakeDir .. "/realpath", "wb"))
+    wrapper:write("#!/bin/sh\n" .. q(realpathBin) .. " \"$@\"\n" ..
+        "realpath_rc=$?\n" ..
+        "if [ \"$3\" = \"$NQ_REALPATH_FAIL_TARGET\" ]; then\n" ..
+        "  : > \"$NQ_REALPATH_TRIGGER_MARKER\"\n" ..
+        "  exit 17\n" ..
+        "fi\n" ..
+        "exit \"$realpath_rc\"\n")
+    wrapper:close()
+    assert(sh("chmod 700 " .. q(fakeDir .. "/realpath")))
+    local probe = outside .. "/resolver-status-probe.lua"
+    local probeFile = assert(io.open(probe, "wb"))
+    probeFile:write(
+        "local S = dofile('tools/validation/InputSchema.lua')\n" ..
+        "local ok, msg = S.CheckInputPath(arg[1], '.')\n" ..
+        "if ok or not tostring(msg):find('cannot resolve', 1, true) then os.exit(11) end\n" ..
+        "if S.LoadFile(arg[1], '.') then os.exit(12) end\n" ..
+        "os.exit(0)\n"
+    )
+    probeFile:close()
+    local marker = outside .. "/realpath-nonzero-triggered"
+    local command = "PATH=" .. q(fakeDir .. ":" .. (os.getenv("PATH") or "")) ..
+        " NQ_REALPATH_FAIL_TARGET=" .. q(outside .. "/input.lua") ..
+        " NQ_REALPATH_TRIGGER_MARKER=" .. q(marker) ..
+        " " .. q(luaBin) .. " " .. q(probe) .. " " .. q(outside .. "/input.lua") ..
+        " >/dev/null 2>&1"
+    if sh(command) and sh("test -f " .. q(marker)) then
+        pass("nonzero realpath with plausible absolute stdout rejected by path and LoadFile")
+    else
+        fail("realpath stdout accepted despite subprocess exit 17, or wrapper did not execute")
+    end
+
     -- LoadFile end to end via a symlink outside -> public file
     local doc, errs = Schema.LoadFile(outside .. "/to-public.lua", root)
     if doc then fail("LoadFile accepted a symlink into the public checkout")
