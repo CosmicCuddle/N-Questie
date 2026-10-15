@@ -11,6 +11,10 @@ fails=0; passes=0
 ok()  { passes=$((passes+1)); echo "PASS: $1"; }
 bad() { fails=$((fails+1)); echo "FAIL: $1"; }
 T="$(mktemp -d)"; trap 'rm -rf -- "$T"' EXIT
+# The CLI gate test needs bit32 and git (cli/validate-335.lua requires bit32).
+# Without them the CLI mutants are reported as SKIPPED, never as killed.
+HAVE_CLI=0; "$LUA" -e 'require("bit32")' >/dev/null 2>&1 && command -v git >/dev/null 2>&1 && HAVE_CLI=1
+skipped=0
 copy() {
     rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests" "$T/w/cli"
     cp cli/validate-335.lua "$T/w/cli/"
@@ -39,11 +43,12 @@ mutant() {
         f = io.open(os.getenv("F"), "w"); f:write(s); f:close()'; then
         bad "mutant not applied (text not found): $label"; return
     fi
-    WITH_CLI=0; case "$file" in cli/*|*CheckoutState.lua) WITH_CLI=1;; esac
+    WITH_CLI=0; case "$file" in cli/*|*CheckoutState.lua) WITH_CLI=$HAVE_CLI;; esac
+    case "$file" in cli/*) if [ $HAVE_CLI = 0 ]; then skipped=$((skipped+1)); echo "SKIP (no bit32/git): $label"; return; fi;; esac
     if run_tests; then bad "mutant SURVIVED: $label"; else ok "mutant killed: $label"; fi
 }
 copy
-WITH_CLI=1 run_tests && ok "unmutated copy passes (including the CLI gate test)" || bad "unmutated copy fails"
+WITH_CLI=$HAVE_CLI run_tests && ok "unmutated copy passes (CLI gate test included: $HAVE_CLI)" || bad "unmutated copy fails"
 
 B=tools/validation/EffectiveExportV2.lua
 R=tools/validation/RoundTripV2.lua
@@ -140,5 +145,5 @@ mutant $V 'local state, serr = dofile("tools/validation/CheckoutState.lua").Chec
 # CheckoutState.Check after verification in runVerifyV2 (the checkout would
 # have to become dirty during the run). It is defence in depth only; the
 # first check before compile is the tested gate.
-echo "mutation test: $passes passed, $fails failed"
+echo "mutation test: $passes passed, $fails failed, $skipped skipped (CLI mutants need bit32 and git)"
 [ $fails -eq 0 ]

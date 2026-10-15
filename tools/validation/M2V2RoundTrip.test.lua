@@ -3,6 +3,7 @@
 -- without any workflow change. Pending where lua5.1 or GNU tools are absent.
 -- The real-DB integration additionally needs bit32 (validate-335 compiles the
 -- public database); where it is missing it is reported as pending, not passed.
+-- The CLI gate test needs bit32 too (cli/validate-335.lua requires it at load).
 describe("N-Questie Stage A1/A2 v2 round trip and export", function()
     local function sh(cmd) local r = os.execute(cmd); return r == 0 or r == true end
     local base = sh("command -v lua5.1 >/dev/null 2>&1 && realpath -e -- / >/dev/null 2>&1")
@@ -12,7 +13,7 @@ describe("N-Questie Stage A1/A2 v2 round trip and export", function()
         { "M1 parity with frozen v1 (synthetic matrix)", "lua5.1 tests/test_nquestie_m2_v2_m1_parity.lua", base },
         { "v2 serialiser and export pipeline (synthetic)", "lua5.1 tests/test_nquestie_m2_v2_export.lua", base },
         { "v2 verify clean-checkout gate (synthetic + temp git repo)", "lua5.1 tests/test_nquestie_m2_v2_verify_clean.lua", base },
-        { "v2 verify clean-checkout gate through the CLI (temp clone)", "bash tests/test_nquestie_m2_v2_verify_cli.sh", base },
+        { "v2 verify clean-checkout gate through the CLI (temp clone)", "bash tests/test_nquestie_m2_v2_verify_cli.sh", db },
         { "no-write guard", "lua5.1 tests/test_nquestie_m2_no_write_guard.lua", base },
         { "frozen v1 exporter byte-identical to base", "lua5.1 tests/test_nquestie_m2_v1_frozen.lua", base },
         { "mutation test (every mutant killed)", "bash tests/test_nquestie_m2_v2_mutation.sh", base },
