@@ -19,8 +19,8 @@
 -- equals an absent slot, and an absent sourceItemId equals 0. Lua 5.1.
 
 local V2 = dofile("tools/validation/EffectiveExportV2.lua")
-local Draft = dofile("tools/validation/draft/EffectiveSchemaV2Draft.lua")
-local DRAFT_OK = { allowDraft = true }
+local Schema = dofile("tools/validation/EffectiveSchemaV2.lua")
+local SCHEMA_OPTS = {}
 
 local M = {}
 local SLOT_NAMES = { "creature", "object", "item", "reputation", "killCredit", "spell" }
@@ -200,9 +200,9 @@ end
 -- the frozen v1 record (nil when v1 refused the quest). Returns a result.
 function M.CheckRecord(rec, raw, flagged, v1rec)
     local r = { id = rec.ID, diffs = {}, norm = {}, record = rec }
-    local okv, verrs = Draft.ValidateQuest(rec, DRAFT_OK)
+    local okv, verrs = Schema.ValidateQuest(rec, SCHEMA_OPTS)
     if not okv then r.validateError = verrs end
-    local wantStatus, wantReasons = Draft.ExpectedM1(rec)
+    local wantStatus, wantReasons = Schema.ExpectedM1(rec)
     r.expectedM1Agrees = (wantStatus == rec.m1Status) and table.concat(wantReasons, "+") == table.concat(rec.m1Reasons or {}, "+")
     local projected = M.Project(raw, r.norm)
     local rebuilt = M.Rebuild(rec)
@@ -332,8 +332,8 @@ local function sortedPairs(t)
 end
 
 -- Deterministic text (sorted keys, no IDs, no timings).
-function M.FormatAggregate(a)
-    local out = { "N-QUESTIE V2 ROUND TRIP (in memory; nothing written; counts only)" }
+function M.FormatAggregate(a, title)
+    local out = { title or "N-QUESTIE V2 ROUND TRIP (in memory; nothing written; counts only)" }
     line(out, "quests processed", a.processed)
     line(out, "records built", a.built)
     line(out, "build errors", a.buildErrors)

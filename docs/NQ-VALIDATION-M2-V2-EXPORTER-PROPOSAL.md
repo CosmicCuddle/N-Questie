@@ -1,6 +1,6 @@
 # Proposal A: production v2 structural exporter (opt-in mode in validate-335)
 
-Status: **proposal for maintainer approval**. Not implemented. Approving this document is not approval to merge or release. Spec: `docs/NQ-VALIDATION-M2-V2-EXPORTER-SPEC.md`. Date: 14 October 2026.
+Status: approved and implemented on draft branches (Stage A1 `dev/stage-a1-v2-roundtrip`, Stage A2 `dev/stage-a2-v2-exporter`). Not merged or released. Approving this document is not approval to merge or release. Stage A2 deviations from the file list below are recorded in `docs/NQ-VALIDATION-M2-STAGE-A2-RESULTS.md`. Spec: `docs/NQ-VALIDATION-M2-V2-EXPORTER-SPEC.md`. Date: 14 October 2026.
 
 ## 1. Decision and trade-off
 

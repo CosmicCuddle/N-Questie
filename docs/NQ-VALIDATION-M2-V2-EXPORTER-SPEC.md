@@ -1,6 +1,6 @@
 # N-Questie M2 production v2 exporter: implementation specification
 
-Status: **specification only**. No production v2 exporter exists and none is authorised by this document. Implementation needs a separate maintainer decision. Stacked on PR #39 (v2 design, final draft).
+Status: implemented in two stages. Stage A1 (in-memory round trip, harness 1.2.0) is on `dev/stage-a1-v2-roundtrip`. Stage A2 (opt-in export mode, harness 1.3.0) is on `dev/stage-a2-v2-exporter`, with measured results in `docs/NQ-VALIDATION-M2-STAGE-A2-RESULTS.md`. Both are draft branches; neither is merged or released. Originally stacked on PR #39 (v2 design, final draft).
 
 Date: 14 October 2026. Baseline measured on the 3.3.5a effective database: 9,159 compiled quests, 8,401 v1-representable, 758 unsupported by v1, 0 unclassified; 232 M0 checks; 82,431 fields.
 
@@ -20,7 +20,7 @@ Out of scope: display text, spawn coordinates, markers (see the separate nq-m2-m
 | Quest records | `QuestieDB.QueryQuestSingle` per field, after corrections | raw compiled values, never the M0 `normalize` helper (it turns 0 into nil) |
 | Kill-credit-first set | `QuestieCorrections.killCreditObjectiveFirst` | must be present and non-empty, or the run fails (as in `exportContext()` today); 16 quests at baseline |
 | M1 reason codes | `EffectiveExport.Record` classification and `Coverage.Classify` | the same codes as the coverage manifest; recomputed, never copied from a file |
-| Provenance | git (commit, tree, dirty), TOC, revision, correction fingerprint and modules, M0 count | read once at start; dirty tree refuses unless an explicit development flag is set, and then `sourceDirty = true` is recorded |
+| Provenance | git (commit, tree, dirty), TOC, revision, correction fingerprint and modules, M0 count | read once at start; a dirty tree refuses the export. Stage A2 provides no development flag: a dirty checkout always fails after M0 with no file written (tested), and exported files always carry `sourceDirty = false` |
 
 ## 3. Record content per quest
 
@@ -56,7 +56,7 @@ The exporter reproduces `QuestieDB.GetQuest` exactly, because quest-log line N m
 Each entry `{spawns, icon, text, objectiveIndex, refs}` becomes `{position, icon, hasText, spawnZones, objectiveIndex, refs}`.
 
 - `spawnZones`: sorted list of zone IDs that have spawns; coordinates are not exported.
-- `objectiveIndex`: always exported, including 0 (696 of 730 entries). Must be ≤ number of objectives, with one exception found by the Stage A1 measurement: it may be number of objectives + 1 when the quest has a triggerEnd (that line is the event objective) or has no DB objectives at all (a client-only quest-log line). 5 real quests use this: 10985 and 13429 (triggerEnd), 12124, 13418 and 13419 (no objectives). Anything larger is rejected.
+- `objectiveIndex`: always exported, including 0 (696 of 730 entries). Must be ≤ number of objectives, with one exception found by the Stage A1 measurement: it may be number of objectives + 1 when the quest has a triggerEnd (that line is the event objective) or has no DB objectives at all (a client-only quest-log line). 5 real quests use this: 10985 and 13429 (triggerEnd), 12124, 13418 and 13419 (no objectives). Anything larger is rejected. The rule matches the compiled data and Questie's quest-log indexing; in-game verification of these 5 quests is still pending.
 - `refs`: every `{type, id}` with `refIndex`, in compiled order. Note: at runtime Questie takes `Type`/`Id` from the first reference only but merges the spawns of **all** references (`QuestieDB.GetQuest`, extraObjectives loop); the export keeps all of them so neither behaviour is lost.
 - Baseline: 632 quests, 730 entries, 801 refs (monster 466, object 335, item 0), 78 spawn-only entries.
 
@@ -72,16 +72,16 @@ The 758 are exported in full like every other quest. They differ only in `m1Stat
 | v1 | unchanged, still produced by the existing exporter |
 | v1 → v2 migration | "v1-held-fields-only"; refused for any quest with extraObjectives or killCredit (v2 design §8) |
 | v2 → v1 | refused (no downgrade) |
-| Harness version | 1.2.0 for the order protection (separate PR); the production v2 exporter bumps it again |
+| Harness version | 1.2.0 for the order protection; 1.3.0 with the Stage A2 v2 export mode (on the A2 branch only; A1 stays 1.2.0) |
 
 ## 8. Failure handling, paths, determinism, performance
 
-- **Fail closed, whole file.** Any malformed record, unclassified quest, missing kill-credit-first set, ID-set mismatch, provenance error or validator failure: no file is written. Errors go to stderr with the quest ID and field.
+- **Fail closed, whole file.** Any malformed record, unclassified quest, missing kill-credit-first set, ID-set mismatch, provenance error or validator failure before publication: no file is written. Once the file is published (installed by SafeWrite), a failed read-back verification is a hard failure with a fixed message and a non-zero exit, and the published file is left in place for human review; it is not deleted. Errors go to stderr with the quest ID and field.
 - **Self-validation.** The document is validated with the v2 validator before writing; the written bytes are re-read and validated again.
-- **Safe paths.** Writes only through `SafeWrite` (no overwrite of existing files, no symlinks, no repository paths, owner-only permissions), the same rules as the private coverage manifest.
+- **Safe paths.** Writes only through `SafeWrite` (no overwrite of existing files, no symlinks, no repository paths, owner-only permissions), the same rules as the private coverage manifest. The v2 mode is stricter than v1: it also refuses `private/` inside the checkout, any symlink in the output directory path, and an existing or symlinked destination, before M0 runs. v2 never passes `force`. No fsync is performed, so no power-loss durability is claimed; the guarantees are no-clobber install and atomic visibility of a complete file.
 - **Deterministic serialisation.** Quests sorted by ID; keys in a fixed order per table; integers only (no floats); `\n` line endings; no timestamps except `provenance.exportedAt`. Reproducibility is tested, not forced: the test harness compares `Canonical(doc, exclude)` (draft function, tested), where `exclude` may only name per-run provenance fields (`exportedAt`, and `sourceCommit`/`sourceTree` across commits). The real file keeps its real timestamp; production provenance is never weakened to make hashes stable.
 - **Inputs untouched.** Deep compare of the compiled database before and after the run.
-- **Performance target.** All 9,159 quests within the existing M0 run budget; no measured figure yet (no exporter). The acceptance run records wall time and peak memory.
+- **Performance.** Measured in Stage A2: about 19 s wall for the whole run (compile, 232 M0 checks, export of 9,159 quests, round trip on the parsed text, write and re-read), of which about 4 s CPU is the export itself; peak RSS about 623 MiB, dominated by the compile; output 2,366,003 bytes.
 - **Privacy.** The export holds only public Questie data, but it goes to a private path by default, as v1 does, to keep one handling rule for all M2 files.
 
 ## 9. Acceptance test plan
@@ -107,7 +107,7 @@ Full-database tests (to run once an exporter is authorised):
 | F5 | v1 equivalence (section 11) | 0 differences over 8,401 |
 | F6 | determinism | two runs on the same clean tree are byte-identical after `Canonical(doc, {"exportedAt"})`; production provenance keeps its real timestamp |
 | F7 | M0, M1, v1 unchanged | 232 M0 checks pass with strict field-level pins; M1 and v1 suites pass; v1 writer source unchanged (diff empty); v1 export equivalent before and after by `Canonical(doc, {"exportedAt"})` (and `sourceCommit`/`sourceTree` only when comparing across commits), plus the synthetic v1 golden fixture test |
-| F8 | fail-closed | injected malformed record, missing kill-credit set, unwritable path: no file |
+| F8 | fail-closed | before successful publication (injected malformed record, missing kill-credit set, unwritable path, any refusal): no file and no temp file is left. After publication (read-back differs or fails validation): hard failure, fixed `POST-PUBLICATION VERIFICATION FAILED` message, non-zero exit, published file preserved for human review. The nothing-left-behind guarantee covers only the first case |
 
 ## 10. Round-trip proof design
 
@@ -132,14 +132,14 @@ For each SUPPORTED quest, the v1 record and the v2 record are equivalent when al
 | reputation | v1 cannot hold it | held | none (SUPPORTED quests have no reputation) |
 | extraObjectives | v1 holds only a presence flag and item list | full | v1 flag equals `#extraObjectives > 0`; nothing more compared |
 | cross-kind order (`position`) | not held | held | **no claim**; v1 never stored it |
-| killCreditFirst | not held | held | **no claim** (SUPPORTED quests have it false, but v1 cannot confirm) |
+| killCreditFirst | not held | held | **no claim**. A SUPPORTED quest may have `killCreditFirst = true` when it has exactly one KillCredit objective and no other ordinary objective, because nothing is reordered (decision t54u); 0 such quests at baseline. v1 cannot confirm the flag either way |
 | occurrence | implied by list order | explicit | v1 list order equals v2 occurrence order |
 
 ## 12. Remaining open points
 
 - Exporter entry point: **decided** (maintainer, 14 October 2026): an explicit opt-in v2 mode in `cli/validate-335.lua`. See `docs/NQ-VALIDATION-M2-V2-EXPORTER-PROPOSAL.md` for the trade-off and the mode contract.
-- Performance figures (none measured).
-- HARNESS_VERSION: **decided**, 1.1.0 → 1.2.0 with the kill-credit ordering protection, in a separate draft PR on the #38 line (not in this design stack). The production v2 exporter bumps it again (proposed 1.3.0).
+- Performance figures: measured in Stage A2 (section 8).
+- HARNESS_VERSION: **decided**, 1.1.0 → 1.2.0 with the kill-credit ordering protection, in a separate draft PR on the #38 line (not in this design stack). The production v2 exporter bumps it again: 1.3.0 on the Stage A2 branch.
 
 ## M1 parity with the frozen v1 classification (decision t54u)
 

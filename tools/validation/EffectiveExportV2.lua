@@ -1,4 +1,5 @@
--- N-Questie M2 Stage A1: nq-m2-effective v2 record builder (in memory only).
+-- N-Questie M2: nq-m2-effective v2 record builder and serialiser (Stage A1
+-- builder, Stage A2 BuildDocument/Serialise). In memory only.
 --
 -- Builds one v2 record per compiled quest from the POST-correction compiled
 -- Questie database, read through a query function (normally
@@ -317,6 +318,125 @@ function M.BuildAll(query, ids, ctx)
     end
     if #errs > 0 then return nil, errs end
     return out, nil, v1s
+end
+
+-- ---------------------------------------------------------------- Stage A2
+-- Document and deterministic serialisation (spec section 8). Every table is
+-- written with a FIXED key order per table kind; a key that is not in that
+-- order fails closed (nothing is silently dropped). Integers only; strings
+-- are restricted to printable ASCII without quotes or backslashes needing
+-- escapes beyond %q; "\n" line endings; one quest per line.
+M.PROVENANCE_ORDER = { "harness", "harnessVersion", "dataKind", "flavour", "tocInterface", "sourceCommit", "sourceTree",
+    "sourceDirty", "nQuestieDataRevision", "correctionCount", "correctionModules", "correctionFingerprint",
+    "m0Checks", "questCount", "exportedAt" }
+M.QUEST_ORDER = { "ID", "requiredLevel", "questLevel", "sourceItemId", "requiredSourceItems", "killCreditFirst",
+    "hasTriggerEnd", "m1Status", "m1Reasons", "objectives", "extraObjectives" }
+M.OBJECTIVE_ORDER = { "position", "kind", "slotIndex", "id", "occurrence", "ids", "rootId", "factionId",
+    "requiredValue", "itemSourceId" }
+M.EXTRA_ORDER = { "position", "icon", "hasText", "objectiveIndex", "spawnZones", "refs" }
+M.REF_ORDER = { "refIndex", "type", "id" }
+M.DOC_ORDER = { "schema", "schemaVersion", "displayScope", "provenance", "quests" }
+
+-- records: list from BuildAll (sorted by ID). provenance: from
+-- ExportProvenance.Collect. Both are deep copied; questCount is set here.
+function M.BuildDocument(records, provenance)
+    local function copy(v)
+        if type(v) ~= "table" then return v end
+        local o = {}
+        for k, x in pairs(v) do o[k] = copy(x) end
+        return o
+    end
+    local p = copy(provenance)
+    p.questCount = #records
+    return { schema = M.SCHEMA, schemaVersion = M.SCHEMA_VERSION, displayScope = M.DISPLAY_SCOPE,
+             provenance = p, quests = copy(records) }
+end
+
+local function serr(path, msg) error("Serialise: " .. path .. ": " .. msg, 0) end
+
+local function scalar(v, path, out)
+    local t = type(v)
+    if t == "number" then
+        if v ~= v or v ~= math.floor(v) or v < -2147483648 or v > 2147483647 then serr(path, "integer required") end
+        out[#out + 1] = string.format("%d", v)
+    elseif t == "boolean" then
+        out[#out + 1] = v and "true" or "false"
+    elseif t == "string" then
+        if not v:match("^[ -~]*$") or v:find("[\\\"]") then serr(path, "string must be printable ASCII without quotes or backslashes") end
+        out[#out + 1] = '"' .. v .. '"'
+    else
+        serr(path, "unsupported type " .. t)
+    end
+end
+
+local emitValue
+local function emitList(t, path, out, itemOrder)
+    if not isList(t) then serr(path, "plain list required") end
+    out[#out + 1] = "{"
+    for i, v in ipairs(t) do
+        if i > 1 then out[#out + 1] = "," end
+        emitValue(v, path .. "[" .. i .. "]", out, itemOrder)
+    end
+    out[#out + 1] = "}"
+end
+local function emitRecord(t, path, out, order, children)
+    if type(t) ~= "table" then serr(path, "table required") end
+    local known = {}
+    for _, k in ipairs(order) do known[k] = true end
+    for k in pairs(t) do if not known[k] then serr(path, "field " .. tostring(k) .. " has no fixed position (refused)") end end
+    out[#out + 1] = "{"
+    local first = true
+    for _, k in ipairs(order) do
+        local v = t[k]
+        if v ~= nil then
+            if not first then out[#out + 1] = "," end
+            first = false
+            out[#out + 1] = k .. "="
+            emitValue(v, path .. "." .. k, out, children and children[k])
+        end
+    end
+    out[#out + 1] = "}"
+end
+function emitValue(v, path, out, spec)
+    if type(v) ~= "table" then
+        if spec and spec.record then serr(path, "table required") end
+        return scalar(v, path, out)
+    end
+    if spec and spec.record then return emitRecord(v, path, out, spec.record, spec.children) end
+    if spec and spec.list then return emitList(v, path, out, spec.list) end
+    return emitList(v, path, out, nil) -- plain list of scalars
+end
+
+local REF = { record = M.REF_ORDER }
+local EXTRA = { record = M.EXTRA_ORDER, children = { refs = { list = REF } } }
+local OBJ = { record = M.OBJECTIVE_ORDER }
+local QUEST = { record = M.QUEST_ORDER, children = { objectives = { list = OBJ }, extraObjectives = { list = EXTRA } } }
+local PROV = { record = M.PROVENANCE_ORDER }
+
+-- Deterministic text of a v2 document. Raises (error string) on anything
+-- outside the fixed shape; callers use pcall and fail closed.
+function M.Serialise(doc, header)
+    local out = {}
+    if header then
+        for line in (header .. "\n"):gmatch("([^\n]*)\n") do out[#out + 1] = "-- " .. line .. "\n" end
+    end
+    if type(doc) ~= "table" then serr("doc", "table required") end
+    local known = {}
+    for _, k in ipairs(M.DOC_ORDER) do known[k] = true end
+    for k in pairs(doc) do if not known[k] then serr("doc", "field " .. tostring(k) .. " has no fixed position (refused)") end end
+    out[#out + 1] = "return {\n"
+    out[#out + 1] = "schema="; scalar(doc.schema, "schema", out); out[#out + 1] = ",\n"
+    out[#out + 1] = "schemaVersion="; scalar(doc.schemaVersion, "schemaVersion", out); out[#out + 1] = ",\n"
+    out[#out + 1] = "displayScope="; scalar(doc.displayScope, "displayScope", out); out[#out + 1] = ",\n"
+    out[#out + 1] = "provenance="; emitValue(doc.provenance, "provenance", out, PROV); out[#out + 1] = ",\n"
+    if not isList(doc.quests) then serr("quests", "plain list required") end
+    out[#out + 1] = "quests={\n"
+    for i, q in ipairs(doc.quests) do
+        emitValue(q, "quests[" .. i .. "]", out, QUEST)
+        out[#out + 1] = ",\n"
+    end
+    out[#out + 1] = "},\n}\n"
+    return table.concat(out)
 end
 
 return M
