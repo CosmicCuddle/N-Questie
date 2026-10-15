@@ -64,6 +64,37 @@ mkdir -m 700 "$T/g/real/inner"; ln -s "$T/g/real" "$T/g/subp"
 refuse "symlinked parent directory" "contains a symlink" $E28 NQ_EXPORT_SCHEMA_VERSION=2 NQ_EXPORT_V2_OUT="$T/g/subp/inner/v2.lua"
 [ -z "$(ls -A "$T/g/real/inner")" ] && ok "nothing written through symlinked directories" || bad "written through symlink"
 refuse "directory inside the checkout" "inside the public checkout" $E28 NQ_EXPORT_SCHEMA_VERSION=2 NQ_EXPORT_V2_OUT="$ROOT/tests/v2.lua"
+
+# A failed realpath can still print a plausible canonical path under Lua 5.1.
+# SafeWrite checks the repo root once; the A2-specific checkout exclusion
+# resolves it a SECOND time. The wrapper fails only that second call, proving
+# the A2 preflight rejects the actual subprocess failure before M0.
+mkdir -m 700 "$T/failing-realpath-bin"
+REAL_REALPATH="$(command -v realpath)"
+cat > "$T/failing-realpath-bin/realpath" <<'NQ_FAKE_REALPATH'
+#!/bin/sh
+if [ "$3" = "$NQ_A2_TEST_ROOT" ]; then
+    if [ -e "$NQ_A2_ROOT_FIRST_SEEN" ]; then
+        "$NQ_A2_REAL_REALPATH" "$@" || exit 18
+        : > "$NQ_A2_SECOND_CALL_FAILED"
+        exit 17
+    fi
+    : > "$NQ_A2_ROOT_FIRST_SEEN"
+fi
+exec "$NQ_A2_REAL_REALPATH" "$@"
+NQ_FAKE_REALPATH
+chmod 700 "$T/failing-realpath-bin/realpath"
+refuse "failed checkout root realpath prints plausible path" "cannot verify the canonical checkout root" \
+    $E28 NQ_EXPORT_SCHEMA_VERSION=2 NQ_EXPORT_V2_OUT="$OUT" \
+    PATH="$T/failing-realpath-bin:$PATH" NQ_A2_TEST_ROOT="$ROOT" \
+    NQ_A2_REAL_REALPATH="$REAL_REALPATH" \
+    NQ_A2_ROOT_FIRST_SEEN="$T/root-realpath-first" \
+    NQ_A2_SECOND_CALL_FAILED="$T/root-realpath-failed"
+[ -f "$T/root-realpath-first" ] && [ -f "$T/root-realpath-failed" ] && [ ! -e "$OUT" ] \
+    && ok "A2 guard really exercised failing second realpath and wrote no output" \
+    || bad "realpath failure fixture did not execute or created output"
+
+
 ln -s "$ROOT/tests" "$T/g/repolink"
 refuse "symlink into the checkout" "inside" $E28 NQ_EXPORT_SCHEMA_VERSION=2 NQ_EXPORT_V2_OUT="$T/g/repolink/v2.lua"
 [ ! -e "$ROOT/tests/v2.lua" ] && ok "nothing written into the checkout" || bad "file written into the checkout"
