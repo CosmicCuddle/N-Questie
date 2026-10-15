@@ -32,8 +32,10 @@ function M.Collect(root, modules, facts)
 
     local top = git(root, "rev-parse --show-toplevel")
     if not top then err("not a git checkout (or git unavailable)") return nil, errs end
-    local realTop = M._capture("realpath -e -- " .. q(top))
-    if realTop ~= root then err("harness root " .. root .. " is not the git top level " .. tostring(realTop)) end
+    local realTop, realRc = M._capture("realpath -e -- " .. q(top))
+    if realRc ~= 0 or realTop ~= root then
+        err("cannot verify that the harness root is the git top level")
+    end
     local commit = git(root, "rev-parse --verify HEAD")
     local tree = git(root, "rev-parse --verify HEAD^{tree}")
     if not (commit and commit:match("^%x+$") and #commit == 40) then err("cannot read HEAD commit") else p.sourceCommit = commit:lower() end
@@ -65,8 +67,8 @@ function M.Collect(root, modules, facts)
         if not name then err("unexpected correction module path " .. tostring(rel))
         else
             if not git(root, "ls-files --error-unmatch -- " .. q(rel)) then err(rel .. " is not tracked by git") end
-            local sum = M._capture("sha256sum -- " .. q(root .. "/" .. rel))
-            local hex = sum and sum:match("^(%x+)%s")
+            local sum, hashRc = M._capture("sha256sum -- " .. q(root .. "/" .. rel))
+            local hex = hashRc == 0 and sum and sum:match("^(%x+)%s")
             if not hex or #hex ~= 64 then err("cannot hash " .. rel)
             else
                 p.correctionModules[#p.correctionModules + 1] = name
@@ -77,8 +79,8 @@ function M.Collect(root, modules, facts)
     if #lines > 0 then
         local parts = {}
         for _, l in ipairs(lines) do parts[#parts + 1] = q(l) end
-        local out = M._capture("printf '%s\\n' " .. table.concat(parts, " ") .. " | sha256sum")
-        local hex = out and out:match("^(%x+)%s")
+        local out, fingerprintRc = M._capture("printf '%s\\n' " .. table.concat(parts, " ") .. " | sha256sum")
+        local hex = fingerprintRc == 0 and out and out:match("^(%x+)%s")
         if not hex or #hex ~= 64 then err("cannot compute correction fingerprint")
         else p.correctionFingerprint = "sha256:" .. hex:lower() end
     end

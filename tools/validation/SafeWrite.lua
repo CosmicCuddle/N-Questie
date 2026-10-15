@@ -35,11 +35,22 @@ local function run(cmd)
 end
 
 local function capture(cmd)
-    local h = io.popen(cmd .. " 2>/dev/null")
-    if not h then return nil end
+    -- Lua 5.1 io.popen():close() can succeed even if the child command exits
+    -- nonzero. Never treat stat/id/mktemp stdout as successful unless the
+    -- original command itself returned status 0. In particular, a failed
+    -- mktemp that prints a plausible name must not become io.open(...,"wb").
+    -- A marker emitted by the parent shell AFTER the child has exited is
+    -- anchored at the end, so an earlier stdout line cannot forge success.
+    local shell = "( " .. cmd .. " ) 2>/dev/null; " ..
+        "nq_safe_status=$?; printf '\\nNQ_SAFEWRITE_EXIT:%s\\n' \"$nq_safe_status\""
+    local ok, h = pcall(io.popen, shell)
+    if not ok or not h then return nil end
     local out = h:read("*a")
     h:close()
-    return out and out:match("^(.-)\n?$")
+    if type(out) ~= "string" then return nil end
+    local data, status = out:match("^(.*)\nNQ_SAFEWRITE_EXIT:(%d+)\n$")
+    if status ~= "0" then return nil end
+    return data and data:match("^(.-)\n?$")
 end
 
 local function resolve(path)
@@ -159,7 +170,17 @@ function M.WriteFile(path, content, opts)
         installed = run("mv -fT -- " .. q(temp) .. " " .. q(final))
     else
         installed = run("ln -T -- " .. q(temp) .. " " .. q(final))
-        if installed then run("rm -f -- " .. q(temp)) end
+        if installed then
+            -- The final name is already published by the hard link. If the
+            -- temporary name cannot be removed, a second copy may remain.
+            -- This is a POST-publication safety failure, never success.
+            -- Do not remove the published output or claim no file remains.
+            if not run("rm -f -- " .. q(temp)) then
+                return false, "post-install temp cleanup failed for " .. final ..
+                    " (published file left in place for inspection; a private temp link may remain)",
+                    { published = true, final = final }
+            end
+        end
     end
     if not installed then
         cleanup()
@@ -170,7 +191,11 @@ function M.WriteFile(path, content, opts)
     local fst = statInfo(final)
     if resolve(final) ~= final or not fst or fst.kind ~= "regular file" or fst.uid ~= dest.uid
        or fst.mode ~= tonumber("600", 8) or readAll(final) ~= content then
-        return false, "post-install check failed for " .. final .. " (file left in place for inspection)"
+        -- Publication already occurred. Supply structured status without changing
+        -- the existing two-return-value contract for older callers. The v2
+        -- exporter must distinguish this from a refusal before publication.
+        return false, "post-install check failed for " .. final .. " (file left in place for inspection)",
+            { published = true, final = final }
     end
     return true, final
 end

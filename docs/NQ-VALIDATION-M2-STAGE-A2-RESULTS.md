@@ -77,13 +77,20 @@ written. There is no development flag.
    0600 in a 0700 directory.
 8. Re-read the file, require byte equality, then parse and validate it again.
 
-The nothing-left-behind guarantee covers only failures before successful
-publication. A failure in steps 1 to 7 leaves no output file, and SafeWrite
-removes its temp file.
+The nothing-left-behind guarantee covers only failures before publication.
+Before SafeWrite's no-clobber installation, no new final file is published;
+cleanup of temporary files is attempted, but filesystem errors may prevent
+removal. Publication occurs during step 7.
 
-Step 8 runs after publication. If it fails, the installed file changed after
-SafeWrite's own check. That is a hard failure with a non-zero exit. The first
-error line is the fixed text `ExportV2.POST_PUBLICATION_FAILED`:
+If SafeWrite links the final file but its own post-install check fails, the
+file is retained and the exporter returns a hard post-publication failure.
+The same applies if unlinking SafeWrite's temporary hard-link name fails
+**after** publication: the published file remains for inspection, and a second
+private 0600 hard link may remain as well. Neither case is reported as success.
+
+Step 8 runs after publication. It likewise returns a hard failure if read-back
+or validation fails. Every post-publication failure uses the fixed first
+error line `ExportV2.POST_PUBLICATION_FAILED` and needs human review:
 
     v2 export: POST-PUBLICATION VERIFICATION FAILED: the output file was published but did not verify on read-back; it has been left in place and needs human review before any use
 
@@ -157,17 +164,20 @@ These figures come from `/usr/bin/time -v` on the box:
 
 | Test | Checks |
 |---|---|
-| `tests/test_nquestie_m2_v2_export.lua` | 120: serialiser order, determinism, refusals, parse back; pipeline success; refusals with no file left; post-publication hard failure with the file preserved |
+| `tests/test_nquestie_m2_v2_export.lua` | 124: serialiser order, determinism, refusals, parse back; pipeline success; refusals with no file left; post-publication hard failure with the file preserved |
 | `tests/test_nquestie_m2_v2_verify_clean.lua` | 31: clean-checkout gate with synthetic git output (dirty, non-zero exit, no output, unexpected output, bad HEAD, realpath exit 17 with the right path, realpath failures and mismatches, empty top level) and a real temporary repository (untracked, modified, staged, corrupt index, clean) |
 | `tests/test_nquestie_m2_v2_verify_cli.sh` | 9: the gate through the CLI in a temporary clone; every refusal leaves the clone and temp dirs unchanged (snapshots) |
-| `tests/test_nquestie_m2_v2_export_integration.sh` | 109: mode guards, two full exports, F1-F8, verify mode, tamper detection, dirty clone, `private/`, unwritable directory, default golden; verify in the clone with an untracked file, a modified tracked file, a staged change or a corrupt index is refused and the snapshots are unchanged, and a truly clean clone passes |
+| `tests/test_nquestie_m2_v2_export_integration.sh` | 111: mode guards, two full exports, F1-F8, verify mode, tamper detection, dirty clone, `private/`, unwritable directory, default golden; verify in the clone with an untracked file, a modified tracked file, a staged change or a corrupt index is refused and the snapshots are unchanged, and a truly clean clone passes |
 | `tests/check_m2_v2_export_file.lua` | read-only helper for the integration test |
 | `tests/test_nquestie_m2_v2_mutation.sh` | 72 mutants, all killed. 21 are for the serialiser, pipeline and schema checks; 12 (t56u, t57u) are for the verify clean-checkout check and its CLI wiring, including a realpath status that is ignored. Three mutants that cannot be killed are documented in the script: two equivalent ones, plus the re-check after verification, which would need a CLI test hook |
-| `tests/test_nquestie_m2_v1_frozen.lua` | adds sha256 pins of six v1-era sources |
+| `tests/test_nquestie_m2_safe_write.lua` | 40 synthetic checks, including post-install failure status and failed unlink after no-clobber publication |
+| `tests/test_nquestie_m2_v1_frozen.lua` | unchanged v1 output golden and three original SHA-256 source pins, plus three separately reviewed safety-helper Git-blob pins |
 | `tests/test_nquestie_harness_version.lua` | pins 1.3.0 and checks that three provenance sites use it |
 
 All of these run from `tests/run_m2_suite.sh` and from busted
-(`tools/validation/M2V2RoundTrip.test.lua`). No workflow file is changed.
+(`tools/validation/M2V2RoundTrip.test.lua`). The original Stage A2 branch
+does not change workflow files. This separate review-only combined candidate
+adds one dedicated full-M2-suite CI workflow to verify F1–F8 on GitHub.
 
 ## Limitations and risks
 

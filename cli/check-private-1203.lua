@@ -80,7 +80,11 @@ if not secureStat(parent, "700", "directory")
 end
 
 -- Run from repository root, as with cli/validate-m2-input.lua.
-local doc = Input.LoadFile(path or "", ".")
+-- Always parse the canonical target whose mode/owner we just checked.
+-- Re-resolving the operator's original path here would let a symlink switch
+-- between our initial safety check and Input.LoadFile's own resolution,
+-- potentially accepting an unvetted file inside the public checkout.
+local doc = Input.LoadFile(resolved, ".")
 if not doc then
     io.stderr:write("FAIL: private M2.1 input rejected (path, parser or schema); investigate locally\n")
     os.exit(1)
