@@ -16,7 +16,11 @@ T="$(mktemp -d)"; trap 'rm -rf -- "$T"' EXIT
 HAVE_CLI=0; "$LUA" -e 'require("bit32")' >/dev/null 2>&1 && command -v git >/dev/null 2>&1 && HAVE_CLI=1
 skipped=0
 copy() {
-    rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests" "$T/w/cli"
+    rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests" "$T/w/cli" "$T/w/docs"
+    # The standalone SafeWrite regression expects a real checkout docs path
+    # for its symlink-into-checkout refusal case. Populate that public fixture
+    # in the *temporary* mutation copy; never weaken the path assertion.
+    cp docs/ROADMAP.md "$T/w/docs/ROADMAP.md"
     cp cli/validate-335.lua "$T/w/cli/"
     cp tools/validation/*.lua "$T/w/tools/validation/"
     cp tools/validation/draft/*.lua "$T/w/tools/validation/draft/"
