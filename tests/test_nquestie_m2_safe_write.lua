@@ -79,6 +79,78 @@ local okRun, err = pcall(function()
     local leftovers = tonumber(line("ls -A " .. q(out) .. " | grep -c '^.nq-write' || true"))
     if leftovers == 0 then pass("no temp files left after simulated failures") else fail(leftovers .. " temp files left") end
 
+    -- A mock mktemp emits a believable already-existing filename, but exits
+    -- 17. Old Lua 5.1 io.popen():close() code trusted stdout, opened that file
+    -- with "wb" and silently destroyed its previous bytes. Reject before ANY
+    -- attempted file open, and prove both sentinel and final remain untouched.
+    local failbin = base .. "/fake-mktemp-bin"
+    assert(sh("mkdir -m 700 " .. q(failbin)))
+    local sentinel = out .. "/.nq-write.DO_NOT_OVERWRITE"
+    local sf = assert(io.open(sentinel, "wb"))
+    sf:write("SENTINEL_CONTENTS_UNCHANGED\n"); sf:close()
+    assert(sh("chmod 600 " .. q(sentinel)))
+    local fake = assert(io.open(failbin .. "/mktemp", "wb"))
+    fake:write("#!/bin/sh\n" ..
+        ": > \"$NQ_TEST_MKTEMP_MARKER\"\n" ..
+        "printf '%s\\n' \"$NQ_TEST_MKTEMP_SENTINEL\"\n" ..
+        "exit 17\n")
+    fake:close()
+    assert(sh("chmod 700 " .. q(failbin .. "/mktemp")))
+
+    local realLua = line("command -v lua5.1")
+    assert(realLua and realLua:sub(1, 1) == "/")
+    local probe = base .. "/check-safe-capture.lua"
+    local pf = assert(io.open(probe, "wb"))
+    pf:write("local W = dofile('tools/validation/SafeWrite.lua')\n" ..
+        "local yes, why = W.WriteFile(arg[1], 'NEW_PRIVATE_CONTENTS', {repoRoot=arg[2]})\n" ..
+        "if yes then os.exit(11) end\n" ..
+        "if not tostring(why):find(arg[3], 1, true) then os.exit(12) end\n" ..
+        "os.exit(0)\n")
+    pf:close()
+    local mark = base .. "/failed-mktemp-was-invoked"
+    local final = out .. "/should-not-be-created.lua"
+    local command = "PATH=" .. q(failbin .. ":" .. (os.getenv("PATH") or "")) ..
+        " NQ_TEST_MKTEMP_SENTINEL=" .. q(sentinel) ..
+        " NQ_TEST_MKTEMP_MARKER=" .. q(mark) ..
+        " " .. q(realLua) .. " " .. q(probe) .. " " .. q(final) .. " " .. q(root) ..
+        " " .. q("cannot create a temporary file") .. " >/dev/null 2>&1"
+    if sh(command) and sh("test -f " .. q(mark)) and read(sentinel) == "SENTINEL_CONTENTS_UNCHANGED\n"
+        and not read(final) then
+        pass("failed mktemp plausible stdout cannot overwrite a preexisting private sentinel")
+    else
+        fail("failed mktemp stdout was trusted or a preexisting private file was altered")
+    end
+
+    -- A mock stat prints the real directory ownership/mode, then exits 17.
+    -- Even a plausible trusted-looking stat line must not authorise a write.
+    local failStatBin = base .. "/fake-stat-bin"
+    assert(sh("mkdir -m 700 " .. q(failStatBin)))
+    local realStat = line("command -v stat")
+    assert(realStat and realStat:sub(1, 1) == "/")
+    local st = assert(io.open(failStatBin .. "/stat", "wb"))
+    st:write("#!/bin/sh\n" ..
+        "if [ \"$4\" = \"$NQ_TEST_STAT_TARGET\" ]; then\n" ..
+        "  : > \"$NQ_TEST_STAT_MARKER\"\n" ..
+        "  \"$NQ_REAL_STAT\" \"$@\"\n" ..
+        "  exit 17\n" ..
+        "fi\n" ..
+        "exec \"$NQ_REAL_STAT\" \"$@\"\n")
+    st:close()
+    assert(sh("chmod 700 " .. q(failStatBin .. "/stat")))
+    local statMark = base .. "/failed-stat-was-invoked"
+    local statDest = out .. "/should-not-stat-write.lua"
+    command = "PATH=" .. q(failStatBin .. ":" .. (os.getenv("PATH") or "")) ..
+        " NQ_TEST_STAT_TARGET=" .. q(out) ..
+        " NQ_TEST_STAT_MARKER=" .. q(statMark) ..
+        " NQ_REAL_STAT=" .. q(realStat) ..
+        " " .. q(realLua) .. " " .. q(probe) .. " " .. q(statDest) .. " " .. q(root) ..
+        " " .. q("cannot stat output directory") .. " >/dev/null 2>&1"
+    if sh(command) and sh("test -f " .. q(statMark)) and not read(statDest) then
+        pass("failed stat with plausible metadata cannot authorise a private output")
+    else
+        fail("failed stat stdout was trusted or write survived failed destination check")
+    end
+
     -- resolver failure
     local saved = Input.resolver
     Input.resolver = function() return nil end
