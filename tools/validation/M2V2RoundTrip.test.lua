@@ -18,7 +18,11 @@ describe("N-Questie Stage A1/A2 v2 round trip and export", function()
         { "real-DB v2 export acceptance F1-F8 (written file, private temp dirs)", "bash tests/test_nquestie_m2_v2_export_integration.sh", db },
     }) do
         if t[3] then
-            it(t[1], function() assert.is_true(sh(t[2] .. " >/dev/null 2>&1")) end)
+            it(t[1], function()
+                -- Temporary CI diagnosis for the independently added preflight test.
+                local suffix = t[1]:find("v2 export acceptance", 1, true) and "" or " >/dev/null 2>&1"
+                assert.is_true(sh(t[2] .. suffix))
+            end)
         else
             pending(t[1] .. " (lua5.1, GNU realpath, git or bit32 not available in this runner)")
         end
