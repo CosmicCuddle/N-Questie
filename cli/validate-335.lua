@@ -707,8 +707,20 @@ local function v2ExportOptions()
             if dest.dir ~= dirText then
                 errs[#errs + 1] = "v2 export: the output directory path contains a symlink or is not canonical; give the real directory"
             end
-            local rroot = io.popen("realpath -e -- '" .. root:gsub("'", "'\\''") .. "' 2>/dev/null"):read("*l")
-            if not rroot or dest.dir == rroot or dest.dir:sub(1, #rroot + 1) == rroot .. "/" then
+            -- Lua 5.1 io.popen():close() does not reliably report the
+            -- realpath subprocess exit status. A failed realpath may print a
+            -- plausible absolute directory before exiting nonzero; never
+            -- trust that stdout to judge whether the output is in the repo.
+            local rcmd = "( realpath -e -- '" .. root:gsub("'", "'\\''") ..
+                "' ) 2>/dev/null; nq_a2_root_rc=$?; printf '\\nNQ_A2_ROOT_EXIT:%s\\n' \"$nq_a2_root_rc\""
+            local rok, rh = pcall(io.popen, rcmd)
+            local rtext = (rok and rh) and (rh:read("*a") or "") or nil
+            if rok and rh then rh:close() end
+            local rdata, rstatus = rtext and rtext:match("^(.*)\nNQ_A2_ROOT_EXIT:(%d+)\n$")
+            local rroot = rstatus == "0" and rdata and rdata:match("^([^\n]*)\n?$") or nil
+            if not rroot or rroot ~= root then
+                errs[#errs + 1] = "v2 export: cannot verify the canonical checkout root; refusing output path"
+            elseif dest.dir == rroot or dest.dir:sub(1, #rroot + 1) == rroot .. "/" then
                 errs[#errs + 1] = "v2 export: the output directory is inside the git checkout (private/ included); use a private directory outside it"
             end
             local qf = "'" .. dest.final:gsub("'", "'\\''") .. "'"
