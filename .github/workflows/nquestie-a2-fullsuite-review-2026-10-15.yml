@@ -1,0 +1,41 @@
+# REVIEW-ONLY, public and synthetic N-Questie M2 acceptance.
+# This is isolated from production and the six established workflows.
+# It tests the exact existing Stage A2 combined candidate tree plus this
+# CI-only workflow file against a separately frozen GitHub PR target.
+name: N-Questie A2 full-suite compatibility rehearsal
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  full-m2-suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout pinned PR review merge
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Lua 5.1, LuaRocks, bit32, and Busted
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lua5.1 liblua5.1-0-dev luarocks
+          sudo luarocks --lua-version=5.1 install bit32
+          sudo luarocks --lua-version=5.1 install busted
+
+      - name: Confirm GNU realpath
+        run: |
+          realpath -e -- /
+          realpath --version | head -1 | grep GNU
+
+      - name: Run full public and synthetic M2 acceptance including Stage A2 F1-F8
+        env:
+          LUA: lua5.1
+        run: bash tests/run_m2_suite.sh
+
+      - name: Refuse any checkout modification by the suite
+        run: test -z "$(git status --porcelain --untracked-files=all)"
