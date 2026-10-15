@@ -134,8 +134,10 @@ mutant $K 'elseif status ~= "" then' 'elseif false then' "verify gate: dirty sta
 mutant $K 'if rc ~= 0 or out == nil then return nil end' 'if out == nil then return nil end' "verify gate: git exit code ignored"
 mutant $K 'if line ~= "" and not line:match("^[ MADRCU?!][ MADRCU?!] .") then' 'if false then' "verify gate: unexpected status output not reported"
 mutant $K 'if not (commit and commit:match("^%x+$") and #commit == 40) then' 'if not commit then' "verify gate: malformed HEAD accepted"
-mutant $K 'if realTop ~= root then' 'if false then' "verify gate: root not checked against the git top level"
+mutant $K ' or realTop ~= root then' ' then' "verify gate: root not checked against the git top level"
 mutant $K 'if #errs > 0 then return nil, errs end' '' "verify gate: errors collected but not returned"
+mutant $K 'if rrc ~= 0 or realTop == nil' 'if realTop == nil' "verify gate: realpath exit status ignored"
+mutant $K 'if not top or top == "" then' 'if not top then' "verify gate: empty git top level accepted"
 mutant $K '"status --porcelain --untracked-files=all"' '"status --porcelain --untracked-files=no"' "verify gate: untracked files not seen"
 mutant $V 'if not state then
         for _, e in ipairs(serr) do errs[#errs + 1] = "v2 verify: " .. e end

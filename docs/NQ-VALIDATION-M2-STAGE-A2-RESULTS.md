@@ -31,7 +31,10 @@ refused, with nothing written, in these cases:
 * `git status` fails, exits non-zero, gives no output or gives output that
   is not porcelain;
 * HEAD or its tree cannot be read as a full sha;
-* the directory is not the git top level.
+* the directory is not the git top level. `git rev-parse --show-toplevel` must
+  exit 0 with non-empty output, and `realpath -e` of that output must exit 0
+  and print exactly the canonical checkout root (t57u). Every capture in the
+  module checks both its exit status and its output.
 After the run the check is repeated, and the commit and tree must be
 unchanged. The file's provenance must match the checkout commit and tree,
 with `sourceDirty = false`.
@@ -155,11 +158,11 @@ These figures come from `/usr/bin/time -v` on the box:
 | Test | Checks |
 |---|---|
 | `tests/test_nquestie_m2_v2_export.lua` | 120: serialiser order, determinism, refusals, parse back; pipeline success; refusals with no file left; post-publication hard failure with the file preserved |
-| `tests/test_nquestie_m2_v2_verify_clean.lua` | 26: clean-checkout gate with synthetic git output (dirty, non-zero exit, no output, unexpected output, bad HEAD) and a real temporary repository (untracked, modified, staged, corrupt index, clean) |
+| `tests/test_nquestie_m2_v2_verify_clean.lua` | 31: clean-checkout gate with synthetic git output (dirty, non-zero exit, no output, unexpected output, bad HEAD, realpath exit 17 with the right path, realpath failures and mismatches, empty top level) and a real temporary repository (untracked, modified, staged, corrupt index, clean) |
 | `tests/test_nquestie_m2_v2_verify_cli.sh` | 9: the gate through the CLI in a temporary clone; every refusal leaves the clone and temp dirs unchanged (snapshots) |
 | `tests/test_nquestie_m2_v2_export_integration.sh` | 109: mode guards, two full exports, F1-F8, verify mode, tamper detection, dirty clone, `private/`, unwritable directory, default golden; verify in the clone with an untracked file, a modified tracked file, a staged change or a corrupt index is refused and the snapshots are unchanged, and a truly clean clone passes |
 | `tests/check_m2_v2_export_file.lua` | read-only helper for the integration test |
-| `tests/test_nquestie_m2_v2_mutation.sh` | 70 mutants, all killed. 21 are for the serialiser, pipeline and schema checks; 10 (t56u) are for the verify clean-checkout check and its CLI wiring. Three mutants that cannot be killed are documented in the script: two equivalent ones, plus the re-check after verification, which would need a CLI test hook |
+| `tests/test_nquestie_m2_v2_mutation.sh` | 72 mutants, all killed. 21 are for the serialiser, pipeline and schema checks; 12 (t56u, t57u) are for the verify clean-checkout check and its CLI wiring, including a realpath status that is ignored. Three mutants that cannot be killed are documented in the script: two equivalent ones, plus the re-check after verification, which would need a CLI test hook |
 | `tests/test_nquestie_m2_v1_frozen.lua` | adds sha256 pins of six v1-era sources |
 | `tests/test_nquestie_harness_version.lua` | pins 1.3.0 and checks that three provenance sites use it |
 

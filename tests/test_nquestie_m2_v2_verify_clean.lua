@@ -36,6 +36,11 @@ local cases = {
     { "tree unreadable", { ["rev-parse --verify HEAD^{tree}"] = { "", 1 } }, "cannot read HEAD tree" },
     { "not a git checkout", { ["rev-parse --show-toplevel"] = { "", 128 } }, "not a git checkout" },
     { "root is not the top level", { ["realpath"] = { "/elsewhere", 0 } }, "is not the git top level" },
+    { "realpath prints the right path but exits 17", { ["realpath"] = { "/r", 17 } }, "is not the git top level" },
+    { "realpath non-zero with empty output", { ["realpath"] = { "", 1 } }, "is not the git top level" },
+    { "realpath no output at all, status 0", { ["realpath"] = { nil, 0 } }, "is not the git top level" },
+    { "realpath empty output, status 0", { ["realpath"] = { "", 0 } }, "is not the git top level" },
+    { "toplevel empty output, status 0", { ["rev-parse --show-toplevel"] = { "", 0 } }, "not a git checkout" },
 }
 for _, c in ipairs(cases) do
     local s2, e2 = CS.Check("/r", fake(c[2]))

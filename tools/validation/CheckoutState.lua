@@ -22,9 +22,12 @@ function M.Check(root, prov)
         err("not a git checkout (or git unavailable)") return nil, errs
     end
     local top = git("rev-parse --show-toplevel")
-    if not top then err("not a git checkout (or git unavailable)") return nil, errs end
-    local realTop = prov._capture("realpath -e -- " .. q(top))
-    if realTop ~= root then err("harness root " .. root .. " is not the git top level " .. tostring(realTop)) end
+    if not top or top == "" then err("not a git checkout (or git unavailable)") return nil, errs end
+    -- realpath must succeed (status 0) and print exactly the canonical root.
+    local realTop, rrc = prov._capture("realpath -e -- " .. q(top))
+    if rrc ~= 0 or realTop == nil or realTop == "" or realTop ~= root then
+        err("harness root " .. root .. " is not the git top level " .. tostring(realTop) .. " (realpath status " .. tostring(rrc) .. ")")
+    end
     local commit = git("rev-parse --verify HEAD")
     local tree = git("rev-parse --verify HEAD^{tree}")
     if not (commit and commit:match("^%x+$") and #commit == 40) then err("cannot read HEAD commit") commit = nil end
