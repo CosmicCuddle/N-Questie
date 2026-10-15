@@ -12,7 +12,7 @@ Independent of Part 1 draft PR #68; it does not modify or merge #68.
 
 ## Crucial B6 limitation
 
-Frozen v1's field validations alone do not prove that all required private evidence was collected. Every evidence axis, including `objectiveData`, remains **unknown** in this initial engine. Thus it must NEVER emit `CONFIRMED_MATCH` or `CONFIRMED_MISMATCH`; possible target discrepancies remain `NEEDS_MANUAL_REVIEW`. M1's expected representation differences may still be explained. This is a safety rule, not evidence that two quests agree.
+Frozen v1's field validations alone do not prove that all required private evidence was collected. The frozen M2.1 validator requires all tri-state fields: a missing field rejects the whole batch, whereas an explicit `"unknown"` stays uncertain. Every evidence axis, including `objectiveData`, remains **unknown** in this initial engine. Thus it must NEVER emit `CONFIRMED_MATCH` or `CONFIRMED_MISMATCH`; possible target discrepancies remain `NEEDS_MANUAL_REVIEW`. M1's expected representation differences may still be explained. This is a safety rule, not evidence that two quests agree.
 
 ## Not implemented here
 

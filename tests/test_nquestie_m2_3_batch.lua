@@ -190,9 +190,13 @@ check(results and results.authenticated == false and results.publishable == fals
     "pure result never reports authenticated or publishable")
 local flagUnknown = serverDoc(serverRow(3))
 flagUnknown.quests[1].ipGated = nil
+results, code = Batch.Run(flagUnknown,e,m,pins)
+check(results == nil and code == "REJECTED_MALFORMED_INPUT",
+    "frozen M2.1 rejects a missing tri-state instead of implying false")
+flagUnknown.quests[1].ipGated = "unknown"
 results = Batch.Run(flagUnknown,e,m,pins)
 check(results and results.rows[1].outcome == "NEEDS_MANUAL_REVIEW",
-    "missing tri-state never implies false")
+    "explicit unknown tri-state never implies false")
 local unsupported = Batch.Run(serverDoc(serverRow(1)),e,m,pins)
 check(unsupported and unsupported.rows[1].outcome == "M1_UNSUPPORTED_BY_RULES",
     "unsupported quest never run through M1")
