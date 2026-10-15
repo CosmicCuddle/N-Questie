@@ -30,6 +30,8 @@ step "Stage A1 M1 parity with frozen v1 (synthetic matrix)" "$LUA" tests/test_nq
 step "Stage A1 no-write guard" "$LUA" tests/test_nquestie_m2_no_write_guard.lua
 step "Stage A1 frozen v1 exporter (byte-identical to base)" "$LUA" tests/test_nquestie_m2_v1_frozen.lua
 step "Stage A2 v2 serialiser and export pipeline (synthetic)" "$LUA" tests/test_nquestie_m2_v2_export.lua
+step "Stage A2 verify clean-checkout gate (synthetic + temp git repo)" "$LUA" tests/test_nquestie_m2_v2_verify_clean.lua
+step "Stage A2 verify clean-checkout gate through the CLI (temp clone)" bash tests/test_nquestie_m2_v2_verify_cli.sh
 step "Stage A1/A2 mutation test" bash tests/test_nquestie_m2_v2_mutation.sh
 step "M2.3 contract DRAFT (design only)" "$LUA" tests/test_nquestie_m2_3_report_draft.lua
 step "nq-m2-markers DRAFT (design only)" "$LUA" tests/test_nquestie_m2_markers_draft.lua

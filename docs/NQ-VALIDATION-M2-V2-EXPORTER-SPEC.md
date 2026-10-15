@@ -76,7 +76,7 @@ The 758 are exported in full like every other quest. They differ only in `m1Stat
 
 ## 8. Failure handling, paths, determinism, performance
 
-- **Fail closed, whole file.** Any malformed record, unclassified quest, missing kill-credit-first set, ID-set mismatch, provenance error or validator failure: no file is written. Errors go to stderr with the quest ID and field.
+- **Fail closed, whole file.** Any malformed record, unclassified quest, missing kill-credit-first set, ID-set mismatch, provenance error or validator failure before publication: no file is written. Once the file is published (installed by SafeWrite), a failed read-back verification is a hard failure with a fixed message and a non-zero exit, and the published file is left in place for human review; it is not deleted. Errors go to stderr with the quest ID and field.
 - **Self-validation.** The document is validated with the v2 validator before writing; the written bytes are re-read and validated again.
 - **Safe paths.** Writes only through `SafeWrite` (no overwrite of existing files, no symlinks, no repository paths, owner-only permissions), the same rules as the private coverage manifest. The v2 mode is stricter than v1: it also refuses `private/` inside the checkout, any symlink in the output directory path, and an existing or symlinked destination, before M0 runs. v2 never passes `force`. No fsync is performed, so no power-loss durability is claimed; the guarantees are no-clobber install and atomic visibility of a complete file.
 - **Deterministic serialisation.** Quests sorted by ID; keys in a fixed order per table; integers only (no floats); `\n` line endings; no timestamps except `provenance.exportedAt`. Reproducibility is tested, not forced: the test harness compares `Canonical(doc, exclude)` (draft function, tested), where `exclude` may only name per-run provenance fields (`exportedAt`, and `sourceCommit`/`sourceTree` across commits). The real file keeps its real timestamp; production provenance is never weakened to make hashes stable.
@@ -107,7 +107,7 @@ Full-database tests (to run once an exporter is authorised):
 | F5 | v1 equivalence (section 11) | 0 differences over 8,401 |
 | F6 | determinism | two runs on the same clean tree are byte-identical after `Canonical(doc, {"exportedAt"})`; production provenance keeps its real timestamp |
 | F7 | M0, M1, v1 unchanged | 232 M0 checks pass with strict field-level pins; M1 and v1 suites pass; v1 writer source unchanged (diff empty); v1 export equivalent before and after by `Canonical(doc, {"exportedAt"})` (and `sourceCommit`/`sourceTree` only when comparing across commits), plus the synthetic v1 golden fixture test |
-| F8 | fail-closed | injected malformed record, missing kill-credit set, unwritable path: no file |
+| F8 | fail-closed | before successful publication (injected malformed record, missing kill-credit set, unwritable path, any refusal): no file and no temp file is left. After publication (read-back differs or fails validation): hard failure, fixed `POST-PUBLICATION VERIFICATION FAILED` message, non-zero exit, published file preserved for human review. The nothing-left-behind guarantee covers only the first case |
 
 ## 10. Round-trip proof design
 

@@ -12,16 +12,21 @@ ok()  { passes=$((passes+1)); echo "PASS: $1"; }
 bad() { fails=$((fails+1)); echo "FAIL: $1"; }
 T="$(mktemp -d)"; trap 'rm -rf -- "$T"' EXIT
 copy() {
-    rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests"
+    rm -rf "$T/w"; mkdir -p "$T/w/tools/validation/draft" "$T/w/tests" "$T/w/cli"
+    cp cli/validate-335.lua "$T/w/cli/"
     cp tools/validation/*.lua "$T/w/tools/validation/"
     cp tools/validation/draft/*.lua "$T/w/tools/validation/draft/"
     cp tests/test_nquestie_m2_v2_builder.lua tests/test_nquestie_m2_no_write_guard.lua tests/test_nquestie_m2_v2_m1_parity.lua \
-       tests/test_nquestie_m2_v2_export.lua tests/test_nquestie_m2_v2_acceptance.lua tests/test_nquestie_m2_effective_v2_draft.lua "$T/w/tests/"
+       tests/test_nquestie_m2_v2_export.lua tests/test_nquestie_m2_v2_verify_clean.lua tests/test_nquestie_m2_v2_acceptance.lua tests/test_nquestie_m2_effective_v2_draft.lua "$T/w/tests/"
     cp -r tests/fixtures "$T/w/tests/"
 }
 run_tests() { (cd "$T/w" && for t in test_nquestie_m2_v2_builder test_nquestie_m2_no_write_guard test_nquestie_m2_v2_m1_parity \
-    test_nquestie_m2_v2_export test_nquestie_m2_v2_acceptance test_nquestie_m2_effective_v2_draft; do
-    "$LUA" "tests/$t.lua" >/dev/null 2>&1 || exit 1; done); }
+    test_nquestie_m2_v2_export test_nquestie_m2_v2_verify_clean test_nquestie_m2_v2_acceptance test_nquestie_m2_effective_v2_draft; do
+    "$LUA" "tests/$t.lua" >/dev/null 2>&1 || exit 1; done) || return 1
+    # the CLI gate test (temporary clone with the mutated sources committed) only
+    # for mutants of the CLI or the checkout-state module
+    if [ "${WITH_CLI:-0}" = 1 ]; then NQ_VERIFY_CLI_SRC="$T/w" bash tests/test_nquestie_m2_v2_verify_cli.sh >/dev/null 2>&1 || return 1; fi
+}
 # mutant FILE 'exact old text' 'new text' 'label'
 mutant() {
     local file="$1" old="$2" new="$3" label="$4"
@@ -34,10 +39,11 @@ mutant() {
         f = io.open(os.getenv("F"), "w"); f:write(s); f:close()'; then
         bad "mutant not applied (text not found): $label"; return
     fi
+    WITH_CLI=0; case "$file" in cli/*|*CheckoutState.lua) WITH_CLI=1;; esac
     if run_tests; then bad "mutant SURVIVED: $label"; else ok "mutant killed: $label"; fi
 }
 copy
-run_tests && ok "unmutated copy passes" || bad "unmutated copy fails"
+WITH_CLI=1 run_tests && ok "unmutated copy passes (including the CLI gate test)" || bad "unmutated copy fails"
 
 B=tools/validation/EffectiveExportV2.lua
 R=tools/validation/RoundTripV2.lua
@@ -115,5 +121,24 @@ mutant $P 'if a.questsDiffering > 0 then' 'if false then' "pipeline: differing q
 mutant $D 'if doc.schemaVersion ~= 2 then' 'if false then' "schema: unknown version accepted"
 mutant $D 'if doc.displayScope ~= M.DISPLAY_SCOPE then' 'if false then' "schema: displayScope not enforced"
 mutant $D 'for k in pairs(q) do if not QUEST_KEYS[k] then' 'for k in pairs(q) do if false then' "schema: unknown quest field accepted"
+# t56u: clean-checkout gate of NQ_V2_VERIFY_IN
+K=tools/validation/CheckoutState.lua
+V=cli/validate-335.lua
+mutant $K 'if status == nil then err("cannot read git status")' 'if false then err("cannot read git status")' "verify gate: unreadable git status not refused"
+mutant $K 'elseif status ~= "" then' 'elseif false then' "verify gate: dirty status accepted"
+mutant $K 'if rc ~= 0 or out == nil then return nil end' 'if out == nil then return nil end' "verify gate: git exit code ignored"
+mutant $K 'if line ~= "" and not line:match("^[ MADRCU?!][ MADRCU?!] .") then' 'if false then' "verify gate: unexpected status output not reported"
+mutant $K 'if not (commit and commit:match("^%x+$") and #commit == 40) then' 'if not commit then' "verify gate: malformed HEAD accepted"
+mutant $K 'if realTop ~= root then' 'if false then' "verify gate: root not checked against the git top level"
+mutant $K 'if #errs > 0 then return nil, errs end' '' "verify gate: errors collected but not returned"
+mutant $K '"status --porcelain --untracked-files=all"' '"status --porcelain --untracked-files=no"' "verify gate: untracked files not seen"
+mutant $V 'if not state then
+        for _, e in ipairs(serr) do errs[#errs + 1] = "v2 verify: " .. e end
+    end' '' "verify CLI: gate result ignored"
+mutant $V 'local state, serr = dofile("tools/validation/CheckoutState.lua").Check(root, dofile("tools/validation/ExportProvenance.lua"))' 'local state, serr = { commit = "", tree = "" }, nil' "verify CLI: gate not called"
+# Not killable without a test hook in the CLI, so not listed: the second
+# CheckoutState.Check after verification in runVerifyV2 (the checkout would
+# have to become dirty during the run). It is defence in depth only; the
+# first check before compile is the tested gate.
 echo "mutation test: $passes passed, $fails failed"
 [ $fails -eq 0 ]

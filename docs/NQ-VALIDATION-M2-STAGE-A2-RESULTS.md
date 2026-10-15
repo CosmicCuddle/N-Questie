@@ -22,6 +22,20 @@ Read-only check of a written file against this checkout:
 
     NQ_V2_VERIFY_IN=/abs/private/dir/v2.lua NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 lua5.1 cli/validate-335.lua
 
+Verify mode needs a clean verifying checkout (decision t56u). The check is
+`tools/validation/CheckoutState.lua`, and it runs before compile. It reuses
+ExportProvenance's git commands, capture helper and messages, because
+`ExportProvenance.lua` itself is frozen and sha256-pinned. Verification is
+refused, with nothing written, in these cases:
+* the checkout has untracked files, modified tracked files or staged changes;
+* `git status` fails, exits non-zero, gives no output or gives output that
+  is not porcelain;
+* HEAD or its tree cannot be read as a full sha;
+* the directory is not the git top level.
+After the run the check is repeated, and the commit and tree must be
+unchanged. The file's provenance must match the checkout commit and tree,
+with `sourceDirty = false`.
+
 ## Mode contract (refused before compile and M0, nothing written)
 
 * Either variable alone, or a schema version other than 2.
@@ -60,10 +74,21 @@ written. There is no development flag.
    0600 in a 0700 directory.
 8. Re-read the file, require byte equality, then parse and validate it again.
 
-A failure in steps 1 to 7 leaves no output file, and SafeWrite removes its
-temp file. A failure in step 8 means the installed file changed after
-SafeWrite's own check. It is reported and left in place for inspection,
-not deleted, because it is no longer known to be ours.
+The nothing-left-behind guarantee covers only failures before successful
+publication. A failure in steps 1 to 7 leaves no output file, and SafeWrite
+removes its temp file.
+
+Step 8 runs after publication. If it fails, the installed file changed after
+SafeWrite's own check. That is a hard failure with a non-zero exit. The first
+error line is the fixed text `ExportV2.POST_PUBLICATION_FAILED`:
+
+    v2 export: POST-PUBLICATION VERIFICATION FAILED: the output file was published but did not verify on read-back; it has been left in place and needs human review before any use
+
+It is followed by the file path and the cause. The published file is kept,
+not deleted, because it is no longer known to be ours. Tested: the real
+SafeWrite publishes, then the file is changed before the read-back. The
+result is a hard failure with the fixed message, and the changed file is
+preserved, with no temp file.
 
 No fsync is performed: there is no power-loss durability claim. The
 guarantees are no-clobber install and atomic visibility of a complete file.
@@ -97,7 +122,7 @@ Deviations from the proposal's file list:
 | F5 | v1 equivalence: 8,401 compared, 0 differing |
 | F6 | Two exports to different temp directories are equal after `Canonical(doc, {"exportedAt"})`, and byte-identical apart from the exportedAt value. Only `provenance.exportedAt` may differ. The real UTC timestamp is kept |
 | F7 | All 232 M0 checks pass with 82,431 fields and 0 mismatches. M1 and v1 suites pass. The v1 sources are byte-identical to the base (sha256 pins). The v1 golden test passes. Default CLI output is byte-identical to the A1 head (golden, timings normalised). A v1 export of all 8,401 SUPPORTED quests on the A1 head and on this branch gives 8,401 canonically equal records; provenance differs only in exportedAt, sourceCommit, sourceTree and the intended harnessVersion 1.2.0 to 1.3.0 |
-| F8 | Fail closed. Full DB: an unwritable directory fails with no file; a dirty checkout fails after M0 with no file; `private/` and all the mode-guard cases are refused before M0. Synthetic, through the real pipeline: malformed records, false SUPPORTED, a dropped quest, display text, a missing kill-credit set, a build error, a changed text, preWrite failure, SafeWrite failures at three points, existing file, symlinks, bad directory modes, read-only directory. In every case no file and no temp file is left |
+| F8 | Fail closed before publication (no file, no temp file); after publication, hard failure with the file preserved for review (see Pipeline). Full DB: an unwritable directory fails with no file; a dirty checkout fails after M0 with no file; `private/` and all the mode-guard cases are refused before M0. Synthetic, through the real pipeline: malformed records, false SUPPORTED, a dropped quest, display text, a missing kill-credit set, a build error, a changed text, preWrite failure, SafeWrite failures at three points, existing file, symlinks, bad directory modes, read-only directory. In every case no file and no temp file is left |
 
 Spec section 11 now states that a SUPPORTED quest may have
 `killCreditFirst = true` (one KillCredit and nothing reordered); there are 0
@@ -129,10 +154,12 @@ These figures come from `/usr/bin/time -v` on the box:
 
 | Test | Checks |
 |---|---|
-| `tests/test_nquestie_m2_v2_export.lua` | 111: serialiser order, determinism, refusals, parse back; pipeline success; refusals with no file left |
-| `tests/test_nquestie_m2_v2_export_integration.sh` | 104: mode guards, two full exports, F1-F8, verify mode, tamper detection, dirty clone, `private/`, unwritable directory, default golden |
+| `tests/test_nquestie_m2_v2_export.lua` | 120: serialiser order, determinism, refusals, parse back; pipeline success; refusals with no file left; post-publication hard failure with the file preserved |
+| `tests/test_nquestie_m2_v2_verify_clean.lua` | 26: clean-checkout gate with synthetic git output (dirty, non-zero exit, no output, unexpected output, bad HEAD) and a real temporary repository (untracked, modified, staged, corrupt index, clean) |
+| `tests/test_nquestie_m2_v2_verify_cli.sh` | 9: the gate through the CLI in a temporary clone; every refusal leaves the clone and temp dirs unchanged (snapshots) |
+| `tests/test_nquestie_m2_v2_export_integration.sh` | 109: mode guards, two full exports, F1-F8, verify mode, tamper detection, dirty clone, `private/`, unwritable directory, default golden; verify in the clone with an untracked file, a modified tracked file, a staged change or a corrupt index is refused and the snapshots are unchanged, and a truly clean clone passes |
 | `tests/check_m2_v2_export_file.lua` | read-only helper for the integration test |
-| `tests/test_nquestie_m2_v2_mutation.sh` | 60 mutants (21 new for the serialiser, pipeline and schema gates), all killed. Two equivalent mutants are documented in the script |
+| `tests/test_nquestie_m2_v2_mutation.sh` | 70 mutants, all killed. 21 are for the serialiser, pipeline and schema checks; 10 (t56u) are for the verify clean-checkout check and its CLI wiring. Three mutants that cannot be killed are documented in the script: two equivalent ones, plus the re-check after verification, which would need a CLI test hook |
 | `tests/test_nquestie_m2_v1_frozen.lua` | adds sha256 pins of six v1-era sources |
 | `tests/test_nquestie_harness_version.lua` | pins 1.3.0 and checks that three provenance sites use it |
 

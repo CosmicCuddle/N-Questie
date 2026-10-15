@@ -11,6 +11,8 @@ describe("N-Questie Stage A1/A2 v2 round trip and export", function()
         { "v2 builder and round trip (synthetic, negative, tamper)", "lua5.1 tests/test_nquestie_m2_v2_builder.lua", base },
         { "M1 parity with frozen v1 (synthetic matrix)", "lua5.1 tests/test_nquestie_m2_v2_m1_parity.lua", base },
         { "v2 serialiser and export pipeline (synthetic)", "lua5.1 tests/test_nquestie_m2_v2_export.lua", base },
+        { "v2 verify clean-checkout gate (synthetic + temp git repo)", "lua5.1 tests/test_nquestie_m2_v2_verify_clean.lua", base },
+        { "v2 verify clean-checkout gate through the CLI (temp clone)", "bash tests/test_nquestie_m2_v2_verify_cli.sh", base },
         { "no-write guard", "lua5.1 tests/test_nquestie_m2_no_write_guard.lua", base },
         { "frozen v1 exporter byte-identical to base", "lua5.1 tests/test_nquestie_m2_v1_frozen.lua", base },
         { "mutation test (every mutant killed)", "bash tests/test_nquestie_m2_v2_mutation.sh", base },
