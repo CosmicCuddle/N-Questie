@@ -86,10 +86,12 @@ describe("M2.3 frozen v2 numeric-domain research (synthetic only)", function()
     end)
 
     it("Lua 5.1 double precision cannot preserve every large integer", function()
-        local limit = 9007199254740992 -- 2^53
-        assert.are.equal(limit, limit + 1)
+        -- Use explicit floating-point literals: Lua 5.3+ may otherwise
+        -- treat unsuffixed literals as exact 64-bit integers, unlike 5.1.
+        local limit = 9007199254740992.0 -- floating 2^53
+        assert.are.equal(limit, limit + 1.0)
         local q = quest()
-        q.sourceItemId = limit + 1
+        q.sourceItemId = limit + 1.0
         checkAccepted(q)
         assert.are.equal(limit, q.sourceItemId)
         -- A future private codec must refuse out-of-profile numbers
