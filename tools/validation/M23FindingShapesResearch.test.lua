@@ -246,6 +246,42 @@ describe("M2.3 private finding-shape research (synthetic only)", function()
         -- byte policy and refuse, not truncate, inputs above its profile.
     end)
 
+    it("bounds 512-item set and scripted 512-creature M1 explanations without truncation", function()
+        -- These are two additional dynamically growing explanation templates
+        -- from unchanged frozen M1. No private exporter or Part 3 code runs.
+        local itemIds, creatureIds = {}, {}
+        for i = 1, 512 do
+            itemIds[i] = 1000000000 + i
+            creatureIds[i] = 1200000000 + i
+        end
+        local item = withRule(compare({
+            RequiredItemId1 = 2147483647, RequiredItemCount1 = 1,
+            RequiredItemId2 = 2147483646, RequiredItemCount2 = 1,
+            RequiredItemId3 = 2147483645, RequiredItemCount3 = 1,
+            RequiredItemId4 = 2147483644, RequiredItemCount4 = 1,
+            RequiredItemId5 = 2147483643, RequiredItemCount5 = 1,
+            RequiredItemId6 = 2147483642, RequiredItemCount6 = 1,
+        }, questie({}, {}, itemIds)), "R-ITEM-SET")
+        assert.is_not_nil(item)
+        assert.are.equal("string", type(item.questie))
+        assert.are.equal(6142, #item.questie)
+        assert.is_true(#item.explanation > 1024 and #item.explanation <= 16384)
+        assert.is_true(item.questie:find("1000000512", 1, true) ~= nil)
+
+        local scripted = withRule(compare({
+            RequiredNpcOrGo1 = 2147483647, RequiredNpcOrGoCount1 = 1,
+            scriptedCredit = true,
+        }, questie(creatureIds, {}, {})), "C-SCRIPT")
+        assert.is_not_nil(scripted)
+        assert.are.equal("UNSUPPORTED", scripted.class)
+        assert.are.equal(2147483647, scripted.server)
+        assert.is_nil(scripted.questie)
+        assert.is_true(#scripted.explanation > 1024 and #scripted.explanation <= 16384)
+        assert.is_true(scripted.explanation:find("1200000512", 1, true) ~= nil)
+        -- The bound is hypothetical until an independent policy approval.
+        -- Do not claim the future private findings validator exists.
+    end)
+
     it("observes printable bounded explanations on representative M1 shapes", function()
         local cases = {
             compare({ RequiredNpcOrGo1 = -60001, RequiredNpcOrGoCount1 = 1 },
