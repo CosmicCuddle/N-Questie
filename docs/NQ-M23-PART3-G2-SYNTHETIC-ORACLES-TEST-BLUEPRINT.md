@@ -1,6 +1,6 @@
 # N-Questie M2.3 Part 3 — G2 synthetic oracles and red-test blueprint
 
-**Status: DESIGN / TEST PLAN ONLY; NOT IMPLEMENTED, NOT RUN, NOT APPROVED FOR MERGE.** Prepared by CosmicScript01 for independent CosmicScript02 review. This document adds no executable tests or production files. It does not authorise private exports, comparison pilots, trusted allowlist entries, engine/CLI/publisher implementation, confirmed outcomes, merges, tags, releases, server or addon changes.
+**Status: DESIGN / TEST PLAN ONLY; proposed G2 worker acceptance tests NOT IMPLEMENTED or RUN, NOT APPROVED FOR MERGE.** Prepared by CosmicScript01 for independent CosmicScript02 review. This document adds no executable tests or production files. It does not authorise private exports, comparison pilots, trusted allowlist entries, engine/CLI/publisher implementation, confirmed outcomes, merges, tags, releases, server or addon changes.
 
 **Pinned public/synthetic baseline:** protected `335` = `2be0f6f3001a20242c2fe81cb1915ff18602a4c8` after reviewed #68→#69→#70. Recheck the live ref before implementation. Companion review material: [#71 private contract](https://github.com/CosmicCuddle/N-Questie/pull/71), [#72 shape research](https://github.com/CosmicCuddle/N-Questie/pull/72), [#74 conservative evidence](https://github.com/CosmicCuddle/N-Questie/pull/74), [#76 one-pass architecture](https://github.com/CosmicCuddle/N-Questie/pull/76), [developer boundary discussion](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6219631109). This is a TEST-BLUEPRINT companion, not a replacement contract.
 
@@ -13,7 +13,7 @@
 
 ## 2. Controlled test loader, without a production override
 
-A future synthetic-only G2 spec may intercept `dofile` **only during the test's loading of the new worker**, matching the exact relative path `tools/validation/ObjectiveRules.lua`. Use the original `dofile` for all other modules, wrap the returned M1 module in a *separate table*, intercept only `Compare`, and restore `_G.dofile` immediately even if the load fails.
+A future synthetic-only G2 spec may intercept `dofile` **only during the test's loading of the new worker**, matching the exact relative path `tools/validation/ObjectiveRules.lua`. The worker MUST load M1 at module load time with this exact path; a lazy/different-path import bypasses the spy and must make the one-call test fail. Use the original `dofile` for all other modules, wrap the returned M1 module in a *separate table*, intercept only `Compare`, and restore `_G.dofile` immediately even if the load fails. This narrow replacement is valid only in single-threaded, test-controlled module loading; do not call unrelated modules during it. Load unmodified `M23Batch.lua` for differential tests **after** restoration so its own M1 dependency is not counted.
 
 Lua 5.1-compatible illustrative test harness (not committed as executable test):
 
@@ -33,7 +33,9 @@ _G.dofile = function(path)
 end
 local ok, Worker = pcall(original, "tools/validation/M23PrivateFindings.lua")
 _G.dofile = original  -- always restore, including on load failure
+assert(_G.dofile == original, "test loader failed to restore global dofile")
 assert(ok, "synthetic worker load failed")
+-- Load baseline M23Batch only now, after restoration, for independent comparison.
 -- Calls are asserted on synthetic inputs; Worker must not expose injection API.
 ```
 
@@ -46,7 +48,7 @@ Use invented quest IDs, fabricated provenance with correctly matched manifest an
 For ordinary synthetic supported cases:
 
 1. Run the existing `M23Batch.Run(server, effective, manifest, pins)` and the proposed worker independently on **deep-cloned** inputs.
-2. Assert equal fixed rejection codes for inputs where Part 2 and Part 3 contracts overlap, or exact ordered public row field equality on success (`questId`, `m1Supported`, `m1Classes`, `representationDiff`, outcome before report-v1 normalisation, all five evidence axes, and reason handling). Compare canonical selected ID bytes and total/supported/unsupported counts as applicable.
+2. Assert equal fixed rejection codes for inputs where Part 2 and Part 3 contracts overlap, or exact ordered **comparable field** equality on success (`questId`, `m1Supported`, `m1Classes`, `representationDiff`, outcome before report-v1 normalisation, all five evidence axes). Compare canonical selected ID bytes and total/supported/unsupported counts as applicable. **Reasons require an explicit version mapping:** Part 2 returns `reasons={}` for supported and `reasons=q.m1Reasons` for unsupported; report-v1 `EXPORTED` rows must omit `reasons` entirely under frozen `M23ReportDraft.ValidateReport`. The supported private member must omit `unsupportedReasons`; the unsupported private member preserves the exact sorted `m1Reasons`. Compare those cross-view values, not literal row-table equality. Never weaken report-v1 to carry private unsupported reasons.
 3. **Do not pretend** the known `R-MALFORMED` case is equivalent: Part 2 currently reduces it to manual review, while proposed Part 3 must reject the complete batch. Isolate that case and explicitly assert the intended difference.
 4. Re-check private findings **against the same call**: per supported quest `#report.m1Classes == #private.m1Findings`; every class and ordinal matches at the same index; duplicate same-class explanations stay separate.
 5. Prove no source mutation, no shared-table aliasing, no filesystem/process writes, and no new ability to mark `authenticated` or `publishable` true.
@@ -59,8 +61,8 @@ A differential test that merely checks counts or sorted sets is insufficient: or
 | --- | --- | --- |
 | G2-01 | One supported selected quest; one unsupported v2 quest; K=65 rejected supported quest | Count M1 calls **1 / 0 / 0** respectively, without production dependency injection |
 | G2-02 | Two identical-class `C-UNKNOWN` findings with distinct explanations | Both retained verbatim in order; classes and ordinals correspond exactly, no dedupe |
-| G2-03 | `server=-60001`, `questie=60001`; numeric `13154` versus string `"13154"`; absent side | Preserve negative GO sign, type of single-token strings and missing optional side |
-| G2-04 | Fake `R-MALFORMED` whose explanation contains `SYNTHETIC_SECRET_SENTINEL` | Entire batch returns only fixed malformed code; no record, partial return or output containing sentinel |
+| G2-03 | `-60001` and signed **`-2147483647`** server GO references for `E-GO-SIGN`, `R-GO-AS-NPC`, object `C-SCRIPT`, `R-GO-UNPAIRED`; numeric `13154` vs string `"13154"`; absent side; invalid `-2147483648` input | Preserve exact signs, strings and nils; invalid server slot refused before M1 by unchanged `InputSchema` |
+| G2-04 | Stubbed `R-MALFORMED` carrying `SYNTHETIC_SECRET_SENTINEL`, **together with** a 1,025-byte explanation or a 193-finding list | `REJECTED_MALFORMED_INPUT` takes precedence over any size/count violation; no private sentinel, partial record or `REJECTED_UNSAFE_OUTPUT` |
 | G2-05 | Creature, object, item each 64 / 65, with otherwise valid v2 records | 64 passes *resource gate* (not automatic report success); 65 refuses before M1, frozen v2 still accepts |
 | G2-06 | Combined other ordinary 2048 / 2049; nested 4096 / 4097, with otherwise valid v2 membership | Exact pre-M1 boundary after counter formula is independently reviewed and approved |
 | G2-07 | 192 / 193 synthetic complete findings; 1024 / 1025 explanation and string-ref bytes | Exact threshold handling, no truncation; classify malformed type/content separately from oversized output |
@@ -71,9 +73,10 @@ A differential test that merely checks counts or sorted sets is insufficient: or
 | G2-12 | Explicit duplicate server ID, bad server v1, invalid v2, paired manifest mismatch, absent selection | Preserve appropriate existing fixed-code precedence; no identifiers/path/explanation in error output |
 | G2-13 | Mutated class/order/ordinal, unknown key, float/zero ref, noncanonical set token, nil/array holes | Reject all unsound private records with fixed code; never "repair" output by guessing |
 | G2-14 | Valid structural v1 flags asserting evidence completeness without authenticated per-axis proof | All five evidence axes remain unknown, no CONFIRMED_* report outcome |
-| G2-15 | 8,401-style public synthetic coverage and 9,159-ID in-memory fixture (where practical) | Part 2/public output differential, bounded deterministic execution, no real server exports |
+| G2-15 | 8,401-style public synthetic coverage and 9,159-ID in-memory fixture (where practical) | Part 2/public output differential **using the explicit reason mapping in §3**, bounded deterministic execution, no real server exports |
+| G2-16 | v2 accepts `sourceItemId=2147483648`, non-finite selected scalars (e.g. `math.huge` source/zone), and large numeric values; frozen v2 retained | Future Part 3 preflight refuses unsafe selected non-finite values and out-of-range sourceItemId **before M1** with fixed code; codec never formats `inf` or imprecise >2^53 integers as valid IDs |
 
-A test that cannot construct a *v2-valid* 2,049/4,097 objective arrangement must use a test-only boundary component/stub, clearly labelled; do not report a frozen-v2 rejection as proof that the **new** M2.3 resource check ran. Likewise, synthetic 193 findings and a 256-KiB record may require a test-only M1 stub because frozen M1 has an estimated 160-finding bound under K64.
+A test that cannot construct a *v2-valid* 2,049/4,097 objective arrangement must use a test-only boundary component/stub, clearly labelled; do not report a frozen-v2 rejection as proof that the **new** M2.3 resource check ran. **Do not implement G2-06's exact nested boundary until the counting formula receives explicit maintainer approval.** Cases impossible or unproved with real frozen M1 under K64 must be labelled **STUBBED**, not represented as observed source behaviour: 193 findings (source-derived estimate ≤160), 1,025-byte per-field explanation/reference (observed theoretical maximum 960/766), 256-KiB findings record, and surviving `R-MALFORMED` after v1 validation (15 tested mutations rejected; not an exhaustive proof). The 64-MiB whole-bundle threshold cannot be asserted until the actual encoder is defined.
 
 ## 5. Proposed resource-counter interpretation — REVIEW OPEN, NOT AUTHORISED
 
@@ -81,9 +84,9 @@ The approved initial ceiling is **64 each** for `creature`, `object`, `item`; **
 
 Candidate interpretation to submit for review:
 - Count each `q.objectives` entry once according to its `kind`. `reputation + killCredit + spell` contribute to **other ordinary**, not creature/object/item. Under frozen v2, reputation has a separate one-entry maximum.
-- Nested total candidate: `#q.requiredSourceItems + #q.extraObjectives + SUM(#e.refs + #e.spawnZones) + SUM(#killCredit.ids)`. Consider whether each `killCredit.rootId` should also add one; `sourceItemId` and `spell.itemSourceId` are scalars with one-per-objective multiplicity and may not require independent nested increments.
-- **Why `spawnZones` matters:** `EffectiveSchemaV2.lua` checks it is a dense list but the cited current validator section does not impose a small per-record bound. Excluding it from preflight without justification could leave an unexpected nested input amplification surface.
-- Resolve exact count domain (one v2 selected quest or whole batch), threshold equality, reject code and evaluation precedence in a reviewed contract before tests or implementation. The suggestion above is **not** an expansion of maintainer authorisation.
+- Nested total candidate, counting structures that reach M1: `#q.requiredSourceItems + #q.extraObjectives + SUM(#e.refs) + SUM(#killCredit.ids)`. This follows CosmicScript02's verified adapter review: `rootId` is a scalar already bounded by the other-ordinary killCredit count; counting it again could double-charge it. `m1Reasons` is a closed, deduplicated status-code set. `sourceItemId` and spell `itemSourceId` are separately bounded scalar attributes rather than nested arrays. **This is still a proposal, not the approved rule.**
+- **Maintainer choice still open — `spawnZones`:** frozen `EffectiveSchemaV2.lua` checks a dense integer list but has no small list limit. The adapter does **not** forward `spawnZones` to M1, so excluding zones best matches the immediate M1-allocation objective; including `+ SUM(#e.spawnZones)` additionally limits parse/validate memory amplification (already governed by the frozen 16-MiB input ceiling). One extra objective with 4,096 zones counts as **1** under the M1-reaching formula, versus **4,097** under the inclusive formula. Do not silently choose either rule in G2 code. Count limits apply **per selected quest**, including M1-unsupported quests for consistent refusal semantics, after validated v2 membership and before M1.
+- After v2/membership checks, use a fixed whole-batch pre-M1 refusal for a selected quest over any limit; equality passes the count gate only. Proposed fixed code `REJECTED_MALFORMED_INPUT`; validate with maintainer before implementation. Independently refuse `sourceItemId` outside **0..2147483647**, and selected non-finite numeric values, without altering frozen v2. Unknown/unsafe numeric content must never reach a future output encoder. The suggestion above is **not** an expansion of maintainer authorisation.
 
 ## 6. Exact private encoded-budget oracle — REVIEW OPEN
 
@@ -92,9 +95,9 @@ Budget equations must be applied to the **final canonical output format**, not a
 - **Per quest:** size of its entire encoded private findings entry, including quest-ID/key/framing bytes; ceiling **256 × 1024 = 262144 bytes**.
 - **Whole bundle:** size of its actual complete bundle-v2 encoding (report-v1, aggregate-v1, private findings, provenance, `leftoverTempCount`, version and integrity/framing); ceiling **64 × 1024 × 1024 = 67108864 bytes**.
 - **Input:** the separate frozen **16-MiB** bound remains unchanged.
-- **Fail closed:** no partial bytes returned or published as a successful result after overrun; `REJECTED_UNSAFE_OUTPUT` once a validated encoded size is too large.
+- **Fail closed with specified precedence:** after M1, detect `R-MALFORMED` first (`REJECTED_MALFORMED_INPUT`), then malformed field/type/closed-schema failures (also malformed), **then** purely over-budget valid records (`REJECTED_UNSAFE_OUTPUT`). An unknown key should not be classified as merely oversized. No partial bytes returned or published.
 - A `192 × (1024 + 2×1024)` approximation is about 576 KiB before other fields, so 192 findings alone do **not** guarantee the 256-KiB quest budget.
-- To avoid allocating a 64-MiB test string for every CI case, test a deterministic incremental counter/sink against **known canonical encoder output** using small exact byte fixtures plus a bounded overflow test. This cannot replace at least one end-to-end encoding contract test.
+- To avoid allocating a 64-MiB test string for every CI case, test a deterministic incremental counter/sink against **known canonical encoder output** using small exact byte fixtures plus a bounded overflow test. This cannot replace at least one end-to-end encoding contract test. The existing frozen `EffectiveSchemaV2.Canonical` is **NOT** an approved Part 3 codec: Lua 5.1 `string.format("%d", math.huge)` may silently render an invalid huge negative integer. Future encoder must reject non-finite, imprecise or out-of-profile numbers *before* formatting and must prove the exact encoded byte counts.
 
 ## 7. Future gates and acceptance discipline
 
@@ -112,7 +115,7 @@ Budget equations must be applied to the **final canonical output format**, not a
 
 1. Is the isolated worker + test-loader spy feasible under the current Lua 5.1 loading pattern without touching production dependencies?
 2. What should the exact **2,048 other / 4,096 nested** formula count? Include/exclude `spawnZones`, `rootId`, and clarify if a boundary example is actually v2-valid and M1-supported.
-3. Should malformed **type/shape** rejection precede `REJECTED_UNSAFE_OUTPUT` when one synthetic finding violates both, after `R-MALFORMED` takes priority?
+3. **Reviewed recommendation:** `R-MALFORMED` → malformed type/shape → `REJECTED_UNSAFE_OUTPUT`. Does the maintainer approve making this precedence normative before G2 code?
 4. Which future encoder format should determine the exact 256-KiB and 64-MiB encoded-byte oracles? Do not approve threshold arithmetic as format correctness.
 5. Which candidate G2 cases would be logically impossible with real frozen M1 and must be explicitly labelled **stubbed**?
 
