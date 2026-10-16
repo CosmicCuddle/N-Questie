@@ -2,7 +2,7 @@
 
 **Status:** a new design-only PR requested by the maintainer, for review by CosmicScript01 and CosmicScript02. **No source code, schema or workflow changes and no confirmation enabled.**
 
-**Stable reference:** protected-by-policy `335`, `41aa84b56f38adbea09a89c32af1e9ab4c4b9d09`; frozen `InputSchema.lua`, frozen `ObjectiveRules.lua`, frozen draft `tools/validation/draft/M23ReportDraft.lua`, and separately reviewed Part 2 `M23Batch.lua` on draft #69 at `5f444388814834b2a6ec101258d211dcd1c312b1`.
+**Source reference (historical and reproducible):** this document was initially authored against protected-by-policy `335` at `41aa84b56f38adbea09a89c32af1e9ab4c4b9d09`. Since then, Part 1 [PR #68](https://github.com/CosmicCuddle/N-Questie/pull/68) was merged into protected `335` at `bec920309252f8953b5db94731d7860f6b4d1118`; Part 2 `M23Batch.lua` is reviewed on [draft #69](https://github.com/CosmicCuddle/N-Questie/pull/69), with original reviewed head `5f444388814834b2a6ec101258d211dcd1c312b1` and integration head `60a48aa41ca692bcefe7c4c9732099c968d93124`. Always recheck the live branch before merging; none of these changes alters frozen `InputSchema.lua`, `ObjectiveRules.lua` or the historical `tools/validation/draft/M23ReportDraft.lua`.
 
 **Approval to research:** [Maintainer decision, 2026-10-16](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6214484105), item 6. This authorises *draft design* only. No confirmation outcome, new trusted exporter, merge, private quest run, release or publication is authorised by this document.
 
@@ -35,7 +35,7 @@ These are **requirements for a future versioned evidence profile**, not an imple
 A future evidence document or separately authenticated attestation (its exact name/schema are **NOT yet approved**) should have the following properties before use:
 
 1. **Versioned and closed schema** with exact five-axis vocabulary; no free-form proof claims that an engine merely trusts. `complete` requires a matching proof type, not a user-supplied magic string.
-2. **Per-quest join** to the selected ID and pinned effective v2 export/coverage manifest, while confirming the complete 9,159-ID external membership/status reconciliation first; do not infer unselected quests from a selected subset.
+2. **Per-quest join** to the selected ID and pinned effective v2 export/coverage manifest, while confirming the complete 9,159-ID external membership/status reconciliation first ([M2.2 pinned ID-set specification](https://github.com/CosmicCuddle/N-Questie/blob/335/docs/NQ-VALIDATION-M2.2-QUEST-ID-SET.md), plus the independently reviewed [Part 2 membership module](https://github.com/CosmicCuddle/N-Questie/pull/69)); do not infer unselected quests from a selected subset.
 3. **Snapshot binding:** source fingerprint, exporter version, approved source commit and per-axis coverage scope must bind to the same immutable authenticated source snapshot as the `nq-m2-input` v1 export. A self-contained digest only checks tampering, not historical authenticity.
 4. **Known-unknown propagation:** missing `objectiveData` proof, script-coverage uncertainty, unverified IP stage, any `"unknown"` flag, partial query, duplicated or mismatched source record, or trust failure must never yield an evidence axis `complete`.
 5. **No partial promotion:** preserving a stronger `M1` `CONFIRMED_MISMATCH` *finding class* is permitted in a **private** finding, but the **final** batch outcome is bounded by all five evidence axes and the unchanged decision rules. Do not promote a single good axis into confirmation.
