@@ -217,4 +217,41 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.is_false(out.authenticated)
         assert.is_false(out.publishable)
     end)
+
+    it("shows Membership mismatch code is not in frozen stderr vocabulary", function()
+        local server, effective, manifest, pins = fixtures()
+        -- Make the coverage manifest internally consistent for all-supported
+        -- claims, but deliberately disagree with effective v2 on quest 2.
+        manifest.quests[2].status = "REPRESENTABLE"
+        manifest.quests[2].reasons = {}
+        manifest.aggregate.representable = 3
+        manifest.aggregate.unsupported = 0
+        manifest.aggregate.reasonQuests = {}
+        pins.supportedCount = 3
+        pins.unsupportedCount = 0
+
+        local result, code = Batch.Run(server, effective, manifest, pins)
+        assert.is_nil(result)
+        assert.are.equal("REJECTED_M1_STATUS_MISMATCH", code)
+        -- Existing Part 2 forwards the Membership code unchanged, but
+        -- historical report-v1's closed stderr vocabulary excludes it.
+        assert.is_nil(Report.REJECTION[code])
+        local formatOk = pcall(Report.StderrLine, code)
+        assert.is_false(formatOk)
+        local stderrOk = Report.CheckStderr("nq-m2-3: " .. code .. "\n", draft)
+        assert.is_false(stderrOk)
+        -- This research does NOT choose a future mapping/new stderr version.
+    end)
+
+    it("confirms historical membership and malformed codes are closed", function()
+        for _, code in ipairs({ "REJECTED_MEMBERSHIP",
+                "REJECTED_MALFORMED_INPUT" }) do
+            assert.is_true(Report.REJECTION[code])
+            local line = Report.StderrLine(code)
+            assert.are.equal("nq-m2-3: " .. code, line)
+            local ok = Report.CheckStderr(line .. "\n", draft)
+            assert.is_true(ok)
+        end
+        -- Neither valid candidate is automatically the chosen normalization.
+    end)
 end)
