@@ -37,7 +37,8 @@ describe("M2.3 frozen v2 numeric-domain research (synthetic only)", function()
         checkAccepted(q)
         -- Neither acceptance is future private-profile permission.
         q.sourceItemId = -1
-        assert.is_false(V2.ValidateQuest(q))
+        local ok = V2.ValidateQuest(q)
+        assert.is_false(ok)
     end)
 
     it("frozen v2 structurally accepts infinite sourceItemId", function()
@@ -53,7 +54,8 @@ describe("M2.3 frozen v2 numeric-domain research (synthetic only)", function()
         q.extraObjectives[1] = extraWithZones({ math.huge, -math.huge })
         checkAccepted(q)
         q.extraObjectives[1].spawnZones = { 1.5 }
-        assert.is_false(V2.ValidateQuest(q))
+        local ok = V2.ValidateQuest(q)
+        assert.is_false(ok)
         -- No real zone data or semantics are inferred from these values.
     end)
 
@@ -62,9 +64,11 @@ describe("M2.3 frozen v2 numeric-domain research (synthetic only)", function()
         q.requiredSourceItems = { MAX }
         checkAccepted(q)
         q.requiredSourceItems = { MAX + 1 }
-        assert.is_false(V2.ValidateQuest(q))
+        local ok = V2.ValidateQuest(q)
+        assert.is_false(ok)
         q.requiredSourceItems = { math.huge }
-        assert.is_false(V2.ValidateQuest(q))
+        local ok = V2.ValidateQuest(q)
+        assert.is_false(ok)
         -- This is different from sourceItemId and spawnZones.
     end)
 
