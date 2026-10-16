@@ -282,6 +282,58 @@ describe("M2.3 private finding-shape research (synthetic only)", function()
         -- Do not claim the future private findings validator exists.
     end)
 
+    it("shows 512+512 unpaired objectives can emit 1024 individual M1 findings", function()
+        -- This measures finding COUNT growth, not only explanation length.
+        -- No future M2.3 profile validator exists in this research spec.
+        local creatures, items = {}, {}
+        for i = 1, 512 do
+            creatures[i] = 1000000000 + i
+            items[i] = 1200000000 + i
+        end
+        local findings = compare({}, questie(creatures, {}, items))
+        local npc, item, bytes = 0, 0, 0
+        for _, f in ipairs(findings) do
+            if hasRule(f, "R-NPC-UNPAIRED") then
+                npc = npc + 1
+            elseif hasRule(f, "R-ITEM-UNPAIRED") then
+                item = item + 1
+            end
+            bytes = bytes + #f.explanation
+        end
+        assert.are.equal(512, npc)
+        assert.are.equal(512, item)
+        assert.are.equal(1024, #findings)
+        assert.is_true(bytes > 0 and bytes < 262144)
+        -- A full private record includes more than text; its byte budget
+        -- cannot be proven merely by summing explanation bytes.
+    end)
+
+    it("shows four scripted server creatures can repeat a long C-SCRIPT explanation", function()
+        local creatures = {}
+        for i = 1, 512 do creatures[i] = 1000000000 + i end
+        local findings = compare({
+            scriptedCredit = true,
+            RequiredNpcOrGo1 = 2147483647, RequiredNpcOrGoCount1 = 1,
+            RequiredNpcOrGo2 = 2147483646, RequiredNpcOrGoCount2 = 1,
+            RequiredNpcOrGo3 = 2147483645, RequiredNpcOrGoCount3 = 1,
+            RequiredNpcOrGo4 = 2147483644, RequiredNpcOrGoCount4 = 1,
+        }, questie(creatures, {}, {}))
+        local count, explanationBytes = 0, 0
+        for _, f in ipairs(findings) do
+            if hasRule(f, "C-SCRIPT") and f.kind == "creature" then
+                count = count + 1
+                explanationBytes = explanationBytes + #f.explanation
+                assert.is_true(#f.explanation <= 16384)
+                assert.is_true(f.explanation:find("1000000512", 1, true) ~= nil)
+            end
+        end
+        assert.are.equal(4, count)
+        assert.are.equal(25012, explanationBytes)
+        -- Repeating one bounded template can produce substantial total text.
+        -- Count limits and private per-quest output-byte budgets remain
+        -- PROPOSED only, not yet implemented.
+    end)
+
     it("observes printable bounded explanations on representative M1 shapes", function()
         local cases = {
             compare({ RequiredNpcOrGo1 = -60001, RequiredNpcOrGoCount1 = 1 },
