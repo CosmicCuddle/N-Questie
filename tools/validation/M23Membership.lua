@@ -6,6 +6,8 @@ local V1Reasons = dofile("tools/validation/EffectiveExport.lua").REASONS
 local M = {}
 local STATUS = { REPRESENTABLE = "SUPPORTED", UNSUPPORTED = "UNSUPPORTED_BY_RULES" }
 local NOTE = "Coverage report, not an export. Contains no effective records."
+local MANIFEST_FIELDS = { kind = true, version = true, note = true,
+    provenance = true, aggregate = true, quests = true }
 
 local function int(v, low)
     return type(v) == "number" and v == math.floor(v)
@@ -67,6 +69,9 @@ function M.Check(effective, manifest, pins)
         or type(manifest.aggregate) ~= "table"
         or type(manifest.provenance) ~= "table" then
         return nil, "REJECTED_MALFORMED_INPUT"
+    end
+    for key in pairs(manifest) do
+        if not MANIFEST_FIELDS[key] then return nil, "REJECTED_MALFORMED_INPUT" end
     end
     local paired = V2.CheckPairing(effective.provenance, manifest.provenance)
     if not paired then return nil, "REJECTED_PAIRING" end

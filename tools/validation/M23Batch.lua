@@ -15,7 +15,23 @@ local function evidence()
         scripts = "unknown", ip = "unknown", objectiveData = "unknown" }
 end
 
+-- Duplicate server quest IDs have their own agreed batch rejection code.
+-- Scan only safely recognisable IDs; the frozen validator still rejects all
+-- other malformed shapes and fields without exposing its diagnostic strings.
+local function duplicateServerId(doc)
+    if type(doc) ~= "table" or type(doc.quests) ~= "table" then return false end
+    local seen = {}
+    for _, q in ipairs(doc.quests) do
+        if type(q) == "table" and positive(q.ID) then
+            if seen[q.ID] then return true end
+            seen[q.ID] = true
+        end
+    end
+    return false
+end
+
 function M.Run(server, effective, manifest, pins)
+    if duplicateServerId(server) then return nil, "REJECTED_DUPLICATE_ID" end
     local valid = Input.Validate(server)
     if not valid then return nil, "REJECTED_MALFORMED_INPUT" end
     local index, code = Membership.Check(effective, manifest, pins)

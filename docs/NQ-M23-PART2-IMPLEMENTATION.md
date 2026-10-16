@@ -23,3 +23,12 @@ Trusted export-commit allowlist checks; A2 `NQ_V2_VERIFY_IN` authenticity; priva
 Run synthetic tests: `lua5.1 tests/test_nquestie_m2_3_batch.lua`.
 
 Governing decisions: https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6199960658
+
+## Review follow-up (PR #69)
+
+The independent review identified three targeted improvements, now implemented:
+- The KillCredit anti-aliasing test mutates the **same source record** used by the projection.
+- Paired manifest tests reject a missing second reason and an aggregate with an omitted reason; both checks are deliberately mutation-sensitive.
+- Duplicate server IDs are classified as `REJECTED_DUPLICATE_ID` before the frozen input validator, while other malformed shapes still reach `REJECTED_MALFORMED_INPUT`.
+
+Additionally, the production coverage manifest has a closed top-level key set. The larger 8,401-quest public parity script and test runner integration remain separate future test-hardening work, not acceptance claims. No change grants trusted exports or confirms a quest based on frozen v1.

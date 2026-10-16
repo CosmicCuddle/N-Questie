@@ -116,6 +116,31 @@ check(code == "REJECTED_MANIFEST_INCOMPLETE", "invalid aggregate pins refused")
 a = clone(m); a.aggregate.reasonQuests = { REPUTATION_OBJECTIVE = 2 }
 _, code = Membership.Check(e, a, pins)
 check(code == "REJECTED_MANIFEST_INCOMPLETE", "reasonQuests must reconcile")
+a = clone(m); a.aggregate.reasonQuests = {}
+_, code = Membership.Check(e, a, pins)
+check(code == "REJECTED_MANIFEST_INCOMPLETE",
+    "aggregate missing a present reason must reject (reverse reconciliation)")
+local twiceE, twiceM = clone(e), clone(m)
+twiceE.quests[1].extraObjectives = {{
+    position = 1, icon = 1, hasText = true, spawnZones = {},
+    objectiveIndex = 0,
+    refs = {{ type = "monster", id = 70001, refIndex = 1 }}
+}}
+local bothReasons = { "EXTRA_CREATURE_REF", "REPUTATION_OBJECTIVE" }
+twiceE.quests[1].m1Reasons = clone(bothReasons)
+twiceM.quests[1].reasons = clone(bothReasons)
+twiceM.aggregate.reasonQuests.EXTRA_CREATURE_REF = 1
+check(Membership.Check(twiceE, twiceM, pins) ~= nil,
+    "valid two-reason unsupported quest accepted")
+a = clone(twiceM)
+a.quests[1].reasons = { "EXTRA_CREATURE_REF" }
+_, code = Membership.Check(twiceE, a, pins)
+check(code == "REJECTED_M1_STATUS_MISMATCH",
+    "manifest missing second expected reason must reject")
+a = clone(m); a.unexpectedField = true
+_, code = Membership.Check(e, a, pins)
+check(code == "REJECTED_MALFORMED_INPUT",
+    "unknown top-level manifest field must reject")
 check(Membership.Check(e, m, {questCount=3,supportedCount=3,unsupportedCount=0}) == nil,
     "untrusted mismatched counts refused")
 a = clone(m); a.quests[2].status = "UNEXPECTED"
@@ -145,9 +170,9 @@ projected = Adapter.ToQuestieRecordV2(credit)
 check(projected and #projected[10][5] == 1 and projected[10][5][1][1][2] == 40002,
     "KillCredit IDs and slot retained")
 check(projected and projected[10][5][1][2] == 40001, "KillCredit root retained")
-local mutatedCredit = clone(credit)
-mutatedCredit.objectives[1].ids[1] = 90009
-check(projected[10][5][1][1][1] == 40001, "adapter never aliases input ids")
+credit.objectives[1].ids[1] = 90009
+check(projected[10][5][1][1][1] == 40001,
+    "adapter copies actual source KillCredit IDs (no input aliasing)")
 local extra = clone(emptyQ)
 extra.extraObjectives = {{ position=1, icon=3, hasText=true, spawnZones={},
     objectiveIndex=0, refs={{type="item", id=72001, refIndex=1}} }}
@@ -225,6 +250,12 @@ local missing = Batch.Run(serverDoc(serverRow(900001)),e,m,pins)
 check(missing == nil, "server ID not in full export rejects selection")
 local malformed = serverDoc(serverRow(3)); malformed.quests[1].RequiredItemId1 = "invalid"
 check(Batch.Run(malformed,e,m,pins) == nil, "invalid server document rejects batch")
+local duplicate = serverDoc(serverRow(3))
+duplicate.quests[2] = clone(duplicate.quests[1])
+duplicate.provenance.questCount = 2
+local dupResult, dupCode = Batch.Run(duplicate, e, m, pins)
+check(dupResult == nil and dupCode == "REJECTED_DUPLICATE_ID",
+    "duplicate server quest IDs have the exact agreed rejection code")
 
 -- Full public-shaped synthetic identity check: 9,159 invented IDs, of which
 -- exactly 8,401 are supported and 758 are unsupported. No private database.
