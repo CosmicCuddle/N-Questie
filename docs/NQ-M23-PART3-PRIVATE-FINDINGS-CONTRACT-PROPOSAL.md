@@ -73,6 +73,28 @@ This contract does not authorise *sharing* even a counts-only aggregate. Sharing
 - `unsupportedReasons` must be absent on supported quests; on M1-unsupported quests it is a dense, nonempty, strictly ascending, unique list of **known v2 reason codes**, identical to the authenticated export's `m1Reasons`. Unsupported quests have zero M1 findings because Part 2 never calls M1 for them. Any mismatch rejects the complete batch, never defaults silently.
 - **Reject any `R-MALFORMED` finding before constructing private results.** Frozen M1 embeds `server.problems` (which can include raw input-derived values) in that rule's explanation. In the intended M2.3 path the full frozen `InputSchema.Validate` and v2 structural checks must already have rejected that input. Treat a surviving `R-MALFORMED` as an internal validation breach: whole-batch `REJECTED_MALFORMED_INPUT`, fixed-code-only stderr, no private content or partial bundle. Do not store or reformat its explanation.
 
+## 3A. Proposed resource contract — explicit M2.3 boundary, NOT an existing v2 limit
+
+**Recommendation for independent review, not an implementation approval.** Existing frozen v1 and v2 validators/exporters are unchanged and their accepted data shapes are **not** retroactively narrowed. These would be *additional M2.3 private-report preflight and output limits* after authenticated input checking, independently of the general v2 structural schema. A valid v2 quest above the proposed ceiling remains valid v2 data but is **not reportable under this M2.3 profile** without a separately reviewed higher resource policy. Never silently skip the quest, trim objectives or truncate findings.
+
+| Private M2.3 proposed ceiling | Value / check |
+|---|---|
+| Authenticated full v2 export bytes before parsing | 64 MiB maximum (the current Stage A2 baseline was ~2.37 MB); preserve checksum/provenance verification, and fail closed before creating private output |
+| Selected supported quest: creature objectives | 512 entries maximum |
+| Selected supported quest: item objectives | 512 entries maximum |
+| Selected supported quest: other ordinary objectives together | 2,048 entries maximum; v2 reputation remains at most one under its own validator |
+| Selected supported quest: nested refs, kill-credit IDs, source-item lists | A finite combined 4,096-entry budget, across extras/references/kill-credit target IDs/required source items; count before M1; no unbounded nested walk |
+| Single original M1 set-reference string | 8 KiB maximum, retaining all delimiters and the string type |
+| Single original M1 `explanation` | 16 KiB maximum, printable ASCII; fail closed on the full original bytes, never truncate |
+| One quest's collected private findings, including references and explanations | 256 KiB maximum; enforce incrementally, before appending to a full report |
+| Entire serialized single private bundle-v2 | 64 MiB maximum; enforce an incremental prepublication byte budget and independently check exact serialized bytes/read-back |
+
+**Why these suggested numbers?** Frozen `ObjectiveRules.lua` creates decimal set tokens from positive IDs of at most 10 bytes and separators of exactly 2 bytes, so an `n`-token set string uses at most `12*n - 2` bytes. With 512 entries the largest creature/item Questie set string is **6,142 bytes**, under the proposed 8-KiB limit. M1's `R-NPC-SET` template has 132 fixed ASCII bytes and at most 46 server-side target bytes (four 10-digit IDs); the corresponding maximum at 512 unmatched Questie creatures is **6,320 bytes**. `R-ITEM-SET` has 124 fixed bytes plus at most 70 server target bytes (six 10-digit IDs), giving **6,336 bytes**. The `C-SCRIPT` creature explanation can also contain the whole unmatched Questie creature list; its static template and one 10-digit server target yield **6,253 bytes** at 512. Other unchanged M1 templates must be independently enumerated before the 16-KiB cap is accepted as covering all authorized findings; `R-MALFORMED` is **always refused**. These calculations are **source-derived limits under this proposed count policy**, not a statement about unlimited v2 inputs.
+
+**Important caveats:** A 128-creature record passes `EffectiveSchemaV2.ValidateQuest` in PR #72, but this proves *structural* admissibility only, not that today's exporter/compiled data produce that record. The earlier measured 220-byte public-data maximum likewise proves nothing about future custom quests. A 64-MiB full-export or output limit is a **new M2.3 safety policy**; exceeding it must return an existing fixed failure code (proposed: `REJECTED_MALFORMED_INPUT` for the M2.3 resource profile) without IDs, private lengths, paths or explanations on stderr. All size/count checks must run before, or incrementally during, allocation/serialization rather than after assembling an unbounded bundle in memory. A file-byte ceiling alone is not a process-memory bound, so a later code review must also inspect worst-case memory use.
+
+**Review question:** Is this 512-entry creature/item + 16-KiB verbatim explanation + bounded bundle profile preferable to a shape-dependent per-record limit derived from authenticated input sizes? Any approved alternative needs a versioned, testable resource policy, explicit ceiling cases and a strict fail-closed/no-leak requirement. This recommendation is **not yet frozen**, and introduces no changes to M1, the v2 exporter, report-v1 or the frozen acceptance suites.
+
 ## 4. Correspondence and integrity
 
 **Production generation gate:**
@@ -106,6 +128,9 @@ These are **candidate design tests** beyond the separately agreed production bas
 | PF14 | M1 findings include a class named CONFIRMED_MISMATCH | Preserve *M1 finding class* for triage but final *batch outcome* is not CONFIRMED_* (B6) |
 | PF15 | Single-token M1 set reference `"13154"` versus numeric `13154` | Preserve the string representation verbatim; type substitution fails reconciliation |
 | PF16 | Synthetic malformed tri-state yields M1 `R-MALFORMED` explanation with input-derived text | Refuse whole batch before any finding is stored or printed; fixed error code only, no bundle |
+| PF17 | Selected supported quest with 128 unmatched v2 creatures and >1,024-byte `R-NPC-SET` explanation | Preserve all bytes under the proposed 512/16-KiB policy; no truncation |
+| PF18 | Synthetic selected supported quest with 513 creature or item objectives, or an above-budget nested list | Proposed M2.3 resource-profile rejection before M1; original v2 structural validator remains unchanged |
+| PF19 | One finding exceeds 16 KiB, quest findings exceed 256 KiB, or bundle/export bytes exceed 64 MiB | Fixed-code full-batch refusal, no private-data stderr/log leakage, no partial publication |
 
 ## 6. Approvals and unresolved boundaries
 
