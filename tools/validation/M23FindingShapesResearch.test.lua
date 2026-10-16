@@ -204,6 +204,48 @@ describe("M2.3 private finding-shape research (synthetic only)", function()
         -- This research probe does not implement the future Part 3 rejection.
     end)
 
+    it("compares proposed 512-objective profile against still-valid 513-objective v2 input", function()
+        -- A 512-entry resource profile is a NEW future M2.3 design choice.
+        -- Frozen EffectiveSchemaV2.ValidateQuest accepts 513 entries too.
+        local V2 = dofile("tools/validation/EffectiveSchemaV2.lua")
+        local ids, objs = {}, {}
+        for i = 1, 513 do
+            local id = 1000000000 + i
+            ids[i] = id
+            objs[i] = {
+                position = i, kind = "creature", slotIndex = i,
+                id = id, occurrence = 1,
+            }
+        end
+        local q = {
+            ID = 60000, requiredLevel = 1, questLevel = 60, sourceItemId = 0,
+            requiredSourceItems = {}, objectives = objs,
+            killCreditFirst = false, hasTriggerEnd = false,
+            extraObjectives = {}, m1Status = "SUPPORTED", m1Reasons = {},
+        }
+        local valid, issues = V2.ValidateQuest(q)
+        assert.is_true(valid, table.concat(issues or {}, "; "))
+        q.objectives[513] = nil
+        valid, issues = V2.ValidateQuest(q)
+        assert.is_true(valid, table.concat(issues or {}, "; "))
+
+        ids[513] = nil
+        local findings = compare({
+            RequiredNpcOrGo1 = 2147483647, RequiredNpcOrGoCount1 = 1,
+            RequiredNpcOrGo2 = 2147483646, RequiredNpcOrGoCount2 = 1,
+            RequiredNpcOrGo3 = 2147483645, RequiredNpcOrGoCount3 = 1,
+            RequiredNpcOrGo4 = 2147483644, RequiredNpcOrGoCount4 = 1,
+        }, questie(ids, {}, {}))
+        local f = withRule(findings, "R-NPC-SET")
+        assert.is_not_nil(f)
+        assert.are.equal("string", type(f.questie))
+        assert.is_true(#f.questie > 1024 and #f.questie <= 8192)
+        assert.is_true(#f.explanation > 1024 and #f.explanation <= 16384)
+        assert.is_true(f.questie:find("1000000512", 1, true) ~= nil)
+        -- Future implementation must separately enforce the approved count/
+        -- byte policy and refuse, not truncate, inputs above its profile.
+    end)
+
     it("observes printable bounded explanations on representative M1 shapes", function()
         local cases = {
             compare({ RequiredNpcOrGo1 = -60001, RequiredNpcOrGoCount1 = 1 },
