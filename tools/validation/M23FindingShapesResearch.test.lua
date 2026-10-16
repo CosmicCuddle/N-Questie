@@ -133,6 +133,24 @@ describe("M2.3 private finding-shape research (synthetic only)", function()
         -- These are invented IDs (not a production quest or export).
         local manyCreatures = {}
         for i = 1, 128 do manyCreatures[i] = 1000000000 + i end
+        -- Ensure this large synthetic shape is accepted by the ACTUAL frozen
+        -- v2 structural validator, not just by M1's unvalidated questieLists.
+        local V2 = dofile("tools/validation/EffectiveSchemaV2.lua")
+        local objectives = {}
+        for i, id in ipairs(manyCreatures) do
+            objectives[i] = {
+                position = i, kind = "creature", slotIndex = i,
+                id = id, occurrence = 1,
+            }
+        end
+        local qv2 = {
+            ID = 60000, requiredLevel = 1, questLevel = 60, sourceItemId = 0,
+            requiredSourceItems = {}, objectives = objectives,
+            killCreditFirst = false, hasTriggerEnd = false, extraObjectives = {},
+            m1Status = "SUPPORTED", m1Reasons = {},
+        }
+        local valid, problems = V2.ValidateQuest(qv2)
+        assert.is_true(valid, table.concat(problems or {}, "; "))
         local findings = compare({
             RequiredNpcOrGo1 = 60001, RequiredNpcOrGoCount1 = 1,
             RequiredNpcOrGo2 = 60002, RequiredNpcOrGoCount2 = 1,
