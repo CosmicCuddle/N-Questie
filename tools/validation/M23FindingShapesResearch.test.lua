@@ -334,6 +334,69 @@ describe("M2.3 private finding-shape research (synthetic only)", function()
         -- PROPOSED only, not yet implemented.
     end)
 
+    it("researches approved K64 shapes and all three bounded growing templates", function()
+        -- Frozen v2 accepts 64 AND 65 objectives for each ordinary kind.
+        -- K64 future M2.3 refusal is a NEW policy, NOT implemented here.
+        local V2 = dofile("tools/validation/EffectiveSchemaV2.lua")
+        for _, kind in ipairs({ "creature", "object", "item" }) do
+            local objectives = {}
+            for i = 1, 65 do
+                objectives[i] = {
+                    position = i, kind = kind, slotIndex = i,
+                    id = 1000000000 + i, occurrence = 1,
+                }
+            end
+            local q = {
+                ID = 60000, requiredLevel = 1, questLevel = 60,
+                sourceItemId = 0, requiredSourceItems = {},
+                objectives = objectives, killCreditFirst = false,
+                hasTriggerEnd = false, extraObjectives = {},
+                m1Status = "SUPPORTED", m1Reasons = {},
+            }
+            local ok, errs = V2.ValidateQuest(q)
+            assert.is_true(ok, table.concat(errs or {}, "; "))
+            objectives[65] = nil
+            ok, errs = V2.ValidateQuest(q)
+            assert.is_true(ok, table.concat(errs or {}, "; "))
+        end
+
+        local ids = {}
+        for i = 1, 64 do ids[i] = 1000000000 + i end
+        local npc = withRule(compare({
+            RequiredNpcOrGo1 = 2147483647, RequiredNpcOrGoCount1 = 1,
+            RequiredNpcOrGo2 = 2147483646, RequiredNpcOrGoCount2 = 1,
+            RequiredNpcOrGo3 = 2147483645, RequiredNpcOrGoCount3 = 1,
+            RequiredNpcOrGo4 = 2147483644, RequiredNpcOrGoCount4 = 1,
+        }, questie(ids, {}, {})), "R-NPC-SET")
+        assert.is_not_nil(npc)
+        assert.are.equal(766, #npc.questie)
+        assert.are.equal(944, #npc.explanation)
+
+        local item = withRule(compare({
+            RequiredItemId1 = 2147483647, RequiredItemCount1 = 1,
+            RequiredItemId2 = 2147483646, RequiredItemCount2 = 1,
+            RequiredItemId3 = 2147483645, RequiredItemCount3 = 1,
+            RequiredItemId4 = 2147483644, RequiredItemCount4 = 1,
+            RequiredItemId5 = 2147483643, RequiredItemCount5 = 1,
+            RequiredItemId6 = 2147483642, RequiredItemCount6 = 1,
+        }, questie({}, {}, ids)), "R-ITEM-SET")
+        assert.is_not_nil(item)
+        assert.are.equal(766, #item.questie)
+        assert.are.equal(960, #item.explanation)
+
+        local scripted = withRule(compare({
+            scriptedCredit = true,
+            RequiredNpcOrGo1 = 2147483647, RequiredNpcOrGoCount1 = 1,
+        }, questie(ids, {}, {})), "C-SCRIPT")
+        assert.is_not_nil(scripted)
+        assert.are.equal(877, #scripted.explanation)
+        assert.is_true(#npc.explanation <= 1024)
+        assert.is_true(#item.explanation <= 1024)
+        assert.is_true(#scripted.explanation <= 1024)
+
+        -- Full M2.3 budget/threshold enforcement requires future Part 3 code.
+    end)
+
     it("observes printable bounded explanations on representative M1 shapes", function()
         local cases = {
             compare({ RequiredNpcOrGo1 = -60001, RequiredNpcOrGoCount1 = 1 },
