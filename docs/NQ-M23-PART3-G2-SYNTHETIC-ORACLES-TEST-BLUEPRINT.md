@@ -74,9 +74,46 @@ A differential test that merely checks counts or sorted sets is insufficient: or
 | G2-13 | Mutated class/order/ordinal, unknown key, float/zero ref, noncanonical set token, nil/array holes | Reject all unsound private records with fixed code; never "repair" output by guessing |
 | G2-14 | Valid structural v1 flags asserting evidence completeness without authenticated per-axis proof | All five evidence axes remain unknown, no CONFIRMED_* report outcome |
 | G2-15 | 8,401-style public synthetic coverage and 9,159-ID in-memory fixture (where practical) | Part 2/public output differential **using the explicit reason mapping in §3**, bounded deterministic execution, no real server exports |
-| G2-16 | v2 accepts `sourceItemId=2147483648`, non-finite selected scalars (e.g. `math.huge` source/zone), and large numeric values; frozen v2 retained | Future Part 3 preflight refuses unsafe selected non-finite values and out-of-range sourceItemId **before M1** with fixed code; codec never formats `inf` or imprecise >2^53 integers as valid IDs |
+| G2-16 | v2 accepts `sourceItemId=2147483648`, mathematically integral doubles above 2^53, and non-finite `sourceItemId`, `spawnZones`, or **M1-unsupported reputation `requiredValue`**; frozen v2 retained | Future Part 3 preflight inspects **all selected records, including M1-unsupported**, refusing non-finite numeric values and out-of-range `sourceItemId` **before M1** with a fixed approved code. Finite, mathematically integral Lua 5.1 numbers in the reviewed range (e.g. `13154.0`) must not be mistaken for forbidden JSON decimal tokens. A proposed encoder must never format `inf` or imprecise >2^53 integers as valid IDs |
+
+| G2-17 | Invented v2-valid **single-reason** cohort fixtures: extra creature reference, extra object reference, reputation, duplicate creature and killCredit-first reordering (five reason types; not 709 private fixtures) | For each: `V2.Validate`, coverage reason/status/pins and `M23Membership.Check` accept the nominal fixture; frozen Part 2 returns `M1_UNSUPPORTED_BY_RULES` and performs **zero** M1 calls for an unsupported selection. Future G3 may preserve private `unsupportedReasons` exactly and omit public report-v1 reasons; no new v1 support or automatic quest correction implied |
+| G2-18 | Invented v2-valid **multi-reason** cohort fixtures for all seven public overlap combinations; use genuinely valid frozen-v2 shapes, not manually assigned inconsistent `m1Reasons` | Every synthetic quest is counted **once** as unsupported, while **each** validated reason is retained in the private reason list and counted correctly in the coverage reason-occurrence map; preserve sorted/distinct reasons and exact manifest/pins. Reject missing, duplicated, reordered or injected reasons; compare ordinary Part 2 behavior separately from unimplemented G3 private output |
+| G2-19 | Deterministic **aggregate-only** fixture of 12 disjoint cohort counts with a mutation of one combination or one reason occurrence; never import private quest IDs | Reconcile `709 single + 49 multiple = 758 unsupported`, `8401 + 758 = 9159`, and `0 unclassified`; all 12 disjoint buckets sum to 758 and per-reason occurrences reflect overlaps. A one-count mutation must fail. This is a **source aggregate consistency** oracle, not 9,159 individual quest confirmations |
 
 A test that cannot construct a *v2-valid* 2,049/4,097 objective arrangement must use a test-only boundary component/stub, clearly labelled; do not report a frozen-v2 rejection as proof that the **new** M2.3 resource check ran. **Do not implement G2-06's exact nested boundary until the counting formula receives explicit maintainer approval.** Cases impossible or unproved with real frozen M1 under K64 must be labelled **STUBBED**, not represented as observed source behaviour: 193 findings (source-derived estimate ≤160), 1,025-byte per-field explanation/reference (observed theoretical maximum 960/766), 256-KiB findings record, and surviving `R-MALFORMED` after v1 validation (15 tested mutations rejected; not an exhaustive proof). The 64-MiB whole-bundle threshold cannot be asserted until the actual encoder is defined.
+
+## 4a. Public M2.2 coverage cohorts — proposed G2 test order, NO NEW COVERAGE CLAIM
+
+**Source:** protected `335`, `docs/NQ-VALIDATION-M2.2-COVERAGE.md`, compiled **9,159 total = 8,401 v1 representable + 758 v1 unsupported**, with **0 unclassified**. This is an immutable **v1 shape classification at this baseline**, not a count of broken quests, pending quest corrections, or the number of quests actually checked against private server objectives. The M2.3 comparison worker **must not change the frozen v1 coverage counters** just because v2 preserves richer unsupported metadata.
+
+**The twelve disjoint combinations** (the report counts a quest with multiple reasons **once** in the 758, but counts its reason occurrence in every applicable category):
+
+| Public baseline combination | Distinct quests | Fixture lane |
+| --- | ---: | --- |
+| `EXTRA_CREATURE_REF` only | 317 | Single reason |
+| `EXTRA_OBJECT_REF` only | 205 | Single reason |
+| `REPUTATION_OBJECTIVE` only | 175 | Single reason |
+| `DUPLICATE_CREATURE` only | 6 | Single reason |
+| `KILLCREDIT_FIRST_REORDER` only | 6 | Single reason |
+| **Single-reason subtotal** | **709** | Five synthetic shape families |
+| `EXTRA_CREATURE_REF` + `EXTRA_OBJECT_REF` | 31 | Multiple reasons |
+| `EXTRA_CREATURE_REF` + `KILLCREDIT_FIRST_REORDER` | 7 | Multiple reasons |
+| `EXTRA_OBJECT_REF` + `REPUTATION_OBJECTIVE` | 4 | Multiple reasons |
+| `EXTRA_OBJECT_REF` + `KILLCREDIT_FIRST_REORDER` | 3 | Multiple reasons |
+| `EXTRA_CREATURE_REF` + `REPUTATION_OBJECTIVE` | 2 | Multiple reasons |
+| `DUPLICATE_CREATURE` + `EXTRA_CREATURE_REF` | 1 | Multiple reasons |
+| `DUPLICATE_OBJECT` + `EXTRA_CREATURE_REF` | 1 | Multiple reasons |
+| **Multiple-reason subtotal** | **49** | Seven synthetic shape families |
+| **Unsupported total** | **758** | **709 + 49** |
+
+**Acceptance sequence proposed for G2-17 through G2-19:**
+
+1. Construct **one or more invented, structurally valid examples per one of the five single and seven multiple reason-combination shapes**; do not copy private IDs or simulate a 709/49 sample of actual quests. Confirm `V2.Validate`, `V2.ExpectedM1`, `M23Membership.Check`, closed reason ordering, manifest aggregate and full-dataset pin consistency *independently before* a new-worker assertion. A fixture rejected by the frozen v2 validator is **not evidence** that a new Part 3 gate worked.
+2. For v2-only M1-unsupported selections, test the existing Part 2 skip path and zero `M1.Compare` calls with the temporary, restored test-loader spy. Its current internal `reasons` match the validated v2 `m1Reasons`; **report-v1 EXPORTED rows must omit `reasons`**, while a future *separately authorised* private findings format may retain `unsupportedReasons`. Do not move private reasons into counts-only public aggregate-v1.
+3. Check that `EXTRA_CREATURE_REF + EXTRA_OBJECT_REF` does **not** become two quests. Preserve every reason exactly once, maintain closed sorted reason lists and separately count reason **occurrences**. Use mutations of a reason, status, total or aggregate entry to prove the test detects disagreement. Overlap cohorts must not force a v1 representability change.
+4. Preserve five **unknown** evidence axes, no claim of `CONFIRMED_*` from frozen v1 or coverage alone, and no guessed correction/marker, real private export, world DB modification or installed addon change. Signed GO, malformed M1 findings and byte-level/private-output assertions remain distinct future G2/G3 gates.
+
+**Order rationale:** prioritise the 697 quests represented by the three largest one-reason *public cohorts*, but do not mistake them for **all** single-reason quests: another 12 have duplicate-creature or killCredit ordering alone. The remaining 49 genuinely have overlapping reasons; the cohort-based **fixture sequence** may help reach proof of structural behavior but does **not** increase 8,401/9,159 v1 representability or resolve 758 possible in-game discrepancies. All of these test fixtures are **proposals, NOT IMPLEMENTED/TESTED here**.
 
 ## 5. Proposed resource-counter interpretation — REVIEW OPEN, NOT AUTHORISED
 
@@ -85,7 +122,7 @@ The approved initial ceiling is **64 each** for `creature`, `object`, `item`; **
 Candidate interpretation to submit for review:
 - Count each `q.objectives` entry once according to its `kind`. `reputation + killCredit + spell` contribute to **other ordinary**, not creature/object/item. Under frozen v2, reputation has a separate one-entry maximum.
 - Nested total candidate, counting structures that reach M1: `#q.requiredSourceItems + #q.extraObjectives + SUM(#e.refs) + SUM(#killCredit.ids)`. This follows CosmicScript02's verified adapter review: `rootId` is a scalar already bounded by the other-ordinary killCredit count; counting it again could double-charge it. `m1Reasons` is a closed, deduplicated status-code set. `sourceItemId` and spell `itemSourceId` are separately bounded scalar attributes rather than nested arrays. **This is still a proposal, not the approved rule.**
-- **Maintainer choice still open — `spawnZones`:** frozen `EffectiveSchemaV2.lua` checks a dense integer list but has no small list limit. The adapter does **not** forward `spawnZones` to M1, so excluding zones best matches the immediate M1-allocation objective; including `+ SUM(#e.spawnZones)` additionally limits parse/validate memory amplification (already governed by the frozen 16-MiB input ceiling). One extra objective with 4,096 zones counts as **1** under the M1-reaching formula, versus **4,097** under the inclusive formula. Do not silently choose either rule in G2 code. Count limits apply **per selected quest**, including M1-unsupported quests for consistent refusal semantics, after validated v2 membership and before M1.
+- **Maintainer choice still open — `spawnZones`:** frozen `EffectiveSchemaV2.lua` checks a dense integer list but has no small list limit. The adapter does **not** forward `spawnZones` to M1, so excluding zones best matches the immediate M1-allocation objective; including `+ SUM(#e.spawnZones)` imposes an additional **selected-quest policy limit**, but cannot lower parse/validate memory cost because `M23Membership.Check` has already validated the **entire** v2 export under the frozen 16-MiB input ceiling. One extra objective with 4,096 zones counts as **1** under the M1-reaching formula, versus **4,097** under the inclusive formula. Do not silently choose either rule in G2 code. Count limits apply **per selected quest**, including M1-unsupported quests for consistent refusal semantics, after validated v2 membership and before M1.
 - After v2/membership checks, use a fixed whole-batch pre-M1 refusal for a selected quest over any limit; equality passes the count gate only. Proposed fixed code `REJECTED_MALFORMED_INPUT`; validate with maintainer before implementation. Independently refuse `sourceItemId` outside **0..2147483647**, and selected non-finite numeric values, without altering frozen v2. Unknown/unsafe numeric content must never reach a future output encoder. The suggestion above is **not** an expansion of maintainer authorisation.
 
 ## 6. Exact private encoded-budget oracle — REVIEW OPEN
