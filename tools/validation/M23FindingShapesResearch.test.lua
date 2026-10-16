@@ -167,6 +167,43 @@ describe("M2.3 private finding-shape research (synthetic only)", function()
         -- justified from the frozen M1 templates alone. No data is truncated.
     end)
 
+    it("keeps a one-token unmatched target-set STRING distinct from a number", function()
+        -- Two unmatched Questie targets versus one server target trigger
+        -- R-ITEM-SET, not the one-to-one M-ITEM-TARGET case.
+        local f = withRule(compare({
+            RequiredItemId1 = 60001, RequiredItemCount1 = 1,
+        }, questie({}, {}, { 60003, 60004 })), "R-ITEM-SET")
+        assert.is_not_nil(f)
+        assert.are.equal("string", type(f.server))
+        assert.are.equal("60001", f.server)
+        assert.are.equal("string", type(f.questie))
+        assert.are.equal("60003, 60004", f.questie)
+        assert.is_true(f.server ~= 60001)
+
+        -- The single token can occur on the other side as well.
+        local g = withRule(compare({
+            RequiredNpcOrGo1 = 60001, RequiredNpcOrGoCount1 = 1,
+            RequiredNpcOrGo2 = 60002, RequiredNpcOrGoCount2 = 1,
+        }, questie({ 60003 }, {}, {})), "R-NPC-SET")
+        assert.is_not_nil(g)
+        assert.are.equal("string", type(g.questie))
+        assert.are.equal("60003", g.questie)
+        assert.is_true(g.questie ~= 60003)
+    end)
+
+    it("identifies R-MALFORMED as untrusted text which Part 3 must refuse", function()
+        -- Frozen M1 can embed arbitrary invalid tri-state input in its
+        -- diagnostic. The future private findings builder must reject this
+        -- rule and must never serialise or print its explanation.
+        local f = withRule(compare({
+            ipGated = "INVALID SYNTHETIC INPUT",
+        }, questie({}, {}, {})), "R-MALFORMED")
+        assert.is_not_nil(f)
+        assert.are.equal("input", f.kind)
+        assert.is_true(f.explanation:find("INVALID SYNTHETIC INPUT", 1, true) ~= nil)
+        -- This research probe does not implement the future Part 3 rejection.
+    end)
+
     it("observes printable bounded explanations on representative M1 shapes", function()
         local cases = {
             compare({ RequiredNpcOrGo1 = -60001, RequiredNpcOrGoCount1 = 1 },
