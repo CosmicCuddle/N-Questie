@@ -6,6 +6,7 @@ name: N-Questie M2 validation framework (M2.1 + M2.2)
 on:
   push:
     branches:
+      - "335"
       - "feat/**"
   pull_request:
 
