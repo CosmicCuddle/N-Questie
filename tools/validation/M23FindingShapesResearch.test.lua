@@ -127,6 +127,28 @@ describe("M2.3 private finding-shape research (synthetic only)", function()
         -- This is M1's finding class, NOT a permissible M2.3 B6 outcome.
     end)
 
+    it("detects an M1 explanation longer than the proposed 1024-byte private cap", function()
+        -- A valid frozen-input shaped server selection uses four creature slots,
+        -- and Questie's v2 objective list can represent many unmatched targets.
+        -- These are invented IDs (not a production quest or export).
+        local manyCreatures = {}
+        for i = 1, 128 do manyCreatures[i] = 1000000000 + i end
+        local findings = compare({
+            RequiredNpcOrGo1 = 60001, RequiredNpcOrGoCount1 = 1,
+            RequiredNpcOrGo2 = 60002, RequiredNpcOrGoCount2 = 1,
+            RequiredNpcOrGo3 = 60003, RequiredNpcOrGoCount3 = 1,
+            RequiredNpcOrGo4 = 60004, RequiredNpcOrGoCount4 = 1,
+        }, questie(manyCreatures, {}, {}))
+        local f = withRule(findings, "R-NPC-SET")
+        assert.is_not_nil(f)
+        assert.are.equal("string", type(f.questie))
+        assert.is_true(#f.questie > 1024)
+        assert.is_true(#f.explanation > 1024)
+        assert.is_true(f.questie:find("1000000128", 1, true) ~= nil)
+        -- This deliberately demonstrates that a 1024-byte limit cannot be
+        -- justified from the frozen M1 templates alone. No data is truncated.
+    end)
+
     it("observes printable bounded explanations on representative M1 shapes", function()
         local cases = {
             compare({ RequiredNpcOrGo1 = -60001, RequiredNpcOrGoCount1 = 1 },
