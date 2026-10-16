@@ -100,7 +100,7 @@ describe("M2.3 M1 single-call test-loader research (synthetic only)", function()
     -- Only the TEST loader temporarily intercepts the module's dependency.
     -- The resulting Batch still exports exactly the historical Run signature.
     -- No production override, injected parameter or changed frozen file.
-    local function loadWithM1Spy(compareOverride)
+    local function loadWithM1Spy(compareOverride, failDuringLoad)
         local calls = 0
         local wrapper = {}
         for k, v in pairs(realM1) do wrapper[k] = v end
@@ -111,6 +111,10 @@ describe("M2.3 M1 single-call test-loader research (synthetic only)", function()
         end
         local previous = _G.dofile
         _G.dofile = function(file)
+            if failDuringLoad and file == "tools/validation/InputSchema.lua" then
+                -- Simulate a dependency failing mid-load; test-only only.
+                error("SYNTHETIC_TEST_LOADER_FAILURE", 0)
+            end
             if file == "tools/validation/ObjectiveRules.lua" then
                 return wrapper
             end
@@ -131,10 +135,21 @@ describe("M2.3 M1 single-call test-loader research (synthetic only)", function()
         assert.is_function(batch.Run)
     end)
 
+    it("restores dofile even if a nested dependency fails during module load", function()
+        local previous = _G.dofile
+        local ok = pcall(function() loadWithM1Spy(nil, true) end)
+        assert.is_false(ok)
+        assert.are.equal(previous, _G.dofile)
+    end)
+
     it("counts once per supported selected quest and zero for unsupported", function()
         local effective, manifest, pins = data()
+        local oldEffective, oldManifest, oldPins =
+            clone(effective), clone(manifest), clone(pins)
+        local selectedInput = serverDoc({ 1, 2, 3 })
+        local oldSelected = clone(selectedInput)
         local Batch, calls = loadWithM1Spy()
-        local result, code = Batch.Run(serverDoc({ 1, 2, 3 }),
+        local result, code = Batch.Run(selectedInput,
             effective, manifest, pins)
         assert.is_nil(code)
         assert.is_not_nil(result)
@@ -146,6 +161,10 @@ describe("M2.3 M1 single-call test-loader research (synthetic only)", function()
         assert.is_false(result.authenticated)
         assert.is_false(result.publishable)
         assert.are.equal(originalDofile, _G.dofile)
+        assert.are.same(oldSelected, selectedInput)
+        assert.are.same(oldEffective, effective)
+        assert.are.same(oldManifest, manifest)
+        assert.are.same(oldPins, pins)
 
         local unsupportedOnly, calls2 = loadWithM1Spy()
         local selected, reject = unsupportedOnly.Run(serverDoc({ 1 }),
@@ -165,6 +184,22 @@ describe("M2.3 M1 single-call test-loader research (synthetic only)", function()
         assert.are.equal(0, calls())
     end)
 
+    local function hasSentinel(v, marker, seen)
+        if type(v) == "string" then
+            return v:find(marker, 1, true) ~= nil
+        end
+        if type(v) ~= "table" then return false end
+        seen = seen or {}
+        if seen[v] then return false end
+        seen[v] = true
+        for k, x in pairs(v) do
+            if hasSentinel(k, marker, seen) or hasSentinel(x, marker, seen) then
+                return true
+            end
+        end
+        return false
+    end
+
     it("turns a synthetic M1 exception into fixed code without exception text", function()
         local effective, manifest, pins = data()
         local Batch, calls = loadWithM1Spy(function()
@@ -174,7 +209,8 @@ describe("M2.3 M1 single-call test-loader research (synthetic only)", function()
             effective, manifest, pins)
         assert.is_nil(out)
         assert.are.equal("REJECTED_MALFORMED_INPUT", code)
-        assert.is_nil(code:find("SYNTHETIC_SECRET_SENTINEL", 1, true))
+        assert.is_false(hasSentinel({ result = out, code = code },
+            "SYNTHETIC_SECRET_SENTINEL"))
         assert.are.equal(1, calls())
     end)
 
@@ -183,7 +219,7 @@ describe("M2.3 M1 single-call test-loader research (synthetic only)", function()
         local Batch, calls = loadWithM1Spy(function()
             return {
                 {
-                    questId = 2, kind = "availability",
+                    questId = 2, kind = "input",
                     class = "NEEDS_MANUAL_REVIEW", rules = { "R-MALFORMED" },
                     explanation = "SYNTHETIC_SECRET_SENTINEL_456",
                 },
@@ -198,7 +234,7 @@ describe("M2.3 M1 single-call test-loader research (synthetic only)", function()
         assert.are.same({ "NEEDS_MANUAL_REVIEW" }, out.rows[1].m1Classes)
         -- This confirms Part 2's present behavior, NOT the future
         -- Part 3 policy: a future worker must reject R-MALFORMED.
-        assert.is_nil(out.rows[1].explanation)
+        assert.is_false(hasSentinel(out, "SYNTHETIC_SECRET_SENTINEL"))
         assert.is_false(out.publishable)
     end)
 end)
