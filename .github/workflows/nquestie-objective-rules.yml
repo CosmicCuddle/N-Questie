@@ -6,6 +6,7 @@ name: N-Questie objective validation rules (M1)
 on:
   push:
     branches:
+      - "335"
       - "feat/**"
   pull_request:
 
