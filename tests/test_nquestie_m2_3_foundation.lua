@@ -21,6 +21,16 @@ data, rc = Status.Run("sh -c 'exit 17'")
 ok(data == nil and rc == 17, "subshell exit retains status marker")
 data, rc = Status.Run("printf ready; then")
 ok(data == nil and rc ~= 0, "inner shell syntax error is a refusal")
+-- Refusal alone isn't sufficient: a malformed command must not disclose
+-- shell parse diagnostics to stderr. Capture child stderr through a pipe,
+-- while sending its stdout to /dev/null. This kills the older wrapper
+-- regression that exposed "Syntax error" even though Run() returned nil.
+local stderrProbe = "lua5.1 -e \"local S=dofile('tools/validation/StatusCapture.lua'); assert(type(S.Run)=='function'); S.Run('printf ready; then')\" 2>&1 >/dev/null"
+local stderrPipe = io.popen(stderrProbe, "r")
+local stderrText = stderrPipe and stderrPipe:read("*a") or nil
+if stderrPipe then stderrPipe:close() end
+ok(stderrPipe ~= nil and stderrText == "",
+    "malformed shell command produces zero stderr bytes")
 data, rc = Status.Run("printf ready #")
 ok(data == nil and rc ~= 0, "comment cannot swallow status marker")
 data, rc = Status.Run("printf '# inside quoted data'")
