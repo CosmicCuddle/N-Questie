@@ -35,6 +35,7 @@ step "Stage A2 verify clean-checkout gate through the CLI (temp clone)" bash tes
 step "Stage A1/A2 mutation test" bash tests/test_nquestie_m2_v2_mutation.sh
 step "M2.3 contract DRAFT (design only)" "$LUA" tests/test_nquestie_m2_3_report_draft.lua
 step "M2.3 Part 1 safe capture and approved-export parser (synthetic)" "$LUA" tests/test_nquestie_m2_3_foundation.lua
+step "M2.3 Part 2 batch (public/synthetic)" "$LUA" tests/test_nquestie_m2_3_batch.lua
 step "nq-m2-markers DRAFT (design only)" "$LUA" tests/test_nquestie_m2_markers_draft.lua
 step "Correction regression and text QA DRAFT" "$LUA" tests/test_nquestie_m2_qa_draft.lua
 step "pilot script syntax" bash -n tools/validation/run-m2-pilot.sh
