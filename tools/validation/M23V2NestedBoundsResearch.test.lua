@@ -119,6 +119,25 @@ describe("M2.3 frozen v2 nested-resource shape research (synthetic only)", funct
         -- such entries. Policy requires independent review.
     end)
 
+    it("records frozen-v2 scalar/zone bounds without claiming private acceptance", function()
+        -- Existing v2 validates sourceItemId as nonnegative integer but
+        -- currently does not apply the same MAX_ID limit as ordinary
+        -- objective IDs. This is a structural-validator observation,
+        -- NOT an accepted private-finding numeric reference.
+        local q = base()
+        q.sourceItemId = 2147483648
+        accepted(q)
+        q.sourceItemId = 0
+        q.extraObjectives[1] = {
+            position = 1, icon = 1, hasText = true,
+            spawnZones = { -1 }, objectiveIndex = 0, refs = {},
+        }
+        -- Spawn-zone values have an isInt check rather than posId.
+        -- This synthetic value illustrates schema shape, not an actual
+        -- game-zone claim or an approved future input policy.
+        accepted(q)
+    end)
+
     it("distinguishes a prospective combined nested budget from per-list caps", function()
         -- Every individual list below is small. A combined preflight
         -- cannot safely assume a single bounded list proves total safety.
