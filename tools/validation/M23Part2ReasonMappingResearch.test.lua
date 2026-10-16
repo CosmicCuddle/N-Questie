@@ -218,7 +218,7 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.is_false(out.publishable)
     end)
 
-    it("shows Membership mismatch code is not in frozen stderr vocabulary", function()
+    it("contrasts approved M1 mismatch code with old nine-code draft stderr", function()
         local server, effective, manifest, pins = fixtures()
         -- Make the coverage manifest internally consistent for all-supported
         -- claims, but deliberately disagree with effective v2 on quest 2.
@@ -233,17 +233,26 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         local result, code = Batch.Run(server, effective, manifest, pins)
         assert.is_nil(result)
         assert.are.equal("REJECTED_M1_STATUS_MISMATCH", code)
-        -- Existing Part 2 forwards the Membership code unchanged, but
-        -- historical report-v1's closed stderr vocabulary excludes it.
+        -- The maintainer-approved Part 3 CLI 14-code set INCLUDES this code.
+        -- Only the historical nine-code M23ReportDraft.REJECTION omits it.
         assert.is_nil(Report.REJECTION[code])
         local formatOk = pcall(Report.StderrLine, code)
         assert.is_false(formatOk)
-        local stderrOk = Report.CheckStderr("nq-m2-3: " .. code .. "\n", draft)
+        local stderrOk, reasons = Report.CheckStderr(
+            "nq-m2-3: " .. code .. "\n", draft)
         assert.is_false(stderrOk)
-        -- This research does NOT choose a future mapping/new stderr version.
+        assert.is_table(reasons)
+        assert.is_true(table.concat(reasons, "; "):find(
+            "stderr: line is not a fixed rejection code line", 1, true) ~= nil)
+        -- The historical digit rule also refuses the M1 in the code, even
+        -- if one naively added it to that OLD nine-code table.
+        assert.is_true(table.concat(reasons, "; "):find(
+            "stderr: digits outside the code set", 1, true) ~= nil)
+        -- A future CLI must implement the ALREADY APPROVED 14-code checker
+        -- separately; it must not re-use/extend the historical draft helper.
     end)
 
-    it("confirms historical membership and malformed codes are closed", function()
+    it("confirms two old-draft codes were already in its nine-code set", function()
         for _, code in ipairs({ "REJECTED_MEMBERSHIP",
                 "REJECTED_MALFORMED_INPUT" }) do
             assert.is_true(Report.REJECTION[code])
@@ -252,6 +261,7 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
             local ok = Report.CheckStderr(line .. "\n", draft)
             assert.is_true(ok)
         end
-        -- Neither valid candidate is automatically the chosen normalization.
+        -- This is historical compatibility research. Neither code is a
+        -- substitute for the approved REJECTED_M1_STATUS_MISMATCH CLI code.
     end)
 end)
