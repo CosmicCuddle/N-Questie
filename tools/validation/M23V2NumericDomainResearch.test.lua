@@ -59,6 +59,26 @@ describe("M2.3 frozen v2 numeric-domain research (synthetic only)", function()
         -- No real zone data or semantics are inferred from these values.
     end)
 
+    it("frozen v2 accepts nonfinite reputation requiredValue but not fractions", function()
+        local q = quest()
+        q.objectives = {
+            { position = 1, kind = "reputation", slotIndex = 1,
+              factionId = 72, requiredValue = math.huge },
+        }
+        -- The reputation shape is separately classified M1-unsupported.
+        q.m1Status = "UNSUPPORTED_BY_RULES"
+        q.m1Reasons = { "REPUTATION_OBJECTIVE" }
+        checkAccepted(q)
+        q.objectives[1].requiredValue = -math.huge
+        checkAccepted(q)
+        q.objectives[1].requiredValue = 1.5
+        local ok = V2.ValidateQuest(q)
+        assert.is_false(ok)
+        -- All three cases use invented data. A proposed Part 3 finite-
+        -- numeric preflight would refuse both infinities before encoding;
+        -- frozen v2 validation must remain byte-identical.
+    end)
+
     it("frozen v2 keeps positive IDs in its separate bounded domain", function()
         local q = quest()
         q.requiredSourceItems = { MAX }
