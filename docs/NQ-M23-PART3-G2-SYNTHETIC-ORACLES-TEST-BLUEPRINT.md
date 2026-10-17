@@ -115,6 +115,24 @@ A test that cannot construct a *v2-valid* 2,049/4,097 objective arrangement must
 
 **Order rationale:** prioritise the 697 quests represented by the three largest one-reason *public cohorts*, but do not mistake them for **all** single-reason quests: another 12 have duplicate-creature or killCredit ordering alone. The remaining 49 genuinely have overlapping reasons; the cohort-based **fixture sequence** may help reach proof of structural behavior but does **not** increase 8,401/9,159 v1 representability or resolve 758 possible in-game discrepancies. All of these test fixtures are **proposals, NOT IMPLEMENTED/TESTED here**.
 
+## 4b. G2-12 paired preflight failures — public Part 2 oracle, proposed Part 3 test
+
+**Existing behaviour VERIFIED on synthetic-only draft #83 commit `7cea553e1cb72ddcc2672f69d07cb72f6717828f` (6/6 exact-head CI). This is NOT a test of G3 and NOT an approved new error-order policy.** These are observed rejection priorities in the frozen `M23Batch.Run` / `M23Membership.Check` boundary. The separately approved 14-code future Part 3 CLI vocabulary remains authoritative for its own public stderr contract; historical nine-code draft stderr validation is not reusable.
+
+For each row, make *three* independent calls with fresh invented, fully snapshotted inputs: fault A alone, fault B alone, then both. First assert that **each independent fault really reaches its distinct expected fixed code**, rather than producing a malformed-fixture false positive. Only then assert that both faults return the earlier existing Part 2 code. Assert `nil` output and no mutations to the server selection, effective v2, manifest, or pins on every refusal. No validator's diagnostic text, quest ID, input path or finding explanation may enter the public rejection.
+
+| Independently verified fault A | Independently verified fault B | Existing Part 2 combined refusal |
+| --- | --- | --- |
+| Duplicate selected server ID | Malformed signed GO slot (`-2147483648`) | `REJECTED_DUPLICATE_ID` |
+| Malformed signed GO slot | Unpaired manifest provenance | `REJECTED_MALFORMED_INPUT` |
+| Invalid v2 `sourceItemId=-1` | Unpaired manifest provenance | `REJECTED_MALFORMED_INPUT` |
+| Unpaired manifest provenance | Incorrect aggregate reason count | `REJECTED_PAIRING` |
+| Incorrect aggregate reason count | Missing FIRST selected quest | `REJECTED_MANIFEST_INCOMPLETE` |
+
+**Separate positional oracle, not proved by the table above:** the frozen Part 2 comparator checks selected quest membership inside its loop. With a **positive-tested** M1 loader spy, invented selection `{4,2,1}` (missing first) refuses with **0** M1 calls, while `{3,2,4}` (missing last) refuses with **1 earlier** M1 call. Both return `REJECTED_SELECTION_MISMATCH`. A future proposed G3 **batch-global selection preflight** would require zero M1 calls in BOTH positions; this stricter timing requirement and any change in precedence are **pending G1 maintainer approval**, not claims of a currently implemented worker. Tests should distinguish externally visible code/result equivalence from internal M1 call-order equivalence.
+
+**G2 red-test acceptance proposal:** after G1 fixes the future pure worker's exact error precedence, independently replay approved paired-fault fixtures with the positive-controlled spy and check that no M1 is called on complete-batch preflight refusals. Do **not** simply copy the Part 2 ordering above into the new worker or reopen the already approved CLI stderr vocabulary. If G1 specifies a different precedence, document the deliberate mapping and test that mapping exactly. Keep all fixtures fabricated and all working branches DRAFT.
+
 ## 5. Proposed resource-counter interpretation — REVIEW OPEN, NOT AUTHORISED
 
 The approved initial ceiling is **64 each** for `creature`, `object`, `item`; **2,048 combined other ordinary entries**; **4,096 combined nested entries**. The *exact counting formula* was not approved.
