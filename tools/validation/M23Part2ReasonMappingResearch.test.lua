@@ -592,7 +592,10 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
             reject(inconsistentPins, unpaired))
 
         -- A self-consistent but dataset-wrong pin passes the early gate.
-        -- Its later count mismatch cannot mask earlier v2/pairing failures.
+        -- Later quest-count, aggregate and status-recount reconciliations
+        -- (Membership lines 78, 83-85 and 132) cannot mask earlier
+        -- v2-validation or provenance-pairing failures. These checks are
+        -- redundant here: this test pins their shared order, not line 78.
         assert.are.equal("REJECTED_MALFORMED_INPUT",
             reject(consistentButWrongPins, badV2))
         assert.are.equal("REJECTED_PAIRING",
