@@ -437,6 +437,71 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.equal(original, _G.dofile)
     end)
 
+    it("exposes legacy late-selection comparisons before eventual refusal", function()
+        -- Part 2 is a frozen public baseline, not the proposed Part 3
+        -- worker. M23Batch checks each selected ID as it enters its loop:
+        -- a bad LATER selection can refuse only AFTER earlier M1.Compare
+        -- work. Do not accidentally describe Part 2 as batch-preflighted.
+        local original = _G.dofile
+        local compareCalls = 0
+        _G.dofile = function(path)
+            local mod = original(path)
+            if path ~= "tools/validation/ObjectiveRules.lua" then
+                return mod
+            end
+            local spy = {}
+            for k, v in pairs(mod) do spy[k] = v end
+            spy.Compare = function(...)
+                compareCalls = compareCalls + 1
+                return mod.Compare(...)
+            end
+            return spy
+        end
+        local ok, spied = pcall(original, "tools/validation/M23Batch.lua")
+        _G.dofile = original
+        assert.is_true(ok)
+        assert.are.equal(original, _G.dofile)
+
+        local server, effective, manifest, pins = fixtures()
+        local positive, positiveCode = spied.Run(
+            server, effective, manifest, pins)
+        assert.is_nil(positiveCode)
+        assert.is_table(positive)
+        assert.are.equal(2, compareCalls) -- intercept actually worked
+
+        -- Selected order is 3 (M1-supported), 2 (unsupported), 1
+        -- (supported). Replace only the LAST selected ID with a valid
+        -- but nonmember ID 4; server v1 validation still succeeds.
+        local Input = dofile("tools/validation/InputSchema.lua")
+        server.quests[3].ID = 4
+        assert.is_true(Input.Validate(server))
+        local ss, ee, mm, pp =
+            copy(server), copy(effective), copy(manifest), copy(pins)
+        compareCalls = 0
+        local result, code = spied.Run(server, effective, manifest, pins)
+        assert.is_nil(result)
+        assert.are.equal("REJECTED_SELECTION_MISMATCH", code)
+        assert.are.equal(1, compareCalls) -- legacy Part 2 early work
+        assert.are.same(ss, server)
+        assert.are.same(ee, effective)
+        assert.are.same(mm, manifest)
+        assert.are.same(pp, pins)
+
+        -- Contrast an invalid FIRST selected ID: Part 2 calls M1 zero
+        -- times. A future G3 worker needs a separately reviewed G2
+        -- oracle requiring global selection preflight before ANY M1
+        -- invocation for either position. Do not change frozen Part 2.
+        server.quests[3].ID = 1
+        server.quests[1].ID = 4
+        assert.is_true(Input.Validate(server))
+        compareCalls = 0
+        result, code = spied.Run(server, effective, manifest, pins)
+        assert.is_nil(result)
+        assert.are.equal("REJECTED_SELECTION_MISMATCH", code)
+        assert.are.equal(0, compareCalls)
+        assert.are.equal(original, _G.dofile)
+    end)
+
     it("distinguishes single killCredit from two reversed killCredit lines", function()
         -- A single flagged killCredit line stays in the same displayed
         -- position. The flag alone must NOT make the quest unsupported.
