@@ -376,6 +376,62 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.same({ 88201 }, effective.quests[5].objectives[2].ids)
     end)
 
+    it("keeps repeated extra creature/object refs and separate extra objectives", function()
+        -- This is not a copied quest: multiple references may lead to the
+        -- SAME two v1-unrepresentable reasons. Neither repeated references
+        -- nor separate extras may inflate the unique unsupported quest count.
+        local V2 = dofile("tools/validation/EffectiveSchemaV2.lua")
+        local Membership = dofile("tools/validation/M23Membership.lua")
+        local server, effective, manifest, pins = cohortFixtures()
+        local q = effective.quests[6] -- creature-extra + object-extra cohort
+        q.extraObjectives[1].refs = {
+            { type = "monster", id = 88101, refIndex = 1 },
+            { type = "object", id = 88102, refIndex = 2 },
+            { type = "monster", id = 88103, refIndex = 3 },
+            { type = "object", id = 88104, refIndex = 4 },
+        }
+        q.extraObjectives[2] = {
+            position = 2, icon = 2, hasText = false,
+            objectiveIndex = 0, spawnZones = { 1, 3 },
+            refs = { { type = "monster", id = 88105, refIndex = 1 } },
+        }
+        local status, reasons = V2.ExpectedM1(q)
+        assert.are.equal("UNSUPPORTED_BY_RULES", status)
+        assert.are.same({
+            "EXTRA_CREATURE_REF", "EXTRA_OBJECT_REF",
+        }, reasons)
+        assert.are.same(reasons, q.m1Reasons)
+        assert.is_true(V2.ValidateQuest(q))
+        assert.is_true(V2.Validate(effective))
+        local index, membershipCode = Membership.Check(
+            effective, manifest, pins)
+        assert.is_nil(membershipCode)
+        assert.is_table(index)
+        assert.are.equal(12, index.unsupported)
+
+        local original = copy(effective)
+        local output, code = Batch.Run(server, effective, manifest, pins)
+        assert.is_nil(code)
+        assert.is_table(output)
+        assert.are.equal(12, output.unsupported)
+        assert.are.equal(12, #output.rows)
+        assert.are.same(reasons, output.rows[6].reasons)
+        assert.are.equal("M1_UNSUPPORTED_BY_RULES", output.rows[6].outcome)
+        assert.are.same(original, effective)
+        assert.are.equal(2, #effective.quests[6].extraObjectives)
+        assert.are.same({
+            { type = "monster", id = 88101, refIndex = 1 },
+            { type = "object", id = 88102, refIndex = 2 },
+            { type = "monster", id = 88103, refIndex = 3 },
+            { type = "object", id = 88104, refIndex = 4 },
+        }, effective.quests[6].extraObjectives[1].refs)
+        assert.are.same({ 1, 3 },
+            effective.quests[6].extraObjectives[2].spawnZones)
+        assert.are.same({
+            { type = "monster", id = 88105, refIndex = 1 },
+        }, effective.quests[6].extraObjectives[2].refs)
+    end)
+
     it("refuses a mismatched public reason list and count rather than dropping an overlap", function()
         local server, effective, manifest, pins = cohortFixtures()
         -- Change one two-reason manifest list but keep it structurally valid.
