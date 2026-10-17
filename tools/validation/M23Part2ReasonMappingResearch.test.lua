@@ -437,6 +437,79 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.equal(original, _G.dofile)
     end)
 
+    it("pins fixed rejection-code priority under simultaneous independent faults", function()
+        -- Prove both faults are independently rejected before asserting the
+        -- earlier gate wins when they occur together. No real server input,
+        -- private finding payload or production code is involved.
+        local function duplicate(server)
+            server.quests[1].ID = server.quests[2].ID
+        end
+        local function malformedServer(server)
+            server.quests[1].RequiredNpcOrGo1 = -2147483648
+            server.quests[1].RequiredNpcOrGoCount1 = 1
+        end
+        local function malformedV2(_, effective)
+            effective.quests[1].sourceItemId = -1
+        end
+        local function unpaired(_, _, manifest)
+            manifest.provenance.sourceTree = string.rep("e", 40)
+        end
+        local function wrongAggregate(_, _, manifest)
+            manifest.aggregate.reasonQuests.REPUTATION_OBJECTIVE = 2
+        end
+        local function absentFirst(server)
+            server.quests[1].ID = 4
+        end
+
+        local cases = {
+            {
+                name = "duplicate precedes malformed server",
+                first = duplicate, firstCode = "REJECTED_DUPLICATE_ID",
+                second = malformedServer, secondCode = "REJECTED_MALFORMED_INPUT",
+            },
+            {
+                name = "malformed server precedes pairing mismatch",
+                first = malformedServer, firstCode = "REJECTED_MALFORMED_INPUT",
+                second = unpaired, secondCode = "REJECTED_PAIRING",
+            },
+            {
+                name = "malformed effective v2 precedes pairing mismatch",
+                first = malformedV2, firstCode = "REJECTED_MALFORMED_INPUT",
+                second = unpaired, secondCode = "REJECTED_PAIRING",
+            },
+            {
+                name = "pairing mismatch precedes incomplete aggregate",
+                first = unpaired, firstCode = "REJECTED_PAIRING",
+                second = wrongAggregate, secondCode = "REJECTED_MANIFEST_INCOMPLETE",
+            },
+            {
+                name = "incomplete aggregate precedes unknown selection",
+                first = wrongAggregate, firstCode = "REJECTED_MANIFEST_INCOMPLETE",
+                second = absentFirst, secondCode = "REJECTED_SELECTION_MISMATCH",
+            },
+        }
+        local function rejectUnder(one, two)
+            local server, effective, manifest, pins = fixtures()
+            if one then one(server, effective, manifest, pins) end
+            if two then two(server, effective, manifest, pins) end
+            local ss, ee, mm, pp =
+                copy(server), copy(effective), copy(manifest), copy(pins)
+            local result, code = Batch.Run(server, effective, manifest, pins)
+            assert.is_nil(result)
+            assert.are.same(ss, server)
+            assert.are.same(ee, effective)
+            assert.are.same(mm, manifest)
+            assert.are.same(pp, pins)
+            return code
+        end
+        for _, case in ipairs(cases) do
+            assert.are.equal(case.firstCode, rejectUnder(case.first), case.name)
+            assert.are.equal(case.secondCode, rejectUnder(case.second), case.name)
+            assert.are.equal(case.firstCode,
+                rejectUnder(case.first, case.second), case.name)
+        end
+    end)
+
     it("exposes legacy late-selection comparisons before eventual refusal", function()
         -- Part 2 is a frozen public baseline, not the proposed Part 3
         -- worker. M23Batch checks each selected ID as it enters its loop:
