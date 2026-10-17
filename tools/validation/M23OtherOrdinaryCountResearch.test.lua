@@ -1,6 +1,7 @@
 -- Synthetic Part 2 baseline for the G1 2,048 combined OTHER-ordinary proposal.
 -- This is RESEARCH ONLY, not a Part 3 resource guard or an approval.
 -- Observe frozen EffectiveSchemaV2 + M23QuestieAdapter without calling M1.
+-- No real M23Batch.Run or M1.Compare: adapter acceptance is not M1 success.
 -- Never modify frozen modules, trusted CLI, private exports or real data.
 describe("M2.3 other ordinary 2048/2049 boundary (synthetic only)", function()
     local V2 = dofile("tools/validation/EffectiveSchemaV2.lua")
@@ -14,7 +15,7 @@ describe("M2.3 other ordinary 2048/2049 boundary (synthetic only)", function()
         return result
     end
 
-    local function synthetic(spells, withKillCredit, withReputation)
+    local function synthetic(spells, withKillCredit, withReputation, withCreature)
         local q = {
             ID = 9007, requiredLevel = 1, questLevel = 3,
             sourceItemId = 0, requiredSourceItems = {},
@@ -22,16 +23,24 @@ describe("M2.3 other ordinary 2048/2049 boundary (synthetic only)", function()
             extraObjectives = {}, m1Status = "SUPPORTED", m1Reasons = {},
         }
         local objectives = q.objectives
+        if withCreature then
+            objectives[#objectives + 1] = {
+                position = #objectives + 1, kind = "creature",
+                slotIndex = 1, id = 40001, occurrence = 1,
+            }
+        end
         if withReputation then
             objectives[#objectives + 1] = {
                 position = #objectives + 1, kind = "reputation",
                 slotIndex = 1, factionId = 1001, requiredValue = 0,
             }
         end
-        if withKillCredit then
+        local killCount = type(withKillCredit) == "number" and withKillCredit
+            or (withKillCredit and 1 or 0)
+        for i = 1, killCount do
             objectives[#objectives + 1] = {
                 position = #objectives + 1, kind = "killCredit",
-                slotIndex = 1, rootId = 30001, ids = { 30001 },
+                slotIndex = i, rootId = 30000 + i, ids = { 30000 + i },
             }
         end
         for i = 1, spells do
@@ -78,6 +87,26 @@ describe("M2.3 other ordinary 2048/2049 boundary (synthetic only)", function()
             count = 2049, pass = false,
         },
         {
+            label = "2046 spells plus TWO killCredits: equality",
+            spells = 2046, kill = 2, rep = false,
+            count = 2048, pass = true,
+        },
+        {
+            label = "2047 spells plus TWO killCredits: past proposal",
+            spells = 2047, kill = 2, rep = false,
+            count = 2049, pass = false,
+        },
+        {
+            label = "creature plus 2048 spells: creature excluded, equality",
+            spells = 2048, kill = false, rep = false, creature = true,
+            count = 2048, pass = true,
+        },
+        {
+            label = "creature plus 2049 spells: creature excluded, past proposal",
+            spells = 2049, kill = false, rep = false, creature = true,
+            count = 2049, pass = false,
+        },
+        {
             label = "2046 spells plus killCredit plus reputation, unsupported equality",
             spells = 2046, kill = true, rep = true,
             count = 2048, pass = true,
@@ -92,7 +121,8 @@ describe("M2.3 other ordinary 2048/2049 boundary (synthetic only)", function()
     it("separately proves frozen v2 permits both boundary sizes", function()
         local originalDofile = _G.dofile
         for _, case in ipairs(cases) do
-            local q = synthetic(case.spells, case.kill, case.rep)
+            local q = synthetic(case.spells, case.kill, case.rep,
+                case.creature)
             local expectedStatus = case.rep and "UNSUPPORTED_BY_RULES" or "SUPPORTED"
             local expectedReasons = case.rep and { "REPUTATION_OBJECTIVE" } or {}
             local computedStatus, computedReasons = V2.ExpectedM1(q)
@@ -108,7 +138,11 @@ describe("M2.3 other ordinary 2048/2049 boundary (synthetic only)", function()
             local before = copy(q)
             local total, counts = otherCount(q)
             assert.are.equal(case.spells, counts.spell, case.label)
-            assert.are.equal(case.kill and 1 or 0, counts.killCredit, case.label)
+            local expectedKill = type(case.kill) == "number" and case.kill
+                or (case.kill and 1 or 0)
+            assert.are.equal(expectedKill, counts.killCredit, case.label)
+            assert.are.equal(total + (case.creature and 1 or 0),
+                #q.objectives, case.label)
             assert.are.equal(case.rep and 1 or 0, counts.reputation, case.label)
             assert.are.equal(case.count, total, case.label)
             assert.are.equal(case.pass, total <= PROPOSED_OTHER_LIMIT, case.label)
@@ -128,12 +162,15 @@ describe("M2.3 other ordinary 2048/2049 boundary (synthetic only)", function()
                 assert.are.same({ 100001 }, adapted[10][6][1], case.label)
                 assert.are.same({ 100000 + case.spells },
                     adapted[10][6][case.spells], case.label)
-                if case.kill then
-                    assert.are.equal(1, #adapted[10][5], case.label)
-                    assert.are.same({ { 30001 }, 30001 },
-                        adapted[10][5][1], case.label)
-                else
-                    assert.are.equal(0, #adapted[10][5], case.label)
+                assert.are.equal(expectedKill, #adapted[10][5], case.label)
+                for i = 1, expectedKill do
+                    assert.are.same({ { 30000 + i }, 30000 + i },
+                        adapted[10][5][i], case.label)
+                end
+                assert.are.equal(case.creature and 1 or 0,
+                    #adapted[10][1], case.label)
+                if case.creature then
+                    assert.are.same({ 40001 }, adapted[10][1][1], case.label)
                 end
             end
             assert.are.same(before, q, case.label)
