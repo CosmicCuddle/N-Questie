@@ -484,6 +484,56 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         end
     end)
 
+    it("keeps all twelve v2-only reasons out of report-v1 EXPORTED rows", function()
+        -- This is a synthetic-only projection of existing Part 2 rows, NOT
+        -- the unimplemented G3 private findings worker or its bundle codec.
+        local server, effective, manifest, pins = cohortFixtures()
+        local source, code = Batch.Run(server, effective, manifest, pins)
+        assert.is_nil(code)
+        assert.are.equal(12, #source.rows)
+        local rows, selected = {}, {}
+        for i, part2 in ipairs(source.rows) do
+            assert.are.same(cohorts[i].reasons, part2.reasons)
+            selected[i] = part2.questId
+            rows[i] = {
+                questId = part2.questId,
+                exportStatus = "EXPORTED",
+                m1Supported = part2.m1Supported,
+                m1Classes = copy(part2.m1Classes),
+                representationDiff = part2.representationDiff,
+                evidence = copy(part2.evidence),
+                outcome = part2.outcome,
+                -- NO reasons key: v2-only unsupported reasons belong only
+                -- to future separately approved PRIVATE G3 findings data.
+            }
+        end
+        local report = {
+            schema = "nq-m2-3-report", schemaVersion = 1,
+            private = true, selected = selected, rows = rows,
+        }
+        local valid, errors = Report.ValidateReport(report, draft)
+        assert.is_true(valid, table.concat(errors or {}, "; "))
+        local aggregate12 = {
+            schema = "nq-m2-3-aggregate", schemaVersion = 1,
+            reasonVocabVersion = Report.REASON_VOCAB_VERSION,
+            selectedCount = 12, exportStatus = { EXPORTED = 12 },
+            outcome = { M1_UNSUPPORTED_BY_RULES = 12 },
+            reasons = {},
+        }
+        assert.is_true(Report.ValidateAggregate(aggregate12, report, draft))
+        -- Every supported-v2-format but M1-unsupported shape must refuse
+        -- an accidental report-v1 reasons field, even for a valid code list.
+        for i = 1, #rows do
+            rows[i].reasons = copy(source.rows[i].reasons)
+            assert.is_false(Report.ValidateReport(report, draft))
+            rows[i].reasons = nil
+        end
+        assert.is_true(Report.ValidateReport(report, draft))
+        -- Nor may counts-only aggregate-v1 absorb those private reasons.
+        aggregate12.reasons = { EXTRA_CREATURE_REF = 1 }
+        assert.is_false(Report.ValidateAggregate(aggregate12, report, draft))
+    end)
+
     it("refuses a mismatched public reason list and count rather than dropping an overlap", function()
         local server, effective, manifest, pins = cohortFixtures()
         -- Change one two-reason manifest list but keep it structurally valid.
