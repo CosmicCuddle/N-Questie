@@ -310,6 +310,72 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.equal(1, control.unsupported)
     end)
 
+    it("distinguishes single killCredit from two reversed killCredit lines", function()
+        -- A single flagged killCredit line stays in the same displayed
+        -- position. The flag alone must NOT make the quest unsupported.
+        local V2 = dofile("tools/validation/EffectiveSchemaV2.lua")
+        local Membership = dofile("tools/validation/M23Membership.lua")
+        local single = cohortQuest(5, { killCreditFirst = true })
+        single.objectives = {
+            { position = 1, kind = "killCredit", slotIndex = 1,
+              ids = { 88201 }, rootId = 88201 },
+        }
+        single.m1Status, single.m1Reasons = V2.ExpectedM1(single)
+        assert.is_true(V2.ValidateQuest(single))
+        assert.are.equal("SUPPORTED", single.m1Status)
+        assert.are.same({}, single.m1Reasons)
+
+        -- Without the flag, two killCredit entries remain in ascending
+        -- compiled slot order; v1 can represent that order.
+        local ordered = copy(single)
+        ordered.killCreditFirst = false
+        ordered.objectives[2] = {
+            position = 2, kind = "killCredit", slotIndex = 2,
+            ids = { 88202 }, rootId = 88202,
+        }
+        ordered.m1Status, ordered.m1Reasons = V2.ExpectedM1(ordered)
+        assert.is_true(V2.ValidateQuest(ordered))
+        assert.are.equal("SUPPORTED", ordered.m1Status)
+        assert.are.same({}, ordered.m1Reasons)
+
+        -- When flagged, Questie inserts each killCredit at the front:
+        -- the two display in slot order 2,1, even without a creature
+        -- or item objective. v1 cannot reconstruct that order.
+        local reversed = copy(ordered)
+        reversed.killCreditFirst = true
+        reversed.objectives = {
+            { position = 1, kind = "killCredit", slotIndex = 2,
+              ids = { 88202 }, rootId = 88202 },
+            { position = 2, kind = "killCredit", slotIndex = 1,
+              ids = { 88201 }, rootId = 88201 },
+        }
+        reversed.m1Status, reversed.m1Reasons = V2.ExpectedM1(reversed)
+        assert.is_true(V2.ValidateQuest(reversed))
+        assert.are.equal("UNSUPPORTED_BY_RULES", reversed.m1Status)
+        assert.are.same({ "KILLCREDIT_FIRST_REORDER" }, reversed.m1Reasons)
+
+        -- Substitute the invented reversed variant for cohort 5. It keeps
+        -- the exact same public reason, manifest, pins and selected count.
+        local server, effective, manifest, pins = cohortFixtures()
+        effective.quests[5] = reversed
+        assert.is_true(V2.Validate(effective))
+        local index, membershipCode = Membership.Check(
+            effective, manifest, pins)
+        assert.is_nil(membershipCode)
+        assert.is_table(index)
+        local before = copy(effective)
+        local out, code = Batch.Run(server, effective, manifest, pins)
+        assert.is_nil(code)
+        assert.is_table(out)
+        assert.are.equal(12, out.unsupported)
+        assert.are.equal("M1_UNSUPPORTED_BY_RULES", out.rows[5].outcome)
+        assert.are.same({ "KILLCREDIT_FIRST_REORDER" },
+            out.rows[5].reasons)
+        assert.are.same(before, effective)
+        assert.are.same({ 88202 }, effective.quests[5].objectives[1].ids)
+        assert.are.same({ 88201 }, effective.quests[5].objectives[2].ids)
+    end)
+
     it("refuses a mismatched public reason list and count rather than dropping an overlap", function()
         local server, effective, manifest, pins = cohortFixtures()
         -- Change one two-reason manifest list but keep it structurally valid.
