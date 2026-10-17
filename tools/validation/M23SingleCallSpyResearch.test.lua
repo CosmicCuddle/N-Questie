@@ -200,6 +200,23 @@ describe("M2.3 M1 single-call test-loader research (synthetic only)", function()
         return false
     end
 
+    it("proves the sentinel scanner detects nested values and keys", function()
+        -- The negative leak assertion would pass vacuously if hasSentinel
+        -- always returned false. Exercise both recursive branches first.
+        local marker = "SYNTHETIC_SECRET_SENTINEL"
+        local candidate = {
+            public = true,
+            inner = { deeper = { "SYNTHETIC_SECRET_SENTINEL_123" } },
+        }
+        candidate.loop = candidate -- cycle-safe traversal is required
+        assert.is_true(hasSentinel(candidate, marker))
+        candidate.inner.deeper[1] = "PUBLIC_ONLY"
+        candidate.inner[marker] = true
+        assert.is_true(hasSentinel(candidate, marker))
+        candidate.inner[marker] = nil
+        assert.is_false(hasSentinel(candidate, marker))
+    end)
+
     it("turns a synthetic M1 exception into fixed code without exception text", function()
         local effective, manifest, pins = data()
         local Batch, calls = loadWithM1Spy(function()
