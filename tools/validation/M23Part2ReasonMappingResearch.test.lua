@@ -280,6 +280,16 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         end
         assert.is_false(result.authenticated)
         assert.is_false(result.publishable)
+        -- Positive control: without this, a broken spy or misspelt import
+        -- path would also "pass" a zero-call test. Existing 3-quest fixtures
+        -- contain TWO supported selections and ONE unsupported selection.
+        local cs, ce, cm, cp = fixtures()
+        local control, controlCode = spied.Run(cs, ce, cm, cp)
+        assert.is_nil(controlCode)
+        assert.is_table(control)
+        assert.are.equal(2, compareCalls)
+        assert.are.equal(2, control.supported)
+        assert.are.equal(1, control.unsupported)
     end)
 
     it("refuses a mismatched public reason list and count rather than dropping an overlap", function()
