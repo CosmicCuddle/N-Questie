@@ -432,6 +432,58 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         }, effective.quests[6].extraObjectives[2].refs)
     end)
 
+    it("rejects malformed extra-objective references and indices before M1", function()
+        -- The frozen v2 schema must refuse corrupt fields, rather than
+        -- silently losing one member of a multiple-objective quest.
+        local V2 = dofile("tools/validation/EffectiveSchemaV2.lua")
+        local Membership = dofile("tools/validation/M23Membership.lua")
+        local cases = {
+            { name = "wrong reference index", edit = function(q)
+                q.extraObjectives[1].refs[2].refIndex = 1
+            end },
+            { name = "repeated extra position", edit = function(q)
+                q.extraObjectives[2].position = 1
+            end },
+            { name = "invalid objective link", edit = function(q)
+                q.extraObjectives[2].objectiveIndex = 3
+            end },
+            { name = "fractional zone", edit = function(q)
+                q.extraObjectives[2].spawnZones[1] = 1.5
+            end },
+            { name = "unknown ref type", edit = function(q)
+                q.extraObjectives[1].refs[2].type = "npc"
+            end },
+        }
+        for _, case in ipairs(cases) do
+            local server, effective, manifest, pins = cohortFixtures()
+            local q = effective.quests[6]
+            q.extraObjectives[2] = {
+                position = 2, icon = 1, hasText = true,
+                objectiveIndex = 0, spawnZones = { 1, 3 },
+                refs = { { type = "monster", id = 88106, refIndex = 1 } },
+            }
+            assert.is_true(V2.ValidateQuest(q), case.name)
+            case.edit(q)
+            assert.is_false(V2.ValidateQuest(q), case.name)
+            -- Even with a matching invented coverage manifest and pins,
+            -- malformed effective v2 input must not enter Part 2/M1.
+            local ss, ee, mm, pp =
+                copy(server), copy(effective), copy(manifest), copy(pins)
+            local index, membershipCode = Membership.Check(
+                effective, manifest, pins)
+            assert.is_nil(index)
+            assert.are.equal("REJECTED_MALFORMED_INPUT", membershipCode)
+            local result, batchCode = Batch.Run(
+                server, effective, manifest, pins)
+            assert.is_nil(result)
+            assert.are.equal("REJECTED_MALFORMED_INPUT", batchCode)
+            assert.are.same(ss, server)
+            assert.are.same(ee, effective)
+            assert.are.same(mm, manifest)
+            assert.are.same(pp, pins)
+        end
+    end)
+
     it("refuses a mismatched public reason list and count rather than dropping an overlap", function()
         local server, effective, manifest, pins = cohortFixtures()
         -- Change one two-reason manifest list but keep it structurally valid.
