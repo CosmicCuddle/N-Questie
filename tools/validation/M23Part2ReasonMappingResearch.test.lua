@@ -991,6 +991,45 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.is_true(Report.ValidateAggregate(agg, report, draft))
     end)
 
+    it("returns detached unsupported reasons, evidence and M1 class lists", function()
+        -- Pure execution alone is insufficient if returned subtables still
+        -- alias a validated input or another result row. Explicitly mutate
+        -- the RETURNED data to expose accidental sharing after M23Batch.Run.
+        local server, effective, manifest, pins = fixtures()
+        local beforeServer, beforeEffective, beforeManifest, beforePins =
+            copy(server), copy(effective), copy(manifest), copy(pins)
+        local output, code = Batch.Run(server, effective, manifest, pins)
+        assert.is_nil(code)
+        assert.is_table(output)
+        assert.are.equal(3, #output.rows)
+        assert.are.same({ 3, 2, 1 }, {
+            output.rows[1].questId, output.rows[2].questId,
+            output.rows[3].questId,
+        })
+        assert.are.same({ "REPUTATION_OBJECTIVE" },
+            output.rows[2].reasons)
+        local otherRowBefore = copy(output.rows[3])
+        local unsupportedEvidenceBefore = copy(output.rows[2].evidence)
+
+        output.rows[2].reasons[1] = "SYNTHETIC_MUTATION"
+        output.rows[1].evidence.killCredit = "SYNTHETIC_MUTATION"
+        output.rows[1].m1Classes[1] = "SYNTHETIC_MUTATION"
+
+        -- No returned row may borrow another row's mutable evidence/classes.
+        assert.are.same(otherRowBefore, output.rows[3])
+        assert.are.same(unsupportedEvidenceBefore, output.rows[2].evidence)
+        assert.are.same({ "REPUTATION_OBJECTIVE" },
+            effective.quests[2].m1Reasons)
+        assert.are.same({ "REPUTATION_OBJECTIVE" },
+            manifest.quests[2].reasons)
+        -- Neither the source data nor the caller-provided pin map changes
+        -- when the consumer mutates output after a successful comparison.
+        assert.are.same(beforeServer, server)
+        assert.are.same(beforeEffective, effective)
+        assert.are.same(beforeManifest, manifest)
+        assert.are.same(beforePins, pins)
+    end)
+
     it("existing Part 2 neither mutates its synthetic inputs nor self-authenticates", function()
         local server, effective, manifest, pins = fixtures()
         local a, b, c, d = copy(server), copy(effective), copy(manifest), copy(pins)
