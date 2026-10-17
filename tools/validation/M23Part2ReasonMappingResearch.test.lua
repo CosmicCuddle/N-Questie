@@ -641,6 +641,98 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.same({ 88201 }, effective.quests[5].objectives[2].ids)
     end)
 
+    it("accepts frozen-v2 unsupported K64/K65 last without an M1 call for that quest", function()
+        -- Research ONLY: current Part 2 intentionally skips M1 for a
+        -- reputation-unsupported quest, regardless of objective count.
+        -- It does NOT implement the future G3 global K64 preflight.
+        local V2 = dofile("tools/validation/EffectiveSchemaV2.lua")
+        local Membership = dofile("tools/validation/M23Membership.lua")
+        local Input = dofile("tools/validation/InputSchema.lua")
+        local original = _G.dofile
+        local compareCalls = 0
+        _G.dofile = function(path)
+            local mod = original(path)
+            if path ~= "tools/validation/ObjectiveRules.lua" then
+                return mod
+            end
+            local spy = {}
+            for key, value in pairs(mod) do spy[key] = value end
+            spy.Compare = function(...)
+                compareCalls = compareCalls + 1
+                return mod.Compare(...)
+            end
+            return spy
+        end
+        local loaded, spied = pcall(original, "tools/validation/M23Batch.lua")
+        _G.dofile = original
+        assert.is_true(loaded)
+        assert.are.equal(original, _G.dofile)
+        local controlServer, controlEffective, controlManifest, controlPins = fixtures()
+        local control, controlCode = spied.Run(
+            controlServer, controlEffective, controlManifest, controlPins)
+        assert.is_nil(controlCode)
+        assert.is_table(control)
+        assert.are.equal(2, compareCalls)
+
+        for _, k in ipairs({ 64, 65 }) do
+            local server, effective, manifest, pins = fixtures()
+            -- Leave the valid supported selection FIRST, and move the
+            -- reputation-unsupported quest to the LAST position.
+            server.quests[2], server.quests[3] =
+                server.quests[3], server.quests[2]
+            assert.are.same({ 3, 1, 2 }, {
+                server.quests[1].ID, server.quests[2].ID, server.quests[3].ID,
+            })
+            local q = effective.quests[2]
+            q.objectives = {}
+            for i = 1, k do
+                q.objectives[i] = {
+                    position = i, kind = "creature", slotIndex = i,
+                    id = 87000 + i, occurrence = 1,
+                }
+            end
+            q.objectives[k + 1] = {
+                position = k + 1, kind = "reputation", slotIndex = 1,
+                factionId = 72, requiredValue = 0,
+            }
+            local status, reasons = V2.ExpectedM1(q)
+            assert.are.equal("UNSUPPORTED_BY_RULES", status)
+            assert.are.same({ "REPUTATION_OBJECTIVE" }, reasons)
+            assert.is_true(V2.ValidateQuest(q))
+            assert.is_true(V2.Validate(effective))
+            assert.is_true(Input.Validate(server))
+            local membership, membershipCode =
+                Membership.Check(effective, manifest, pins)
+            assert.is_nil(membershipCode)
+            assert.is_table(membership)
+
+            local ss, ee, mm, pp =
+                copy(server), copy(effective), copy(manifest), copy(pins)
+            compareCalls = 0
+            local out, code = spied.Run(server, effective, manifest, pins)
+            assert.is_nil(code)
+            assert.is_table(out)
+            assert.are.equal(2, compareCalls)
+            assert.are.equal(3, #out.rows)
+            assert.are.equal(2, out.rows[3].questId)
+            assert.is_false(out.rows[3].m1Supported)
+            assert.are.equal("M1_UNSUPPORTED_BY_RULES", out.rows[3].outcome)
+            assert.are.same({ "REPUTATION_OBJECTIVE" },
+                out.rows[3].reasons)
+            assert.are.same({}, out.rows[3].m1Classes)
+            assert.is_false(out.authenticated)
+            assert.is_false(out.publishable)
+            assert.are.same(ss, server)
+            assert.are.same(ee, effective)
+            assert.are.same(mm, manifest)
+            assert.are.same(pp, pins)
+        end
+        assert.are.equal(original, _G.dofile)
+        -- Future G3 proposed K65 whole-batch preflight MUST be tested
+        -- separately: k=65 would reject BEFORE either supported comparison,
+        -- even though the over-limit quest is M1-unsupported and comes last.
+    end)
+
     it("keeps repeated extra creature/object refs and separate extra objectives", function()
         -- This is not a copied quest: multiple references may lead to the
         -- SAME two v1-unrepresentable reasons. Neither repeated references
