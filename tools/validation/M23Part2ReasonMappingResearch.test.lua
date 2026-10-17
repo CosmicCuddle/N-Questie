@@ -510,6 +510,84 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         end
     end)
 
+    it("distinguishes bad count-pin preflight from later pairing and v2 faults", function()
+        -- The original five dual-fault oracles assume valid externally
+        -- supplied pins. M23Membership.Check examines these BEFORE v2
+        -- structure and pairing, so error-code names have no universal
+        -- priority independent of gate location and preconditions.
+        local original = _G.dofile
+        local compareCalls = 0
+        _G.dofile = function(path)
+            local mod = original(path)
+            if path ~= "tools/validation/ObjectiveRules.lua" then
+                return mod
+            end
+            local spy = {}
+            for k, v in pairs(mod) do spy[k] = v end
+            spy.Compare = function(...)
+                compareCalls = compareCalls + 1
+                return mod.Compare(...)
+            end
+            return spy
+        end
+        local loaded, spied = pcall(original, "tools/validation/M23Batch.lua")
+        _G.dofile = original
+        assert.is_true(loaded)
+        assert.are.equal(original, _G.dofile)
+
+        local sv, ev, mv, pv = fixtures()
+        local positive, positiveCode = spied.Run(sv, ev, mv, pv)
+        assert.is_nil(positiveCode)
+        assert.is_table(positive)
+        assert.are.equal(2, compareCalls) -- spy must really intercept M1
+
+        local function badPins(_, _, _, pins)
+            pins.questCount = 4 -- original 2+1 ~= 4
+        end
+        local function badV2(_, effective)
+            effective.quests[1].sourceItemId = -1
+        end
+        local function unpaired(_, _, manifest)
+            manifest.provenance.sourceTree = string.rep("e", 40)
+        end
+        local function duplicate(server)
+            server.quests[1].ID = server.quests[2].ID
+        end
+        local function reject(one, two)
+            local server, effective, manifest, pins = fixtures()
+            if one then one(server, effective, manifest, pins) end
+            if two then two(server, effective, manifest, pins) end
+            local ss, ee, mm, pp =
+                copy(server), copy(effective), copy(manifest), copy(pins)
+            compareCalls = 0
+            local result, code = spied.Run(server, effective, manifest, pins)
+            assert.is_nil(result)
+            assert.are.equal(0, compareCalls)
+            assert.are.same(ss, server)
+            assert.are.same(ee, effective)
+            assert.are.same(mm, manifest)
+            assert.are.same(pp, pins)
+            return code
+        end
+
+        assert.are.equal("REJECTED_MANIFEST_INCOMPLETE", reject(badPins))
+        assert.are.equal("REJECTED_MALFORMED_INPUT", reject(badV2))
+        assert.are.equal("REJECTED_PAIRING", reject(unpaired))
+        assert.are.equal("REJECTED_DUPLICATE_ID", reject(duplicate))
+
+        -- Under valid server v1, bad pins win before any malformed v2 or
+        -- pairing is checked. This is NOT a global error-code ranking.
+        assert.are.equal("REJECTED_MANIFEST_INCOMPLETE",
+            reject(badPins, badV2))
+        assert.are.equal("REJECTED_MANIFEST_INCOMPLETE",
+            reject(badPins, unpaired))
+        -- Duplicate IDs are checked by the outer Batch BEFORE membership;
+        -- this remains true even when the pins are simultaneously invalid.
+        assert.are.equal("REJECTED_DUPLICATE_ID",
+            reject(duplicate, badPins))
+        assert.are.equal(original, _G.dofile)
+    end)
+
     it("exposes legacy late-selection comparisons before eventual refusal", function()
         -- Part 2 is a frozen public baseline, not the proposed Part 3
         -- worker. M23Batch checks each selected ID as it enters its loop:
