@@ -268,15 +268,27 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.equal(12, result.unsupported)
         assert.are.equal(0, result.supported)
         assert.are.equal(0, compareCalls)
+        -- Pin the cardinality: ipairs alone silently skips missing tail rows.
+        assert.are.equal(#cohorts, #result.rows)
         for i, row in ipairs(result.rows) do
             assert.are.equal(i, row.questId)
             assert.is_false(row.m1Supported)
             assert.are.equal("M1_UNSUPPORTED_BY_RULES", row.outcome)
             assert.are.same(cohorts[i].reasons, row.reasons)
             assert.are.same({}, row.m1Classes)
-            for _, evidence in pairs(row.evidence) do
-                assert.are.equal("unknown", evidence)
+            -- A pairs-only loop would pass vacuously if evidence were {}.
+            -- Require every one of the five known axes, and no extra axes.
+            local expectedEvidence = {}
+            for _, axis in ipairs(Report.EVIDENCE) do
+                assert.are.equal("unknown", row.evidence[axis])
+                expectedEvidence[axis] = true
             end
+            local observedCount = 0
+            for axis in pairs(row.evidence) do
+                assert.is_true(expectedEvidence[axis])
+                observedCount = observedCount + 1
+            end
+            assert.are.equal(#Report.EVIDENCE, observedCount)
         end
         assert.is_false(result.authenticated)
         assert.is_false(result.publishable)
