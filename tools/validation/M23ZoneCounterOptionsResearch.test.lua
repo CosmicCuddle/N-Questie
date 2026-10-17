@@ -24,6 +24,14 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
         return t
     end
 
+    local function extraRefs(n)
+        local out = {}
+        for i = 1, n do
+            out[i] = { type = "monster", id = 90000 + i, refIndex = i }
+        end
+        return out
+    end
+
     local function extra(i, zoneCount, refs)
         return {
             position = i, icon = 1, hasText = false,
@@ -140,6 +148,28 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
             end,
             m1 = 4097, zones = 0,
             expected = { A = false, B = false, C = false },
+        },
+        {
+            name = "4095 extra monster refs plus extra itself: equality",
+            make = function()
+                local q = quest()
+                q.extraObjectives = { extra(1, 0, extraRefs(4095)) }
+                return finalise(q)
+            end,
+            m1 = 4096, zones = 0,
+            expected = { A = true, B = true, C = true },
+            unsupported = true,
+        },
+        {
+            name = "4096 extra monster refs plus extra: all refuse",
+            make = function()
+                local q = quest()
+                q.extraObjectives = { extra(1, 0, extraRefs(4096)) }
+                return finalise(q)
+            end,
+            m1 = 4097, zones = 0,
+            expected = { A = false, B = false, C = false },
+            unsupported = true,
         },
         {
             name = "4095 source items plus one extra: B refuses",
