@@ -991,6 +991,59 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.is_true(Report.ValidateAggregate(agg, report, draft))
     end)
 
+    it("does not share mutable reasons or evidence across unsupported rows", function()
+        -- Two distinct invented unsupported quests share the SAME code
+        -- EXTRA_CREATURE_REF, but have different full reason lists.
+        -- Mutating one returned list must not affect another row, the
+        -- validated inputs, or a fresh repeat comparison.
+        local server, effective, manifest, pins = cohortFixtures()
+        local originals = {
+            server = copy(server), effective = copy(effective),
+            manifest = copy(manifest), pins = copy(pins),
+        }
+        local output, code = Batch.Run(server, effective, manifest, pins)
+        assert.is_nil(code)
+        assert.is_table(output)
+        assert.are.equal(12, #output.rows)
+        assert.are.same({ "EXTRA_CREATURE_REF" }, output.rows[1].reasons)
+        assert.are.same({ "EXTRA_CREATURE_REF", "EXTRA_OBJECT_REF" },
+            output.rows[6].reasons)
+        assert.are.same({ "DUPLICATE_CREATURE", "EXTRA_CREATURE_REF" },
+            output.rows[11].reasons)
+
+        local row6Before, row11Before =
+            copy(output.rows[6]), copy(output.rows[11])
+        output.rows[1].reasons[1] = "SYNTHETIC_CHANGED_REASON"
+        output.rows[1].evidence.conditions = "SYNTHETIC_CHANGED_EVIDENCE"
+        output.rows[1].m1Classes[1] = "SYNTHETIC_CHANGED_CLASS"
+        assert.are.same(row6Before, output.rows[6])
+        assert.are.same(row11Before, output.rows[11])
+        assert.are.same(originals.server, server)
+        assert.are.same(originals.effective, effective)
+        assert.are.same(originals.manifest, manifest)
+        assert.are.same(originals.pins, pins)
+
+        -- A second independent run on the SAME unmodified source must
+        -- produce unchanged results, not retain the caller's mutations.
+        local again, againCode = Batch.Run(
+            server, effective, manifest, pins)
+        assert.is_nil(againCode)
+        assert.is_table(again)
+        assert.are.same(cohorts[1].reasons, again.rows[1].reasons)
+        assert.are.same(cohorts[6].reasons, again.rows[6].reasons)
+        assert.are.same(cohorts[11].reasons, again.rows[11].reasons)
+        for _, row in ipairs(again.rows) do
+            assert.are.same({
+                killCredit = "unknown", conditions = "unknown",
+                scripts = "unknown", ip = "unknown",
+                objectiveData = "unknown",
+            }, row.evidence)
+            assert.are.same({}, row.m1Classes)
+        end
+        assert.is_false(again.authenticated)
+        assert.is_false(again.publishable)
+    end)
+
     it("returns detached unsupported reasons, evidence and M1 class lists", function()
         -- Pure execution alone is insufficient if returned subtables still
         -- alias a validated input or another result row. Explicitly mutate
