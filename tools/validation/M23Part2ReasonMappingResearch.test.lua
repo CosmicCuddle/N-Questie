@@ -733,6 +733,126 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         -- even though the over-limit quest is M1-unsupported and comes last.
     end)
 
+    it("exposes unsupported-last nonfinite and out-of-range numeric baseline", function()
+        -- Existing Part 2 performs NO new finite/int32 numeric preflight;
+        -- this test pins LEGACY behaviour without implementing G3 policy.
+        -- Independently assert that frozen v2 and membership accept each
+        -- invented shape, so success is not a malformed fixture artifact.
+        local V2 = dofile("tools/validation/EffectiveSchemaV2.lua")
+        local Membership = dofile("tools/validation/M23Membership.lua")
+        local Input = dofile("tools/validation/InputSchema.lua")
+        local original = _G.dofile
+        local compareCalls = 0
+        _G.dofile = function(path)
+            local mod = original(path)
+            if path ~= "tools/validation/ObjectiveRules.lua" then
+                return mod
+            end
+            local spy = {}
+            for key, value in pairs(mod) do spy[key] = value end
+            spy.Compare = function(...)
+                compareCalls = compareCalls + 1
+                return mod.Compare(...)
+            end
+            return spy
+        end
+        local loaded, spied = pcall(original, "tools/validation/M23Batch.lua")
+        _G.dofile = original
+        assert.is_true(loaded)
+        assert.are.equal(original, _G.dofile)
+
+        local controlServer, controlEffective, controlManifest, controlPins = fixtures()
+        local good, goodCode = spied.Run(controlServer, controlEffective,
+            controlManifest, controlPins)
+        assert.is_nil(goodCode)
+        assert.is_table(good)
+        assert.are.equal(2, compareCalls) -- positive spy control
+
+        local cases = {
+            { name = "sourceItemId above int32",
+              change = function(q) q.sourceItemId = 2147483648 end },
+            { name = "infinite sourceItemId",
+              change = function(q) q.sourceItemId = math.huge end },
+            { name = "positive infinite reputation value",
+              change = function(q)
+                  q.objectives[1].requiredValue = math.huge
+              end },
+            { name = "negative infinite reputation value",
+              change = function(q)
+                  q.objectives[1].requiredValue = -math.huge
+              end },
+            { name = "positive infinite spawn zone",
+              change = function(q)
+                  q.extraObjectives[1] = {
+                      position = 1, icon = 1, hasText = true,
+                      objectiveIndex = 0, spawnZones = { math.huge }, refs = {},
+                  }
+              end },
+            { name = "negative infinite spawn zone",
+              change = function(q)
+                  q.extraObjectives[1] = {
+                      position = 1, icon = 1, hasText = true,
+                      objectiveIndex = 0, spawnZones = { -math.huge }, refs = {},
+                  }
+              end },
+            { name = "finite negative spawn zone remains v2-valid",
+              change = function(q)
+                  q.extraObjectives[1] = {
+                      position = 1, icon = 1, hasText = true,
+                      objectiveIndex = 0, spawnZones = { -1 }, refs = {},
+                  }
+              end },
+        }
+        for _, case in ipairs(cases) do
+            local server, effective, manifest, pins = fixtures()
+            -- Valid supported quest 3 and supported quest 1 are selected
+            -- before unsupported quest 2. No early malformed source IDs.
+            server.quests[2], server.quests[3] =
+                server.quests[3], server.quests[2]
+            assert.are.same({ 3, 1, 2 }, {
+                server.quests[1].ID, server.quests[2].ID, server.quests[3].ID,
+            })
+            local unsupported = effective.quests[2]
+            case.change(unsupported)
+            local status, expectedReasons = V2.ExpectedM1(unsupported)
+            assert.are.equal("UNSUPPORTED_BY_RULES", status, case.name)
+            assert.are.same({ "REPUTATION_OBJECTIVE" }, expectedReasons)
+            assert.is_true(V2.ValidateQuest(unsupported), case.name)
+            assert.is_true(V2.Validate(effective), case.name)
+            assert.is_true(Input.Validate(server), case.name)
+            local membership, membershipCode =
+                Membership.Check(effective, manifest, pins)
+            assert.is_nil(membershipCode, case.name)
+            assert.is_table(membership, case.name)
+            local ss, ee, mm, pp =
+                copy(server), copy(effective), copy(manifest), copy(pins)
+            compareCalls = 0
+            local result, code = spied.Run(server, effective, manifest, pins)
+            assert.is_nil(code, case.name)
+            assert.is_table(result, case.name)
+            assert.are.equal(2, compareCalls, case.name)
+            assert.are.equal(3, #result.rows)
+            assert.are.equal(2, result.rows[3].questId)
+            assert.is_false(result.rows[3].m1Supported)
+            assert.are.equal("M1_UNSUPPORTED_BY_RULES",
+                result.rows[3].outcome)
+            assert.are.same({ "REPUTATION_OBJECTIVE" },
+                result.rows[3].reasons)
+            assert.are.same({}, result.rows[3].m1Classes)
+            assert.is_false(result.authenticated)
+            assert.is_false(result.publishable)
+            assert.are.same(ss, server)
+            assert.are.same(ee, effective)
+            assert.are.same(mm, manifest)
+            assert.are.same(pp, pins)
+        end
+        assert.are.equal(original, _G.dofile)
+        -- The proposed future G3 OP13 requires malformed-input refusal
+        -- with ZERO M1 calls on the nonfinite / out-of-int32 cases,
+        -- notwithstanding frozen v2 acceptance; this is NOT yet approved.
+        -- The finite -1 zone is only a baseline acceptance control.
+    end)
+
     it("keeps repeated extra creature/object refs and separate extra objectives", function()
         -- This is not a copied quest: multiple references may lead to the
         -- SAME two v1-unrepresentable reasons. Neither repeated references
