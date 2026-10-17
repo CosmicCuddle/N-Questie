@@ -24,11 +24,18 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
         return t
     end
 
-    local function extraRefs(n)
+    local function extraRefs(n, kind)
         local out = {}
         for i = 1, n do
-            out[i] = { type = "monster", id = 90000 + i, refIndex = i }
+            out[i] = { type = kind or "monster", id = 90000 + i, refIndex = i }
         end
+        return out
+    end
+
+    local function copy(value)
+        if type(value) ~= "table" then return value end
+        local out = {}
+        for k, v in pairs(value) do out[copy(k)] = copy(v) end
         return out
     end
 
@@ -172,6 +179,37 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
             unsupported = true,
         },
         {
+            name = "mixed supported arrays total 4096: B alone refuses",
+            make = function()
+                local q = quest()
+                q.requiredSourceItems = numbers(1000, 100000)
+                q.extraObjectives = { extra(1, 1, extraRefs(1000, "item")) }
+                q.objectives = {
+                    { position = 1, kind = "killCredit", slotIndex = 1,
+                      rootId = 200001, ids = numbers(2095, 200000) },
+                }
+                return finalise(q)
+            end,
+            -- 1000 sources + 1 extra + 1000 refs + 2095 kill IDs = 4096
+            m1 = 4096, zones = 1,
+            expected = { A = true, B = false, C = true },
+        },
+        {
+            name = "mixed supported arrays total 4097: all refuse",
+            make = function()
+                local q = quest()
+                q.requiredSourceItems = numbers(1000, 100000)
+                q.extraObjectives = { extra(1, 1, extraRefs(1000, "item")) }
+                q.objectives = {
+                    { position = 1, kind = "killCredit", slotIndex = 1,
+                      rootId = 200001, ids = numbers(2096, 200000) },
+                }
+                return finalise(q)
+            end,
+            m1 = 4097, zones = 1,
+            expected = { A = false, B = false, C = false },
+        },
+        {
             name = "4095 source items plus one extra: B refuses",
             make = function()
                 local q = quest()
@@ -248,23 +286,13 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
             local ok, errors = V2.ValidateQuest(q)
             assert.is_true(ok, case.name .. ": " ..
                 table.concat(errors or {}, "; "))
-            local before = {
-                status = q.m1Status,
-                reasonCount = #q.m1Reasons,
-                objectives = #q.objectives,
-                extraObjectives = #q.extraObjectives,
-                requiredSourceItems = #q.requiredSourceItems,
-            }
+            local before = copy(q)
             local m1, zones = candidateCounts(q)
             assert.are.equal(case.m1, m1, case.name)
             assert.are.equal(case.zones, zones, case.name)
             assert.are.same(case.expected, options(m1, zones), case.name)
-            assert.are.equal(before.status, q.m1Status, case.name)
-            assert.are.equal(before.reasonCount, #q.m1Reasons, case.name)
-            assert.are.equal(before.objectives, #q.objectives, case.name)
-            assert.are.equal(before.extraObjectives, #q.extraObjectives, case.name)
-            assert.are.equal(before.requiredSourceItems,
-                #q.requiredSourceItems, case.name)
+            -- Full deep snapshot, including all array members and fields.
+            assert.are.same(before, q, case.name)
         end
         assert.are.equal(originalDofile, _G.dofile)
     end)
@@ -274,6 +302,7 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
         q.extraObjectives = { extra(1, 4096) }
         q = finalise(q)
         assert.is_true(V2.ValidateQuest(q))
+        local before = copy(q)
         local adapted, code = Adapter.ToQuestieRecordV2(q)
         assert.is_nil(code)
         assert.is_table(adapted)
@@ -285,5 +314,6 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
         assert.are.same({ A = true, B = false, C = true },
             options(candidateCounts(q)))
         -- The original v2 record retains all 4096 zones: no mutation.
+        assert.are.same(before, q)
     end)
 end)
