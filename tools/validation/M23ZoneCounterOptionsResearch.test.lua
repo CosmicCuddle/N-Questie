@@ -81,6 +81,19 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
         }
     end
 
+    -- A genuinely SUPPORTED fixture with three kinds of M1-forwarded
+    -- nested arrays. The private worker and actual M1 are NEVER invoked.
+    local function mixedSupported(killIdCount)
+        local q = quest()
+        q.requiredSourceItems = numbers(1000, 100000)
+        q.extraObjectives = { extra(1, 1, extraRefs(1000, "item")) }
+        q.objectives = {
+            { position = 1, kind = "killCredit", slotIndex = 1,
+              rootId = 200001, ids = numbers(killIdCount, 200000) },
+        }
+        return finalise(q)
+    end
+
     local cases = {
         {
             name = "one extra with 4095 zones: B equality passes",
@@ -180,32 +193,14 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
         },
         {
             name = "mixed supported arrays total 4096: B alone refuses",
-            make = function()
-                local q = quest()
-                q.requiredSourceItems = numbers(1000, 100000)
-                q.extraObjectives = { extra(1, 1, extraRefs(1000, "item")) }
-                q.objectives = {
-                    { position = 1, kind = "killCredit", slotIndex = 1,
-                      rootId = 200001, ids = numbers(2095, 200000) },
-                }
-                return finalise(q)
-            end,
+            make = function() return mixedSupported(2095) end,
             -- 1000 sources + 1 extra + 1000 refs + 2095 kill IDs = 4096
             m1 = 4096, zones = 1,
             expected = { A = true, B = false, C = true },
         },
         {
             name = "mixed supported arrays total 4097: all refuse",
-            make = function()
-                local q = quest()
-                q.requiredSourceItems = numbers(1000, 100000)
-                q.extraObjectives = { extra(1, 1, extraRefs(1000, "item")) }
-                q.objectives = {
-                    { position = 1, kind = "killCredit", slotIndex = 1,
-                      rootId = 200001, ids = numbers(2096, 200000) },
-                }
-                return finalise(q)
-            end,
+            make = function() return mixedSupported(2096) end,
             m1 = 4097, zones = 1,
             expected = { A = false, B = false, C = false },
         },
@@ -295,6 +290,39 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
             assert.are.same(before, q, case.name)
         end
         assert.are.equal(originalDofile, _G.dofile)
+    end)
+
+    it("pins actual M1 adapter arrays for the mixed 4096/4097 cases", function()
+        -- These are adapter observations, NOT an M1 invocation or a new
+        -- pre-M1 resource gate. A/B/C remain unapproved alternatives.
+        for _, count in ipairs({ 2095, 2096 }) do
+            local q = mixedSupported(count)
+            assert.are.equal("SUPPORTED", q.m1Status)
+            assert.are.same({}, q.m1Reasons)
+            assert.is_true(V2.ValidateQuest(q))
+            local snapshot = copy(q)
+            local adapted, code = Adapter.ToQuestieRecordV2(q)
+            assert.is_nil(code)
+            assert.is_table(adapted)
+            assert.are.equal(1000, #adapted[21])
+            assert.are.same(q.requiredSourceItems, adapted[21])
+            assert.are.equal(1, #adapted[27])
+            assert.are.equal(0, adapted[27][1][4])
+            local refs = adapted[27][1][5]
+            assert.are.equal(1000, #refs)
+            assert.are.same({ "item", 90001 }, refs[1])
+            assert.are.same({ "item", 91000 }, refs[1000])
+            assert.is_nil(adapted[27][1][6]) -- zones are not forwarded
+            local killCredit = adapted[10][5][1]
+            assert.are.equal(count, #killCredit[1])
+            assert.are.equal(200001, killCredit[1][1])
+            assert.are.equal(200000 + count, killCredit[1][count])
+            assert.are.equal(200001, killCredit[2]) -- rootId is scalar
+            local nested, zones = candidateCounts(q)
+            assert.are.equal(1000 + 1 + 1000 + count, nested)
+            assert.are.equal(1, zones)
+            assert.are.same(snapshot, q) -- adapter did not mutate input
+        end
     end)
 
     it("confirms frozen M1 adapter drops zones without changing source", function()
