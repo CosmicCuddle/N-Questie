@@ -362,16 +362,36 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
                 id = id, status = "REPRESENTABLE", codes = {}, counts = {},
             }
         end
+        -- Fabricated occurrence multiplicity using PUBLIC AGGREGATE ONLY:
+        -- 466 creature occurrences vs 359 quests; 335 object vs 243;
+        -- 9 duplicate-creature occurrences vs 7 quests. The assignment
+        -- to invented rows is arbitrary and does NOT model real quest IDs.
+        local extraOccurrences = {
+            EXTRA_CREATURE_REF = 107,
+            EXTRA_OBJECT_REF = 92,
+            DUPLICATE_CREATURE = 2,
+        }
         for _, shape in ipairs(cohorts) do
             for _ = 1, shape.n do
                 local counts = {}
-                for _, code in ipairs(shape.reasons) do counts[code] = 1 end
+                for _, code in ipairs(shape.reasons) do
+                    local count = 1
+                    if (extraOccurrences[code] or 0) > 0 then
+                        count = 2
+                        extraOccurrences[code] = extraOccurrences[code] - 1
+                    end
+                    counts[code] = count
+                end
                 results[#results + 1] = {
                     id = #results + 1, status = "UNSUPPORTED",
                     codes = copy(shape.reasons), counts = counts,
                 }
             end
         end
+        assert.are.same({
+            EXTRA_CREATURE_REF = 0, EXTRA_OBJECT_REF = 0,
+            DUPLICATE_CREATURE = 0,
+        }, extraOccurrences)
         local summary = Coverage.Aggregate(results)
         assert.are.equal(9159, summary.total)
         assert.are.equal(8401, summary.representable)
@@ -409,7 +429,12 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
             REPUTATION_OBJECTIVE = 181, KILLCREDIT_FIRST_REORDER = 16,
             DUPLICATE_CREATURE = 7, DUPLICATE_OBJECT = 1,
         }, summary.reasonQuests)
-        assert.are.same(summary.reasonQuests, summary.reasonOccurrences)
+        -- Quests and objective occurrences must remain DIFFERENT measures.
+        assert.are.same({
+            EXTRA_CREATURE_REF = 466, EXTRA_OBJECT_REF = 335,
+            REPUTATION_OBJECTIVE = 181, KILLCREDIT_FIRST_REORDER = 16,
+            DUPLICATE_CREATURE = 9, DUPLICATE_OBJECT = 1,
+        }, summary.reasonOccurrences)
         local single, multiple = 0, 0
         for _, c in ipairs(summary.combinations) do
             if c.codes:find("+", 1, true) then
@@ -453,6 +478,7 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.equal(summary.representable, redistributed.representable)
         assert.are.equal(summary.unsupported, redistributed.unsupported)
         assert.are.same(summary.reasonQuests, redistributed.reasonQuests)
+        assert.are.same(summary.reasonOccurrences, redistributed.reasonOccurrences)
         assert.are.same(summary.categoryQuests, redistributed.categoryQuests)
         local changedBuckets = {}
         for _, bucket in ipairs(redistributed.combinations) do
