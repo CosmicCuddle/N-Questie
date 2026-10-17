@@ -511,10 +511,10 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
     end)
 
     it("distinguishes bad count-pin preflight from later pairing and v2 faults", function()
-        -- The original five dual-fault oracles assume valid externally
-        -- supplied pins. M23Membership.Check examines these BEFORE v2
-        -- structure and pairing, so error-code names have no universal
-        -- priority independent of gate location and preconditions.
+        -- The earlier dual-fault oracles assume valid external pins.
+        -- Membership first checks pins' INTERNAL sum; externally wrong
+        -- but internally consistent pins instead fail AFTER v2 and pairing.
+        -- Refusal precedence follows gate execution, not a code ranking.
         local original = _G.dofile
         local compareCalls = 0
         _G.dofile = function(path)
@@ -541,8 +541,12 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.is_table(positive)
         assert.are.equal(2, compareCalls) -- spy must really intercept M1
 
-        local function badPins(_, _, _, pins)
-            pins.questCount = 4 -- original 2+1 ~= 4
+        local function inconsistentPins(_, _, _, pins)
+            pins.questCount = 4 -- 2 supported + 1 unsupported ~= 4
+        end
+        local function consistentButWrongPins(_, _, _, pins)
+            pins.questCount = 4
+            pins.unsupportedCount = 2 -- 2 + 2 == 4, but data has 3 quests
         end
         local function badV2(_, effective)
             effective.quests[1].sourceItemId = -1
@@ -570,21 +574,35 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
             return code
         end
 
-        assert.are.equal("REJECTED_MANIFEST_INCOMPLETE", reject(badPins))
+        -- Independent controls prove that BOTH pin shapes are rejected,
+        -- though at different stages of frozen Membership.Check.
+        assert.are.equal("REJECTED_MANIFEST_INCOMPLETE",
+            reject(inconsistentPins))
+        assert.are.equal("REJECTED_MANIFEST_INCOMPLETE",
+            reject(consistentButWrongPins))
         assert.are.equal("REJECTED_MALFORMED_INPUT", reject(badV2))
         assert.are.equal("REJECTED_PAIRING", reject(unpaired))
         assert.are.equal("REJECTED_DUPLICATE_ID", reject(duplicate))
 
-        -- Under valid server v1, bad pins win before any malformed v2 or
-        -- pairing is checked. This is NOT a global error-code ranking.
+        -- Internal-sum inconsistency fails at the EARLY pin gate, before
+        -- v2 validation and provenance pairing.
         assert.are.equal("REJECTED_MANIFEST_INCOMPLETE",
-            reject(badPins, badV2))
+            reject(inconsistentPins, badV2))
         assert.are.equal("REJECTED_MANIFEST_INCOMPLETE",
-            reject(badPins, unpaired))
-        -- Duplicate IDs are checked by the outer Batch BEFORE membership;
-        -- this remains true even when the pins are simultaneously invalid.
+            reject(inconsistentPins, unpaired))
+
+        -- A self-consistent but dataset-wrong pin passes the early gate.
+        -- Its later count mismatch cannot mask earlier v2/pairing failures.
+        assert.are.equal("REJECTED_MALFORMED_INPUT",
+            reject(consistentButWrongPins, badV2))
+        assert.are.equal("REJECTED_PAIRING",
+            reject(consistentButWrongPins, unpaired))
+
+        -- The outer Batch duplicate check precedes both pin gates.
         assert.are.equal("REJECTED_DUPLICATE_ID",
-            reject(duplicate, badPins))
+            reject(duplicate, inconsistentPins))
+        assert.are.equal("REJECTED_DUPLICATE_ID",
+            reject(duplicate, consistentButWrongPins))
         assert.are.equal(original, _G.dofile)
     end)
 
