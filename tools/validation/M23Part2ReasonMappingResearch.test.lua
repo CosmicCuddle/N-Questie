@@ -262,7 +262,13 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         _G.dofile = original
         assert.is_true(loaded)
         assert.are.equal(original, _G.dofile)
+        local serverBefore, effectiveBefore, manifestBefore, pinsBefore =
+            copy(server), copy(effective), copy(manifest), copy(pins)
         local result, code = spied.Run(server, effective, manifest, pins)
+        assert.are.same(serverBefore, server)
+        assert.are.same(effectiveBefore, effective)
+        assert.are.same(manifestBefore, manifest)
+        assert.are.same(pinsBefore, pins)
         assert.is_nil(code)
         assert.is_table(result)
         assert.are.equal(12, result.unsupported)
@@ -414,6 +420,55 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         end
         assert.are.equal(709, single)
         assert.are.equal(49, multiple)
+        -- Subtle mutation: swap one (creature+object) and one reputation-only
+        -- record into (creature+reputation) and object-only. This preserves
+        -- ALL six reason totals, 9,159/8,401/758, and even 709/49, but
+        -- changes four exact disjoint cohort counts.
+        local creatureAndObject, reputationOnly
+        for _, row in ipairs(results) do
+            if not creatureAndObject
+                and #row.codes == 2
+                and row.codes[1] == "EXTRA_CREATURE_REF"
+                and row.codes[2] == "EXTRA_OBJECT_REF" then
+                creatureAndObject = row
+            end
+            if not reputationOnly and #row.codes == 1
+                and row.codes[1] == "REPUTATION_OBJECTIVE" then
+                reputationOnly = row
+            end
+            if creatureAndObject and reputationOnly then break end
+        end
+        assert.is_table(creatureAndObject)
+        assert.is_table(reputationOnly)
+        local originalA, originalB =
+            copy(creatureAndObject), copy(reputationOnly)
+        creatureAndObject.codes = {
+            "EXTRA_CREATURE_REF", "REPUTATION_OBJECTIVE" }
+        creatureAndObject.counts = {
+            EXTRA_CREATURE_REF = 1, REPUTATION_OBJECTIVE = 1 }
+        reputationOnly.codes = { "EXTRA_OBJECT_REF" }
+        reputationOnly.counts = { EXTRA_OBJECT_REF = 1 }
+        local redistributed = Coverage.Aggregate(results)
+        assert.are.equal(summary.total, redistributed.total)
+        assert.are.equal(summary.representable, redistributed.representable)
+        assert.are.equal(summary.unsupported, redistributed.unsupported)
+        assert.are.same(summary.reasonQuests, redistributed.reasonQuests)
+        assert.are.same(summary.categoryQuests, redistributed.categoryQuests)
+        local changedBuckets = {}
+        for _, bucket in ipairs(redistributed.combinations) do
+            changedBuckets[bucket.codes] = bucket.quests
+        end
+        assert.are.equal(30,
+            changedBuckets["EXTRA_CREATURE_REF+EXTRA_OBJECT_REF"])
+        assert.are.equal(3,
+            changedBuckets["EXTRA_CREATURE_REF+REPUTATION_OBJECTIVE"])
+        assert.are.equal(206, changedBuckets.EXTRA_OBJECT_REF)
+        assert.are.equal(174, changedBuckets.REPUTATION_OBJECTIVE)
+        -- Restore before the independent one-reason-drop mutation below.
+        creatureAndObject.codes = originalA.codes
+        creatureAndObject.counts = originalA.counts
+        reputationOnly.codes = originalB.codes
+        reputationOnly.counts = originalB.counts
         -- Mutation: losing one overlapping reason must change a reason total.
         results[#results].codes = { "EXTRA_CREATURE_REF" }
         results[#results].counts = { EXTRA_CREATURE_REF = 1 }
