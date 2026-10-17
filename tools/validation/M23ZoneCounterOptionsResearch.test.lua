@@ -94,6 +94,17 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
         return finalise(q)
     end
 
+    local function twoKillCredits(secondCount)
+        local q = quest()
+        q.objectives = {
+            { position = 1, kind = "killCredit", slotIndex = 1,
+              rootId = 100001, ids = numbers(2048, 100000) },
+            { position = 2, kind = "killCredit", slotIndex = 2,
+              rootId = 200001, ids = numbers(secondCount, 200000) },
+        }
+        return finalise(q)
+    end
+
     local cases = {
         {
             name = "one extra with 4095 zones: B equality passes",
@@ -123,6 +134,36 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
                 return finalise(q)
             end,
             m1 = 1, zones = 4097,
+            expected = { A = true, B = false, C = false },
+        },
+        {
+            name = "two extras split 2047 plus 2047 zones: B equality passes",
+            make = function()
+                local q = quest()
+                q.extraObjectives = { extra(1, 2047), extra(2, 2047) }
+                return finalise(q)
+            end,
+            m1 = 2, zones = 4094,
+            expected = { A = true, B = true, C = true },
+        },
+        {
+            name = "two extras split 2048 plus 2048 zones: C equality passes",
+            make = function()
+                local q = quest()
+                q.extraObjectives = { extra(1, 2048), extra(2, 2048) }
+                return finalise(q)
+            end,
+            m1 = 2, zones = 4096,
+            expected = { A = true, B = false, C = true },
+        },
+        {
+            name = "two extras split 2048 plus 2049 zones: C refuses",
+            make = function()
+                local q = quest()
+                q.extraObjectives = { extra(1, 2048), extra(2, 2049) }
+                return finalise(q)
+            end,
+            m1 = 2, zones = 4097,
             expected = { A = true, B = false, C = false },
         },
         {
@@ -253,6 +294,18 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
             expected = { A = false, B = false, C = false },
         },
         {
+            name = "two killCredit objectives sum to 4096: all pass",
+            make = function() return twoKillCredits(2048) end,
+            m1 = 4096, zones = 0,
+            expected = { A = true, B = true, C = true },
+        },
+        {
+            name = "two killCredit objectives sum to 4097: all refuse",
+            make = function() return twoKillCredits(2049) end,
+            m1 = 4097, zones = 0,
+            expected = { A = false, B = false, C = false },
+        },
+        {
             name = "unsupported extra monster ref is counted too",
             make = function()
                 local q = quest()
@@ -322,6 +375,26 @@ describe("M2.3 proposed nested/zone counter options (synthetic only)", function(
             assert.are.equal(1000 + 1 + 1000 + count, nested)
             assert.are.equal(1, zones)
             assert.are.same(snapshot, q) -- adapter did not mutate input
+        end
+    end)
+
+    it("checks frozen adapter preserves BOTH killCredit objective arrays", function()
+        -- Guards against first-only counting while avoiding real M1 calls.
+        for _, secondCount in ipairs({ 2048, 2049 }) do
+            local q = twoKillCredits(secondCount)
+            assert.are.equal("SUPPORTED", q.m1Status)
+            assert.is_true(V2.ValidateQuest(q))
+            local before = copy(q)
+            local adapted, code = Adapter.ToQuestieRecordV2(q)
+            assert.is_nil(code)
+            assert.is_table(adapted)
+            assert.are.equal(2, #adapted[10][5])
+            assert.are.equal(2048, #adapted[10][5][1][1])
+            assert.are.equal(secondCount, #adapted[10][5][2][1])
+            assert.are.equal(100001, adapted[10][5][1][2])
+            assert.are.equal(200001, adapted[10][5][2][2])
+            assert.are.equal(2048 + secondCount, candidateCounts(q))
+            assert.are.same(before, q)
         end
     end)
 
