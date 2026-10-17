@@ -120,6 +120,7 @@ describe("M2.3 frozen Part 2 object/item K64-K65 baseline (synthetic)", function
         -- The control proves that subsequent M1 call-count claims are live.
         local original = _G.dofile
         local compareCalls = 0
+        local compared = {}
         _G.dofile = function(path)
             local mod = original(path)
             if path ~= "tools/validation/ObjectiveRules.lua" then
@@ -127,9 +128,15 @@ describe("M2.3 frozen Part 2 object/item K64-K65 baseline (synthetic)", function
             end
             local spy = {}
             for k, v in pairs(mod) do spy[k] = v end
-            spy.Compare = function(...)
+            spy.Compare = function(source, questie)
                 compareCalls = compareCalls + 1
-                return mod.Compare(...)
+                local slots = questie[10]
+                compared[#compared + 1] = {
+                    id = source.id,
+                    objects = #(slots[2] or {}),
+                    items = #(slots[3] or {}),
+                }
+                return mod.Compare(source, questie)
             end
             return spy
         end
@@ -143,6 +150,10 @@ describe("M2.3 frozen Part 2 object/item K64-K65 baseline (synthetic)", function
         assert.is_nil(controlCode)
         assert.is_table(control)
         assert.are.equal(2, compareCalls)
+        assert.are.same({
+            { id = 3, objects = 0, items = 0 },
+            { id = 1, objects = 0, items = 0 },
+        }, compared) -- positive spy control: identity and forwarded shapes
 
         for _, kind in ipairs({ "object", "item" }) do
             for _, n in ipairs({ 64, 65 }) do
@@ -177,11 +188,21 @@ describe("M2.3 frozen Part 2 object/item K64-K65 baseline (synthetic)", function
                     local ss, ee, mm, pp = copy(server), copy(effective),
                         copy(manifest), copy(pins)
                     compareCalls = 0
+                    compared = {}
                     local result, code = spied.Run(
                         server, effective, manifest, pins)
                     assert.is_nil(code, label)
                     assert.is_table(result, label)
                     assert.are.equal(2, compareCalls, label)
+                    -- A call total alone could miss the intended quest or a
+                    -- truncated K65 adapter array. Pin both M1 inputs.
+                    local count = unsupported and 0 or n
+                    assert.are.same({
+                        { id = 3,
+                          objects = kind == "object" and count or 0,
+                          items = kind == "item" and count or 0 },
+                        { id = 1, objects = 0, items = 0 },
+                    }, compared, label)
                     assert.are.equal(3, #result.rows, label)
                     assert.are.same({ 3, 1, 2 }, {
                         result.rows[1].questId,
@@ -190,6 +211,8 @@ describe("M2.3 frozen Part 2 object/item K64-K65 baseline (synthetic)", function
                     }, label)
                     assert.is_false(result.authenticated, label)
                     assert.is_false(result.publishable, label)
+                    assert.is_true(result.rows[1].m1Supported, label)
+                    assert.is_true(result.rows[2].m1Supported, label)
                     assert.is_false(result.rows[3].m1Supported, label)
                     assert.are.equal("M1_UNSUPPORTED_BY_RULES",
                         result.rows[3].outcome, label)
