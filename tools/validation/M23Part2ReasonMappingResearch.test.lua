@@ -310,6 +310,51 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.equal(1, control.unsupported)
     end)
 
+    it("keeps all five evidence axes unknown across complete and tri-state flags", function()
+        -- These are synthetic server assertions, NOT a signed absence
+        -- provenance for conditions, scripts, IP, killCredit or ObjectiveData.
+        -- Even a true/false flag does not authorise CONFIRMED_* outcomes.
+        local Input = dofile("tools/validation/InputSchema.lua")
+        local evidenceUnknown = {
+            killCredit = "unknown", conditions = "unknown",
+            scripts = "unknown", ip = "unknown",
+            objectiveData = "unknown",
+        }
+        local cases = {
+            { conditions = true, scripts = true, ip = true, kc = true },
+            { conditions = false, scripts = false, ip = false, kc = false },
+            { conditions = "unknown", scripts = "unknown",
+              ip = "unknown", kc = false },
+        }
+        for _, case in ipairs(cases) do
+            local server, effective, manifest, pins = fixtures()
+            for _, row in ipairs(server.quests) do
+                row.hasConditions = case.conditions
+                row.scriptedCredit = case.scripts
+                row.ipGated = case.ip
+                row.killCreditComplete = case.kc
+            end
+            assert.is_true(Input.Validate(server))
+            local ss, ee, mm, pp =
+                copy(server), copy(effective), copy(manifest), copy(pins)
+            local result, code = Batch.Run(server, effective, manifest, pins)
+            assert.is_nil(code)
+            assert.is_table(result)
+            assert.are.equal(3, #result.rows)
+            assert.is_false(result.authenticated)
+            assert.is_false(result.publishable)
+            for _, row in ipairs(result.rows) do
+                assert.are.same(evidenceUnknown, row.evidence)
+                assert.is_false(row.outcome == "CONFIRMED_MATCH")
+                assert.is_false(row.outcome == "CONFIRMED_MISMATCH")
+            end
+            assert.are.same(ss, server)
+            assert.are.same(ee, effective)
+            assert.are.same(mm, manifest)
+            assert.are.same(pp, pins)
+        end
+    end)
+
     it("refuses six unsafe selection and provenance cases before M1 runs", function()
         -- Assert zero M1 calls only after a valid same-spy positive control;
         -- a misspelt loader interception must not vacuously pass.
