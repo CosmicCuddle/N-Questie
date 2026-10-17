@@ -320,6 +320,34 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.equal("REJECTED_MANIFEST_INCOMPLETE", code)
     end)
 
+    it("rejects reordered, duplicated or injected overlap reasons without mutation", function()
+        -- Quest 6 deliberately has two supported, known reason codes.
+        -- An out-of-order or duplicate list violates the CLOSED sorted set;
+        -- an extra valid sorted reason is well-typed but disagrees with v2.
+        local cases = {
+            { reasons = { "EXTRA_OBJECT_REF", "EXTRA_CREATURE_REF" },
+              code = "REJECTED_MALFORMED_INPUT" },
+            { reasons = { "EXTRA_CREATURE_REF", "EXTRA_CREATURE_REF" },
+              code = "REJECTED_MALFORMED_INPUT" },
+            { reasons = { "EXTRA_CREATURE_REF", "EXTRA_OBJECT_REF",
+                          "REPUTATION_OBJECTIVE" },
+              code = "REJECTED_M1_STATUS_MISMATCH" },
+        }
+        for _, case in ipairs(cases) do
+            local server, effective, manifest, pins = cohortFixtures()
+            manifest.quests[6].reasons = copy(case.reasons)
+            local ss, ee, mm, pp =
+                copy(server), copy(effective), copy(manifest), copy(pins)
+            local result, code = Batch.Run(server, effective, manifest, pins)
+            assert.is_nil(result)
+            assert.are.equal(case.code, code)
+            assert.are.same(ss, server)
+            assert.are.same(ee, effective)
+            assert.are.same(mm, manifest)
+            assert.are.same(pp, pins)
+        end
+    end)
+
     it("reconciles all public coverage buckets in a fabricated aggregate", function()
         local Coverage = dofile("tools/validation/Coverage.lua")
         local results = {}
@@ -344,6 +372,32 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.equal(758, summary.unsupported)
         assert.are.equal(0, summary.unclassified)
         assert.are.equal(12, #summary.combinations)
+        -- Independently pin every PUBLIC disjoint bucket. Reconciled grand
+        -- totals and per-reason marginals alone can conceal a bad allocation.
+        local exactCombinations = {
+            EXTRA_CREATURE_REF = 317,
+            EXTRA_OBJECT_REF = 205,
+            REPUTATION_OBJECTIVE = 175,
+            DUPLICATE_CREATURE = 6,
+            KILLCREDIT_FIRST_REORDER = 6,
+            ["EXTRA_CREATURE_REF+EXTRA_OBJECT_REF"] = 31,
+            ["EXTRA_CREATURE_REF+KILLCREDIT_FIRST_REORDER"] = 7,
+            ["EXTRA_OBJECT_REF+REPUTATION_OBJECTIVE"] = 4,
+            ["EXTRA_OBJECT_REF+KILLCREDIT_FIRST_REORDER"] = 3,
+            ["EXTRA_CREATURE_REF+REPUTATION_OBJECTIVE"] = 2,
+            ["DUPLICATE_CREATURE+EXTRA_CREATURE_REF"] = 1,
+            ["DUPLICATE_OBJECT+EXTRA_CREATURE_REF"] = 1,
+        }
+        local observedCombinations = {}
+        for _, bucket in ipairs(summary.combinations) do
+            observedCombinations[bucket.codes] = bucket.quests
+        end
+        assert.are.same(exactCombinations, observedCombinations)
+        assert.are.same({
+            extra_creature = 359, extra_object = 243,
+            reputation = 181, order = 16,
+            duplicate_creature = 7, duplicate_object = 1,
+        }, summary.categoryQuests)
         assert.are.same({
             EXTRA_CREATURE_REF = 359, EXTRA_OBJECT_REF = 243,
             REPUTATION_OBJECTIVE = 181, KILLCREDIT_FIRST_REORDER = 16,
