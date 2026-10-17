@@ -310,6 +310,88 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         assert.are.equal(1, control.unsupported)
     end)
 
+    it("refuses six unsafe selection and provenance cases before M1 runs", function()
+        -- Assert zero M1 calls only after a valid same-spy positive control;
+        -- a misspelt loader interception must not vacuously pass.
+        local original = _G.dofile
+        local compareCalls = 0
+        _G.dofile = function(path)
+            local mod = original(path)
+            if path ~= "tools/validation/ObjectiveRules.lua" then
+                return mod
+            end
+            local spy = {}
+            for key, value in pairs(mod) do spy[key] = value end
+            spy.Compare = function(...)
+                compareCalls = compareCalls + 1
+                return mod.Compare(...)
+            end
+            return spy
+        end
+        local loaded, spied = pcall(original, "tools/validation/M23Batch.lua")
+        _G.dofile = original
+        assert.is_true(loaded)
+        assert.are.equal(original, _G.dofile)
+
+        local goodServer, goodEffective, goodManifest, goodPins = fixtures()
+        local good, goodCode = spied.Run(
+            goodServer, goodEffective, goodManifest, goodPins)
+        assert.is_nil(goodCode)
+        assert.is_table(good)
+        assert.are.equal(2, compareCalls)
+        assert.are.equal(2, good.supported)
+        assert.are.equal(1, good.unsupported)
+
+        local cases = {
+            { name = "duplicate server ID", expected = "REJECTED_DUPLICATE_ID",
+              change = function(server)
+                  server.quests[1].ID = server.quests[2].ID
+              end },
+            { name = "out-of-range signed gameobject",
+              expected = "REJECTED_MALFORMED_INPUT",
+              change = function(server)
+                  server.quests[1].RequiredNpcOrGo1 = -2147483648
+                  server.quests[1].RequiredNpcOrGoCount1 = 1
+              end },
+            { name = "invalid effective v2 scalar",
+              expected = "REJECTED_MALFORMED_INPUT",
+              change = function(_, effective)
+                  effective.quests[1].sourceItemId = -1
+              end },
+            { name = "unpaired manifest provenance",
+              expected = "REJECTED_PAIRING",
+              change = function(_, _, manifest)
+                  manifest.provenance.sourceTree = string.rep("e", 40)
+              end },
+            { name = "inconsistent manifest aggregate",
+              expected = "REJECTED_MANIFEST_INCOMPLETE",
+              change = function(_, _, manifest)
+                  manifest.aggregate.reasonQuests.REPUTATION_OBJECTIVE = 2
+              end },
+            { name = "absent first selected quest",
+              expected = "REJECTED_SELECTION_MISMATCH",
+              change = function(server)
+                  server.quests[1].ID = 4
+              end },
+        }
+        for _, case in ipairs(cases) do
+            local server, effective, manifest, pins = fixtures()
+            case.change(server, effective, manifest, pins)
+            local ss, ee, mm, pp =
+                copy(server), copy(effective), copy(manifest), copy(pins)
+            compareCalls = 0
+            local result, code = spied.Run(server, effective, manifest, pins)
+            assert.is_nil(result, case.name)
+            assert.are.equal(case.expected, code, case.name)
+            assert.are.equal(0, compareCalls, case.name)
+            assert.are.same(ss, server)
+            assert.are.same(ee, effective)
+            assert.are.same(mm, manifest)
+            assert.are.same(pp, pins)
+        end
+        assert.are.equal(original, _G.dofile)
+    end)
+
     it("distinguishes single killCredit from two reversed killCredit lines", function()
         -- A single flagged killCredit line stays in the same displayed
         -- position. The flag alone must NOT make the quest unsupported.
