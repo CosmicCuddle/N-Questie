@@ -131,6 +131,220 @@ describe("M2.3 Part 2 reasons and report-v1 mapping (synthetic only)", function(
         }
     end
 
+    -- Twelve PUBLIC aggregate reason combinations, recreated as invented
+    -- v2 structures rather than copying a real/private Questie quest.
+    local cohorts = {
+        { n = 317, monster = true, reasons = { "EXTRA_CREATURE_REF" } },
+        { n = 205, objectRef = true, reasons = { "EXTRA_OBJECT_REF" } },
+        { n = 175, reputation = true, reasons = { "REPUTATION_OBJECTIVE" } },
+        { n = 6, duplicateCreature = true, reasons = { "DUPLICATE_CREATURE" } },
+        { n = 6, killCreditFirst = true, reasons = { "KILLCREDIT_FIRST_REORDER" } },
+        { n = 31, monster = true, objectRef = true,
+          reasons = { "EXTRA_CREATURE_REF", "EXTRA_OBJECT_REF" } },
+        { n = 7, monster = true, killCreditFirst = true,
+          reasons = { "EXTRA_CREATURE_REF", "KILLCREDIT_FIRST_REORDER" } },
+        { n = 4, objectRef = true, reputation = true,
+          reasons = { "EXTRA_OBJECT_REF", "REPUTATION_OBJECTIVE" } },
+        { n = 3, objectRef = true, killCreditFirst = true,
+          reasons = { "EXTRA_OBJECT_REF", "KILLCREDIT_FIRST_REORDER" } },
+        { n = 2, monster = true, reputation = true,
+          reasons = { "EXTRA_CREATURE_REF", "REPUTATION_OBJECTIVE" } },
+        { n = 1, duplicateCreature = true, monster = true,
+          reasons = { "DUPLICATE_CREATURE", "EXTRA_CREATURE_REF" } },
+        { n = 1, duplicateObject = true, monster = true,
+          reasons = { "DUPLICATE_OBJECT", "EXTRA_CREATURE_REF" } },
+    }
+
+    local function cohortQuest(id, shape)
+        local q = {
+            ID = id, requiredLevel = 1, questLevel = 3,
+            sourceItemId = 0, requiredSourceItems = {},
+            objectives = {}, killCreditFirst = false,
+            hasTriggerEnd = false, extraObjectives = {},
+        }
+        local function add(kind, slot, fields)
+            local o = { position = #q.objectives + 1,
+                        kind = kind, slotIndex = slot }
+            for k, v in pairs(fields) do o[k] = v end
+            q.objectives[#q.objectives + 1] = o
+        end
+        if shape.killCreditFirst then
+            q.killCreditFirst = true
+            add("killCredit", 1, { ids = { 88001 }, rootId = 88001 })
+            add("creature", 1, { id = 88002, occurrence = 1 })
+        elseif shape.duplicateCreature then
+            add("creature", 1, { id = 88003, occurrence = 1 })
+            add("creature", 2, { id = 88003, occurrence = 2 })
+        elseif shape.duplicateObject then
+            add("object", 1, { id = 88004, occurrence = 1 })
+            add("object", 2, { id = 88004, occurrence = 2 })
+        elseif shape.reputation then
+            add("reputation", 1, { factionId = 72, requiredValue = 0 })
+        end
+        local refs = {}
+        if shape.monster then
+            refs[#refs + 1] = {
+                type = "monster", id = 88101, refIndex = #refs + 1 }
+        end
+        if shape.objectRef then
+            refs[#refs + 1] = {
+                type = "object", id = 88102, refIndex = #refs + 1 }
+        end
+        if #refs > 0 then
+            q.extraObjectives[1] = {
+                position = 1, icon = 1, hasText = true,
+                objectiveIndex = 0, spawnZones = {}, refs = refs,
+            }
+        end
+        -- Copy the exact independently asserted computed status/reason list.
+        q.m1Status, q.m1Reasons = dofile(
+            "tools/validation/EffectiveSchemaV2.lua").ExpectedM1(q)
+        return q
+    end
+
+    local function cohortFixtures()
+        local V2 = dofile("tools/validation/EffectiveSchemaV2.lua")
+        local Membership = dofile("tools/validation/M23Membership.lua")
+        local server, effective, manifest, pins = fixtures()
+        local template = copy(server.quests[1])
+        server.quests, effective.quests, manifest.quests = {}, {}, {}
+        server.provenance.questCount = #cohorts
+        effective.provenance.questCount = #cohorts
+        manifest.provenance.questCount = #cohorts
+        manifest.aggregate.total = #cohorts
+        manifest.aggregate.representable = 0
+        manifest.aggregate.unsupported = #cohorts
+        manifest.aggregate.reasonQuests = {}
+        pins.questCount, pins.supportedCount, pins.unsupportedCount = #cohorts, 0, #cohorts
+        for i, shape in ipairs(cohorts) do
+            local q = cohortQuest(i, shape)
+            local status, calculated = V2.ExpectedM1(q)
+            assert.are.equal("UNSUPPORTED_BY_RULES", status)
+            assert.are.same(shape.reasons, calculated)
+            assert.is_true(V2.ValidateQuest(q))
+            effective.quests[i] = q
+            manifest.quests[i] = {
+                ID = i, status = "UNSUPPORTED", reasons = copy(calculated),
+            }
+            for _, code in ipairs(calculated) do
+                manifest.aggregate.reasonQuests[code] =
+                    (manifest.aggregate.reasonQuests[code] or 0) + 1
+            end
+            local row = copy(template)
+            row.ID = i
+            server.quests[i] = row
+        end
+        assert.is_true(V2.Validate(effective))
+        local index, code = Membership.Check(effective, manifest, pins)
+        assert.is_nil(code)
+        assert.is_table(index)
+        assert.are.equal(#cohorts, index.unsupported)
+        return server, effective, manifest, pins
+    end
+
+    it("accepts all twelve synthetic unsupported reason combinations without an M1 call", function()
+        local server, effective, manifest, pins = cohortFixtures()
+        -- Test-loader interception is temporary and never modifies M23Batch.
+        local original = _G.dofile
+        local compareCalls = 0
+        _G.dofile = function(path)
+            local mod = original(path)
+            if path ~= "tools/validation/ObjectiveRules.lua" then return mod end
+            local spy = {}
+            for k, v in pairs(mod) do spy[k] = v end
+            spy.Compare = function(...)
+                compareCalls = compareCalls + 1
+                return mod.Compare(...)
+            end
+            return spy
+        end
+        local loaded, spied = pcall(original, "tools/validation/M23Batch.lua")
+        _G.dofile = original
+        assert.is_true(loaded)
+        assert.are.equal(original, _G.dofile)
+        local result, code = spied.Run(server, effective, manifest, pins)
+        assert.is_nil(code)
+        assert.is_table(result)
+        assert.are.equal(12, result.unsupported)
+        assert.are.equal(0, result.supported)
+        assert.are.equal(0, compareCalls)
+        for i, row in ipairs(result.rows) do
+            assert.are.equal(i, row.questId)
+            assert.is_false(row.m1Supported)
+            assert.are.equal("M1_UNSUPPORTED_BY_RULES", row.outcome)
+            assert.are.same(cohorts[i].reasons, row.reasons)
+            assert.are.same({}, row.m1Classes)
+            for _, evidence in pairs(row.evidence) do
+                assert.are.equal("unknown", evidence)
+            end
+        end
+        assert.is_false(result.authenticated)
+        assert.is_false(result.publishable)
+    end)
+
+    it("refuses a mismatched public reason list and count rather than dropping an overlap", function()
+        local server, effective, manifest, pins = cohortFixtures()
+        -- Change one two-reason manifest list but keep it structurally valid.
+        manifest.quests[6].reasons = { "EXTRA_CREATURE_REF" }
+        local result, code = Batch.Run(server, effective, manifest, pins)
+        assert.is_nil(result)
+        assert.are.equal("REJECTED_M1_STATUS_MISMATCH", code)
+        -- Restore the reason list but falsify just the aggregate.
+        manifest.quests[6].reasons = copy(cohorts[6].reasons)
+        manifest.aggregate.reasonQuests.EXTRA_OBJECT_REF =
+            manifest.aggregate.reasonQuests.EXTRA_OBJECT_REF - 1
+        result, code = Batch.Run(server, effective, manifest, pins)
+        assert.is_nil(result)
+        assert.are.equal("REJECTED_MANIFEST_INCOMPLETE", code)
+    end)
+
+    it("reconciles all public coverage buckets in a fabricated aggregate", function()
+        local Coverage = dofile("tools/validation/Coverage.lua")
+        local results = {}
+        for id = 1, 8401 do
+            results[#results + 1] = {
+                id = id, status = "REPRESENTABLE", codes = {}, counts = {},
+            }
+        end
+        for _, shape in ipairs(cohorts) do
+            for _ = 1, shape.n do
+                local counts = {}
+                for _, code in ipairs(shape.reasons) do counts[code] = 1 end
+                results[#results + 1] = {
+                    id = #results + 1, status = "UNSUPPORTED",
+                    codes = copy(shape.reasons), counts = counts,
+                }
+            end
+        end
+        local summary = Coverage.Aggregate(results)
+        assert.are.equal(9159, summary.total)
+        assert.are.equal(8401, summary.representable)
+        assert.are.equal(758, summary.unsupported)
+        assert.are.equal(0, summary.unclassified)
+        assert.are.equal(12, #summary.combinations)
+        assert.are.same({
+            EXTRA_CREATURE_REF = 359, EXTRA_OBJECT_REF = 243,
+            REPUTATION_OBJECTIVE = 181, KILLCREDIT_FIRST_REORDER = 16,
+            DUPLICATE_CREATURE = 7, DUPLICATE_OBJECT = 1,
+        }, summary.reasonQuests)
+        assert.are.same(summary.reasonQuests, summary.reasonOccurrences)
+        local single, multiple = 0, 0
+        for _, c in ipairs(summary.combinations) do
+            if c.codes:find("+", 1, true) then
+                multiple = multiple + c.quests
+            else
+                single = single + c.quests
+            end
+        end
+        assert.are.equal(709, single)
+        assert.are.equal(49, multiple)
+        -- Mutation: losing one overlapping reason must change a reason total.
+        results[#results].codes = { "EXTRA_CREATURE_REF" }
+        results[#results].counts = { EXTRA_CREATURE_REF = 1 }
+        local changed = Coverage.Aggregate(results)
+        assert.is_false(changed.reasonQuests.DUPLICATE_OBJECT == 1)
+    end)
+
     it("Part 2 preserves server selection order and public unsupported reasons", function()
         local out = run()
         assert.are.same({ 3, 2, 1 }, {
