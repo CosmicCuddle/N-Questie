@@ -1,0 +1,13 @@
+-- EXPERIMENT ONLY: draft #95 test-runner configuration, NEVER for merge.
+-- Busted v2.2.0 runner consumes shuffle-files and shuffle-tests separately.
+-- The --shuffle CLI callback expands those names; .busted config must supply
+-- them explicitly, not an inert generic "shuffle" key.
+-- Deterministic alternate file AND within-file test execution order.
+-- No production, workflows, worker, codec, private data or addon changes.
+return {
+    default = {
+        ["shuffle-files"] = true,
+        ["shuffle-tests"] = true,
+        seed = 20261018,
+    },
+}
