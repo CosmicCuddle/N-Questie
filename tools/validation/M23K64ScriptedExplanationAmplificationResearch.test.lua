@@ -71,8 +71,21 @@ describe("M2.3 K64 scripted explanation amplification baseline", function()
         return M1.FromQuestTemplateRow(row)
     end
 
+    -- Independent expected fixture strings: do not borrow M1's formatter or
+    -- returned ref bytes. Length-only checks miss same-byte-length mutations.
+    local function expectedQuestieCreatureList()
+        local ids = {}
+        for i = 1, 64 do ids[i] = tostring(1000000000 + i) end
+        return table.concat(ids, ", ")
+    end
+
+    local expectedServerCreatureList =
+        "1600000001, 1600000002, 1600000003, 1600000004"
+    local expectedQuestieList = expectedQuestieCreatureList()
+
     local function inspect(findings)
         local rules, bytes, scriptedBytes, scriptedLengths = {}, 0, 0, {}
+        local scriptOrdinal = 0
         for _, finding in ipairs(findings) do
             assert.is_table(finding.rules)
             assert.are.equal(1, #finding.rules)
@@ -88,6 +101,15 @@ describe("M2.3 K64 scripted explanation amplification baseline", function()
                 ["R-ITEM-UNPAIRED"] = "item",
             }
             assert.are.equal(expectedKind[rule], finding.kind)
+            local expectedClass = {
+                ["C-UNKNOWN"] = "UNSUPPORTED",
+                ["E-QTY"] = "EXPECTED_REPRESENTATION_DIFF",
+                ["C-SCRIPT"] = "UNSUPPORTED",
+                ["R-NPC-SET"] = "NEEDS_MANUAL_REVIEW",
+                ["E-SRCITEM"] = "EXPECTED_REPRESENTATION_DIFF",
+                ["R-ITEM-UNPAIRED"] = "NEEDS_MANUAL_REVIEW",
+            }
+            assert.are.equal(expectedClass[rule], finding.class)
             assert.are.equal("string", type(finding.explanation))
             assert.is_true(#finding.explanation > 0)
             if rule == "R-NPC-SET" then
@@ -98,15 +120,31 @@ describe("M2.3 K64 scripted explanation amplification baseline", function()
                 assert.are.equal("string", type(finding.questie))
                 assert.are.equal(46, #finding.server)
                 assert.are.equal(766, #finding.questie)
+                assert.are.equal(expectedServerCreatureList, finding.server)
+                assert.are.equal(expectedQuestieList, finding.questie)
+                assert.are.equal(
+                    "Creature targets differ as sets. Server: {" ..
+                    expectedServerCreatureList .. "}; Questie: {" ..
+                    expectedQuestieList .. "}. More than one unmatched creature, " ..
+                    "so no one-to-one replacement is claimed.",
+                    finding.explanation)
             end
             bytes = bytes + #finding.explanation
             if rule == "C-SCRIPT" then
                 assert.are.equal("number", type(finding.server))
                 assert.is_nil(finding.questie)
+                scriptOrdinal = scriptOrdinal + 1
+                assert.are.equal(1600000000 + scriptOrdinal, finding.server)
+                assert.are.equal(
+                    "Server creature " .. tostring(1600000000 + scriptOrdinal) ..
+                    " is credited by a script. Questie's creature objectives (" ..
+                    expectedQuestieList .. ") cannot be checked offline.",
+                    finding.explanation)
                 scriptedBytes = scriptedBytes + #finding.explanation
                 scriptedLengths[#scriptedLengths + 1] = #finding.explanation
             end
         end
+        assert.is_true(scriptOrdinal == 0 or scriptOrdinal == 4)
         return rules, bytes, scriptedBytes, scriptedLengths
     end
 
