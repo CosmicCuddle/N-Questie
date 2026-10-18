@@ -46,7 +46,31 @@ The inherited [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) defines 
 
 **Important distinction:** `.gitattributes` includes `export-ignore` rules for Git archive operations; it does **not** override the Python `build.py` explicit `shutil.copytree` selection. Likewise, a source file existing in GitHub does not establish that an approved release will contain it.
 
-## 4. Proposed 335 packaging acceptance tests — NOT implemented
+## 4. Source file-reference completeness baseline — verified read-only, not a package test
+
+An additional static path-inventory pass on the same protected `335` commit parsed the **enabled** file paths from `Questie-335.toc` and from all of its directly/nested-reachable XML include files. It removed XML comments first, resolved backslash paths and `../` references relative to the declaring XML file, then compared exact case-sensitive paths with GitHub's **1,065-entry** repository Git tree.
+
+| Reference group | Active file references seen | Missing exact paths from `335` |
+| --- | ---: | ---: |
+| `Questie-335.toc` (including 6 XML entry files) | **143** | **0** |
+| `Compat/embeds.xml` direct enabled `Script/Include` references | **26** | **0** |
+| Five directly loaded localisation/lookup XMLs (44 translation and 9 in each of four WotLK lookup files) | **80** | **0** |
+| Fifteen active library XML files referenced from `Compat/embeds.xml` | **43** | **0** |
+| **Total reference occurrences (not distinct files)** | **292** | **0** |
+
+A total of **21 XML files** in that statically reachable set were inspected: `Compat/embeds.xml`, five localisation/lookup XMLs and fifteen library XMLs. No nested XML children were found in those fifteen library files, and all of their 43 declared script targets resolved to actual paths. This is a source **presence/relative-path/case** survey on `335`; it does **not** execute Lua, prove addon load order semantics, inspect dynamically computed asset names, certify legal rights or produce a ZIP.
+
+This result reinforces the core packaging distinction: **the correct `335` source tree has all 292 directly declared reference occurrences resolvable**, while `build.py`'s **different selection of directories and TOC** would omit the essential `Compat/` subtree and 335 TOC. It does **not** validate an as-yet-unbuilt release. Any future package preflight must re-resolve this graph against the **actual staged package root** (not just Git) and fail closed on a missing target or case mismatch.
+
+### Package preflight design requirements (proposal only)
+
+- Parse the *selected* `Questie-335.toc`, not an arbitrary upstream TOC; require the expected `30300` interface and owner-approved folder identity.
+- Strip comments from XML before following `Script` and `Include` references; resolve nested paths relative to each declaring XML, reject references leaving package root, and track visited XML files to reject dangerous cycles.
+- For each enabled source reference, check its exact path in the **would-be package manifest**; report missing, duplicate, case-mismatched, and selected-but-unreferenced files as separate categories. Some Lua, textures, libraries and data are referenced dynamically; **unreferenced does not mean safe to delete**.
+- Build a separate **non-executable, source-backed** licence/notice inventory for file-level inclusion, including `Icons/`, `Libs/` and original copyright/attribution. Do not equate “not loaded by the selected TOC” with “not copied into a zip”.
+- Do not use the inherited `build.py -r` or `release.py` for a proof-run. No `v*` tag, GitHub release, CurseForge/WAGO upload or local addon overwrite is authorised by these source checks.
+
+## 5. Proposed 335 packaging acceptance tests — NOT implemented
 
 1. **Manifest:** The package root folder is the owner-approved `Questie-335` name, with one `Questie-335.toc` indicating interface `30300`; no simultaneous duplicate Questie installation. Do not substitute `Questie-WOTLKC.toc` (`30403`).
 2. **Required paths:** Every enabled `Questie-335.toc` and embedded XML `Script`/`Include` source resolves inside the package, including the N-Questie `Compat/` data and cache-revision components; prohibit path escapes, unreadable files and accidental case/path changes.
@@ -57,7 +81,7 @@ The inherited [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) defines 
 
 Until a maintainer explicitly selects a release scope and approves the packaging implementation, **all of these are OPEN release-readiness tests**, not verified features or proof of lawful distribution.
 
-## 5. Review task and handoff
+## 6. Review task and handoff
 
 - **CosmicScript01 source-audit state:** paths and conditions above confirmed by reading frozen `335` source; no packaging command executed.
 - **CosmicScript02 task CS02-32:** independently verify the exact inclusion paths, especially **root versus Compat XML and legacy Python builder**, and distinguish source licensing from the actual compiled ZIP. Record PASS / OWNER OR RIGHTSHOLDER CHECK / NOT TESTED. Reviewer may request corrections but no autonomous release/packaging modification.
