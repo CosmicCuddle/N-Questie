@@ -132,6 +132,87 @@ class GeneratorTests(unittest.TestCase):
             self.assertNotIn("[2002] = {", final)
             self.assertIn("revision = 3", final)
 
+    def test_cli_failed_review_never_replaces_existing_generated_lua(self):
+        # This is an invented in-memory fixture, not a private world export.
+        # Even with --overwrite and a higher revision, a failed review or
+        # allowlist check must leave an existing generated Lua file byte-exact.
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            review_path = directory / "synthetic-review.json"
+            output = directory / "existing-generated.lua"
+            base_args = [
+                "--review", str(review_path),
+                "--approved-quest", "2001",
+                "--verified-npc", "2121",
+                "--verified-npc", "1868",
+                "--verified-npc", "1869",
+                "--revision", "2",
+                "--output", str(output),
+            ]
+            good_json = json.dumps(reviewed(quest()))
+            review_path.write_text(good_json, encoding="utf-8")
+            generator.main(base_args)
+            original = output.read_bytes()
+            self.assertIn(b"revision = 2", original)
+            updated_args = base_args.copy()
+            updated_args[updated_args.index("--revision") + 1] = "3"
+            updated_args.append("--overwrite")
+
+            bad_title = quest()
+            bad_title["title"] = "Bad\nLua title"
+            extra_field = quest()
+            extra_field["unreviewed_field"] = "must never appear in Lua"
+            cases = [
+                ("malformed-json", "{this is not JSON",
+                 updated_args, json.JSONDecodeError),
+                ("unsafe-title", json.dumps(reviewed(bad_title)),
+                 updated_args, ValueError),
+                ("unreviewed-field", json.dumps(reviewed(extra_field)),
+                 updated_args, ValueError),
+                ("wrong-approved-quest", good_json,
+                 ["9999" if token == "2001" else token
+                  for token in updated_args], ValueError),
+            ]
+            # Remove the last verified NPC flag/value without changing the
+            # other flags, so the allowlist is no longer an exact cover.
+            missing_npc_args = updated_args.copy()
+            remove_at = missing_npc_args.index("1869")
+            del missing_npc_args[remove_at - 1:remove_at + 1]
+            cases.append(("missing-verified-npc", good_json,
+                          missing_npc_args, ValueError))
+
+            for description, review_json, attempt_args, exception in cases:
+                with self.subTest(refusal=description):
+                    review_path.write_text(review_json, encoding="utf-8")
+                    with self.assertRaises(exception):
+                        generator.main(attempt_args)
+                    self.assertEqual(original, output.read_bytes(),
+                                     "refused update changed existing Lua")
+            self.assertFalse(any(directory.glob("*.tmp")),
+                             "refused update left a temporary Lua file")
+
+    def test_cli_invalid_new_review_creates_no_lua_file(self):
+        # No generated output is allowed after an exact-approval mismatch.
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            review_path = directory / "synthetic-review.json"
+            output = directory / "must-not-exist.lua"
+            review_path.write_text(
+                json.dumps(reviewed(quest())), encoding="utf-8")
+            args = [
+                "--review", str(review_path),
+                "--approved-quest", "2002",
+                "--verified-npc", "2121",
+                "--verified-npc", "1868",
+                "--verified-npc", "1869",
+                "--revision", "2",
+                "--output", str(output),
+            ]
+            with self.assertRaisesRegex(ValueError, "Approved quest IDs"):
+                generator.main(args)
+            self.assertFalse(output.exists(),
+                             "unapproved synthetic quest was written")
+
     def test_cli_never_overwrites_existing_file_by_default(self):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
