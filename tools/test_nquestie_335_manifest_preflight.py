@@ -159,8 +159,7 @@ class ManifestPreflightTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "30300"):
                 check_manifest(root)
             with self.assertRaisesRegex(ValueError, "folder named Questie-335"):
-                check_manifest(root, require_staged_name=True) if False else (
-                    check_manifest(Path(temp), require_staged_name=True))
+                check_manifest(Path(temp), require_staged_name=True)
 
     def test_missing_nested_script_and_exact_case_guard(self):
         with tempfile.TemporaryDirectory() as temp:
