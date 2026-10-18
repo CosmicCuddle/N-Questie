@@ -1,0 +1,94 @@
+# N-Questie — living project master checklist
+
+**Snapshot:** 18 October 2026 (Europe/London). **Status:** tracking/documentation only, not approval to implement or merge.  
+**Protected branch:** `335`, verified GitHub HEAD `2be0f6f3001a20242c2fe81cb1915ff18602a4c8`.  
+**Owner:** N-Questie maintainer. **Lead developer:** CosmicScript01. **Independent reviewer:** CosmicScript02 (Grok, currently taking a break).  
+**Purpose:** a single **whole-project** place to see what was completed, what is in progress or blocked, and what is planned. This is **not** just Grok's review queue.
+
+**Companion sources:**
+- [Historical feature roadmap](ROADMAP.md) — phases 0–4, 14 October snapshots and in-game QA requirements. Keep it; this document is the current index, not a rewrite of historical evidence.
+- [M2.2–M2.5 detailed roadmap](NQ-VALIDATION-M2-ROADMAP-M2.2-M2.5.md), [correction workflow](NQ-VALIDATION-M2-CORRECTION-WORKFLOW.md) and [existing-PR integration plan](NQ-INTEGRATION-PLAN.md).
+- [Single living CosmicScript02 rolling task queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348) — individual independent review tasks, verdicts and exact-SHA evidence. **Do not copy its task details into this overview**.
+- [Part 3 eight-decision sheet — draft PR #87](https://github.com/CosmicCuddle/N-Questie/pull/87) — proposed maintainer choices, not approvals.
+
+## How to read and update this checklist
+
+- **[x] VERIFIED** means the *narrow action described* is evidenced by a linked source/commit/test. It does **not** mean its parent phase, feature, release or server testing is finished.
+- **[ ] ACTIVE / BLOCKED / NEXT / FUTURE** remains unchecked. **Green CI is not peer sign-off; peer PASS is not a maintainer policy decision or merge approval.**
+- Verify **current PR head SHA and exact-head CI** before claiming completion; a new commit supersedes its parent's CI/review. Do not close a workstream simply because a research PR passed.
+- Whenever an independent subproject starts, completes, gets blocked or gains an owner decision: **add/update a row here**, add its exact GitHub evidence, and update the existing CS02 queue only if an independently actionable review task is actually needed.
+- Keep `335` untouched unless the owner separately approves a reviewed integration. Draft branches are not installs or releases. No real private server exports/identifiers in public GitHub issues, commits, CI or PR bodies; only synthetic fixtures and safe aggregates.
+- When installing or testing on the WoW client is eventually approved: **back up the N-Questie addon folder and SavedVariables first**, document a rollback path, then record the separate in-game results.
+
+## A. Current top-level workstreams
+
+| Workstream | Verified foundation | Remaining work / real completion gate |
+| --- | --- | --- |
+| **0. Repository, safety, backups** | Fork, `335`, addon architecture and fail-closed test framework documented; Part 1/2 merged through [#68–#70](https://github.com/CosmicCuddle/N-Questie/pull/70) into current `335` | Explicit licence/attribution and deployment backup/release checks remain before distribution |
+| **1. Custom quest starter/ender markers** | Custom overlay and cache revision foundation; historical quest 2001 smoke evidence in [roadmap](ROADMAP.md) | Verify quest 2001 eligibility and full marker lifecycle (map/minimap, spawn placement, native quests) on an eligible 3.3.5a client; no broad in-game PASS inferred |
+| **2. New quest import/generation** | Synthetic SQL/ZIP intake and reviewed JSON→Lua generator researched in [draft #3](https://github.com/CosmicCuddle/N-Questie/pull/3) | Explicit manifest, provenance, referential integrity, add/update/remove correctness and owner-approved import QA; #3 remains DRAFT |
+| **2A. Existing WotLK quest corrections** | Private read-only audit, invented/tested safety harness and separate candidate corrections [#5](https://github.com/CosmicCuddle/N-Questie/pull/5) / [#6](https://github.com/CosmicCuddle/N-Questie/pull/6) / [#7](https://github.com/CosmicCuddle/N-Questie/pull/7) | Per-quest effective-record + IP/script review, source-proven field-level approval, in-game difficulty/marker QA, rollback; not a blanket correction authorisation |
+| **3A. M0/M1/Part 1–2 validation** | [#68](https://github.com/CosmicCuddle/N-Questie/pull/68), [#69](https://github.com/CosmicCuddle/N-Questie/pull/69), [#70](https://github.com/CosmicCuddle/N-Questie/pull/70) **MERGED** on current frozen `335`; M1 report-only, Part 2 conservative/public | Preserve existing behavior and 14 fixed public codes; no server-auto-correction, no new frozen-M1 rule without separate authorisation |
+| **3B. M2.3 Part 3 private findings** | Synthetic source limits, ordering, UTF-8/raw-byte research and independent draft CI documented in #82/#87/#83–#95 | **BLOCKED on eight explicit maintainer decisions** and current reviewer queue; no G3 private worker/codec/trusted publisher has been approved or built |
+| **3C. M2.4 marker proposal** | Draft [#43](https://github.com/CosmicCuddle/N-Questie/pull/43) and historical M2 roadmap | Approval, implement **only after validated evidence**, then independent client/zone/phase safety QA |
+| **3D. M2.5 correction review rounds** | Correction process and QA plan documented | Source-backed, individually approved changes and in-game QA; never automatically apply private findings |
+| **4. Packaging/release** | Existing CI and revision guard, safe upgrade/rollback plans | Source/review consolidation, licence check, client regression, maintainer approval, tagged release and optional N-Addon-Collection import |
+
+## B. VERIFIED milestones — narrowly scoped
+
+- [x] **B01 / 13–16 Oct:** Repository/fork foundation, quest overlay/revision research and legacy roadmap established. Source: [historical roadmap](ROADMAP.md), [development log](DEVELOPMENT-LOG.md).
+- [x] **B02 / 14 Oct:** Read-only mismatch research and candidate field-level correction PRs opened; important: **PR #3/#5/#6/#7 remain DRAFT and UNMERGED**. Source: [historical roadmap](ROADMAP.md) and corresponding draft PRs.
+- [x] **B03 / 16 Oct:** M2.3 Part 1/Part 2 public validation foundation, **PRs #68/#69/#70 merged** into `335` at `2be0f6f3001a20242c2fe81cb1915ff18602a4c8`. No Part 3 authorisation implied. [#70](https://github.com/CosmicCuddle/N-Questie/pull/70).
+- [x] **B04 / 18 Oct:** Frozen M1 K64 original findings research: conditional **148 maximum**, original M1 **960-byte item-set**, **944-byte NPC-set**, **877-byte scripted** explanation maxima and **766-byte item ID-set reference**. [CS02-03 source audit](https://github.com/CosmicCuddle/N-Questie/pull/87#issuecomment-6249901337), synthetic reviewed [#90](https://github.com/CosmicCuddle/N-Questie/pull/90), [#91 parent review](https://github.com/CosmicCuddle/N-Questie/pull/91#issuecomment-6249900800), [#92](https://github.com/CosmicCuddle/N-Questie/pull/92). **Raw M1 bounds are NOT canonical C1 JSON byte budgets.**
+- [x] **B05 / 18 Oct:** Verified current frozen M1 **silently omits Questie-only gameobjects** in one direction, while server-directed GO mismatches are observed; independent [#89 review](https://github.com/CosmicCuddle/N-Questie/pull/89#issuecomment-6248703524). Not declared an owner-approved production defect or fix.
+- [x] **B06 / 18 Oct:** [Draft #93](https://github.com/CosmicCuddle/N-Questie/pull/93) exact `0fcdaad7` **6/6 CI**, **181 Busted / 0 failures**, effective **25/0**, coverage **26/0**, clean checkout. Four source files identical to individually tested #89–#92. [CI close-out](https://github.com/CosmicCuddle/N-Questie/pull/93#issuecomment-6250463037). **Peer CS02-20 pending**.
+- [x] **B07 / 18 Oct:** [Draft #94](https://github.com/CosmicCuddle/N-Questie/pull/94) exact `f96c7b5` **6/6 CI**, **212 Busted / 0 failures/errors/pending**, effective **25/0**, coverage **26/0**, clean checkout. Eight synthetic source files identical to #83/#84/#85/#86/#89/#90/#91/#92. [CI close-out](https://github.com/CosmicCuddle/N-Questie/pull/94#issuecomment-6250575669). **Peer CS02-21 pending**.
+- [x] **B08 / 18 Oct:** [Draft #95](https://github.com/CosmicCuddle/N-Questie/pull/95) corrected exact `d6904978` **6/6 CI**, **212 Busted / 0 failures/errors/pending**, effective **25/0**, coverage **26/0**, clean checkout. Actual Busted v2.2.0 `['shuffle-files']` + `['shuffle-tests']` options and fixed seed `20261018` were verified against source; 58 observed PASS messages changed ordering versus normal #94, with same multiset. [Evidence](https://github.com/CosmicCuddle/N-Questie/pull/95#issuecomment-6250793773). **Peer CS02-22 pending**. First `shuffle=true` commit `6d28053` was ineffective and superseded. **#95 root `.busted` must NOT be merged**.
+- [x] **B09 / 18 Oct:** Review workflow organised in **one** [GitHub rolling queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348): **11 completed**, **11 queued** as of this snapshot; Grok temporarily RESTING. No queued item may be marked complete until an exact-head independent verdict arrives.
+
+## C. ACTIVE and BLOCKED
+
+- [ ] **A01 / ACTIVE — Part 3 evidence consolidation:** Maintain source-vs-synthetic distinction, verify newly changed SHA CI, prevent duplicated regression coverage, and record all new proof in the existing draft decisions/research PRs. [#87](https://github.com/CosmicCuddle/N-Questie/pull/87), [#82](https://github.com/CosmicCuddle/N-Questie/pull/82).
+- [ ] **A02 / QUEUED — Independent reviews:** CS02-04/05/06/07/08/17/18/19/20/21/22. Follow the [single live queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348), not copied task notes here. **No expectation of work or replies while Grok is on break.**
+- [ ] **A03 / BLOCKED — Owner's Part 3 eight decisions:** B1, D5, D6, R1, R2, R3, C1, P1 listed individually in §D. Neither green tests nor reviewer PASS resolves these.
+- [ ] **A04 / ACTIVE — Historical draft reconciliation:** Older quest correction and marker/import PRs (notably #3/#5/#6/#7) must not be forgotten or silently counted as complete. Preserve ancestry and [integration-plan safeguards](NQ-INTEGRATION-PLAN.md).
+- [ ] **A05 / BLOCKED ON TESTER/APPROVAL — In-game acceptance:** quest 2001 starter/ender/kills and existing-quest difficulty/availability; only undertake on a backed-up WoW 3.3.5a client, with a documented eligible player/character scenario and explicit maintainer approval.
+- [ ] **A06 / BLOCKED — Release/merge:** No speculative code, docs draft or test-runner experimental config is authorised for production merge, installation, addon packaging or tagged release.
+
+## D. Eight unanswered Part 3 owner decisions — do NOT silently choose
+
+These questions and their dependency ordering are fully presented in [draft #87 decision sheet](https://github.com/CosmicCuddle/N-Questie/pull/87). Current summary, **all UNSELECTED**:
+
+| ID | Owner must decide |
+| --- | --- |
+| **B1** | Resource/output caps besides approved K64 per creature/object/item and frozen 16-MiB v2 input; proposals for combined-other 2,048, nested 4,096, 192 findings, 1,024 text/reference bytes, 256-KiB per-quest, 64-MiB bundle **are not approved** |
+| **D5** | Whether to explicitly amend #42's owner-approved step 10 (`M23Batch.Run` unchanged) to permit a new **global, zero-M1 preflight worker**; frozen Part 2 can run earlier M1 calls before refusing a later missing selected ID |
+| **D6** | Which of the **existing 14 fixed rejection codes** applies to an otherwise structurally valid but over-limit selected record; no invented fifteenth code |
+| **R1** | Exact nested resource-entry counting formula |
+| **R2** | How `spawnZones` are counted (reviewed A/B/C alternatives or owner alternative) |
+| **R3** | Whether resource gates count M1-unsupported but frozen-v2-valid selected quests |
+| **C1** | Complete canonical private JSON/framing/integrity rules and **encoded byte** accounting; raw M1 lengths alone are insufficient |
+| **P1** | Provenance verification, trust binding and measuring required `leftoverTempCount`; prehash snapshot cannot certify post-publication cleanup |
+
+**Approved limits must not be confused with proposals.** Approving a design review does not authorise G3 work, private export, a trusted publisher or release. If the maintainer responds, record their exact answer and link before ticking any resolved decision.
+
+## E. NEXT and FUTURE — gates, not promised work
+
+- [ ] **N01 / NEXT:** Obtain current CS02 reviews as the reviewer becomes available; reconcile requested test/docs corrections. No repeated pings during the break.
+- [ ] **N02 / NEXT:** Prepare a maintainer-readable Part 3 decision reply only when evidence is ready. Do not select B1/D5/D6/R1/R2/R3/C1/P1 on the owner's behalf.
+- [ ] **N03 / BLOCKED:** Only after explicit owner approval and fresh design review, write separately reviewed **synthetic-only G2 red tests** for approved private schemas, preflight/order/refusal priority and output budgets.
+- [ ] **N04 / BLOCKED:** Only after G2 + owner contract revision, consider a **pure G3 worker** and future trusted CLI/codec/provenance/publisher as separately authorised tasks. Keep frozen M1/v2 and existing public behavior intact unless explicitly amended.
+- [ ] **N05 / FUTURE:** Bring approved M2.4 marker/phase visibility research into separate client QA; preserve unknown evidence axes.
+- [ ] **N06 / FUTURE:** Review corrections in controlled rounds with complete field/source provenance; no mass quest overwrite.
+- [ ] **N07 / FUTURE:** Only after source/test review and owner approval, build installable release; take addon/SavedVariables backups, in-game test and verify rollback, attribution and licence.
+- [ ] **N08 / FUTURE:** Optional N-Addon-Collection integration only as a **separate** approved follow-up.
+
+## F. Every new change — checkpoint routine
+
+1. **Before coding:** Identify its existing workstream (A–E), read previous results and GitHub threads, note any owner permission needed, and advise taking backups before touching installed/client/server data.
+2. **During research:** Make smallest safe DRAFT branch/PR, preserve previous sources, use synthetic/public data only, document exact fixtures and nonmutation. Do not force-push or rewrite original PRs.
+3. **At evidence:** Compare current head against `335`, check exact SHA/changed files, inspect **all GitHub workflows and logs**, record actual observed counts and unknowns; track reviewer PASS separately.
+4. **After a new task:** Update **this master checklist** (workstream state + evidence + what remains), the **single CS02 queue** if peer work is needed, and the technical PR/comment; never lose older tasks.
+5. **Before production:** Require explicit maintainer choices, independent exact-head review, backup/rollback plan and separate manual QA; no implied permission from a checklist checkbox.
+
+**Current owner action required:** **none for ongoing read-only/synthetic research**. The eight Part 3 decisions and manual in-game QA will require explicit owner participation later; nothing in this document asks the maintainer to do them immediately.
