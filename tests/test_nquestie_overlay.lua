@@ -73,10 +73,25 @@ assert(two[2002][10][1][1][1] == 1868, "synthetic objective not forwarded")
 local twoNpc = registry.npcData()[2121]
 assert(#twoNpc[10] == 7 and #twoNpc[11] == 7,
     "duplicate same-NPC starter emitted duplicate reverse quest links")
-assert(twoNpc[10][6] == 2001 and twoNpc[10][7] == 2002,
-    "existing and synthetic starter ordering was not preserved")
-assert(twoNpc[11][6] == 2001 and twoNpc[11][7] == 2002,
-    "existing and synthetic ender ordering was not preserved")
+-- The custom quest registration uses pairs(), so relative order of
+-- invented quest IDs 2001/2002 is unspecified. Only preserve original NPC
+-- prefix order and prove each appended quest occurs exactly once.
+local function containsExactlyOnce(list, target)
+    local count = 0
+    for _, id in ipairs(list) do
+        if id == target then count = count + 1 end
+    end
+    return count == 1
+end
+for _, field in ipairs({10, 11}) do
+    assert(containsExactlyOnce(twoNpc[field], 2001)
+        and containsExactlyOnce(twoNpc[field], 2002),
+        "synthetic quest link missing or duplicated")
+    assert((twoNpc[field][6] == 2001 or twoNpc[field][6] == 2002)
+        and (twoNpc[field][7] == 2001 or twoNpc[field][7] == 2002)
+        and twoNpc[field][6] ~= twoNpc[field][7],
+        "new quest links do not occupy both appended slots")
+end
 assert(twoNpc[10][1] == 477 and twoNpc[11][1] == 478,
     "unrelated vanilla NPC relations changed")
 assert(#QuestieDB.npcData[2121][10] == 5
