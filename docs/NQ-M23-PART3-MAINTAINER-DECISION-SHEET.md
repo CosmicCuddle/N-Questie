@@ -28,7 +28,18 @@ The [maintainer's D4 record](https://github.com/CosmicCuddle/N-Questie/pull/42#i
 | Complete canonically encoded findings record | 262,144 bytes per quest | **UNAPPROVED** |
 | Complete canonically encoded private bundle | 67,108,864 bytes | **UNAPPROVED** |
 
-The #71 design also describes a **160-finding source-derived upper estimate** and individual observed/theoretical explanation maxima; those are arguments for the proposed buffers, **not** a proof of approval or a guarantee that all valid records fit. Frozen v2 and the single-M1 rule are unaffected by this research. [#85](https://github.com/CosmicCuddle/N-Questie/pull/85) and [#86](https://github.com/CosmicCuddle/N-Questie/pull/86) check boundary *arithmetic* against hypothetical 4,096/2,048 ceilings, not their authorisation.
+**Independent K64 source audit completed (18 October; research evidence, NOT B1 approval):** [CosmicScript02 CS02-03](https://github.com/CosmicCuddle/N-Questie/pull/87#issuecomment-6249901337) examined frozen M1's 29 `finding()` sites, validators, adapter and batch sequencing. For **M1-SUPPORTED** v2 records with **at most K=64 each of creature/object/item objectives**, the exact conditional maximum is **148 findings**, achieved by [draft #90's reviewed synthetic fixture](https://github.com/CosmicCuddle/N-Questie/pull/90#issuecomment-6249901083):
+
+~~~text
+3 availability + 1 quantity
++ (4 server NPC/GO slots + 64 Questie creatures)
++ (6 server required-item slots + 64 Questie items + 4 ItemDrops)
++ 2 ordering = 148
+~~~
+
+[#71's 160 estimate](https://github.com/CosmicCuddle/N-Questie/pull/71) remains a valid **conservative** bound, but counts 12 mutually exclusive paths twice; it is not the tighter reviewed maximum. The independent audit also establishes **960 raw bytes** for one K64 `R-ITEM-SET` explanation, **944** for `R-NPC-SET`, **877** for `C-SCRIPT`, and **766** for the longest canonical comma-space ID-set reference. These are original **frozen M1** text/reference lengths, corroborated by [#91](https://github.com/CosmicCuddle/N-Questie/pull/91#issuecomment-6249900800) and [#92](https://github.com/CosmicCuddle/N-Questie/pull/92#issuecomment-6249985799); **not** complete C1 JSON record bytes. CosmicScript02's source-derived **14,790-byte summed per-quest raw M1 text ceiling** is explicitly *source reasoning*, not an encoded-byte CI theorem.
+
+**Critical scope/dependency:** frozen v2 accepts K65 and current unchanged `M23Batch.Run` does **not** enforce K64 before M1. Therefore no 148/960/766 guarantee can be claimed for arbitrary currently accepted inputs or used as an implemented refusal; K64 pre-M1 enforcement and global zero-M1 behavior remain **D5/D6-dependent**. The proposed **192 findings / 1,024-byte** buffers are still **B1-UNAPPROVED** even though the reviewed K64 source maxima fit beneath them. The proposed **256-KiB complete record** and **64-MiB complete bundle** require a **C1-approved canonical byte format and exact output counting**, not this source arithmetic. A per-record upper bound does **not** imply the whole bundle fits; the complete bundle must independently be checked before any publication. [#85](https://github.com/CosmicCuddle/N-Questie/pull/85) and [#86](https://github.com/CosmicCuddle/N-Questie/pull/86) remain hypothetical resource-count arithmetic tests, not approval.
 
 - **A — expressly approve these recalculated numbers** after review of the K=64 source-bound arithmetic and future encoder semantics.
 - **B — amend the proposed thresholds** with exact replacements and independent analysis/acceptance tests.
@@ -38,7 +49,7 @@ The #71 design also describes a **160-finding source-derived upper estimate** an
 
 ## D5. Should owner-approved #42 step 10 be explicitly amended?
 
-Current approved step 10 invokes unchanged `M23Batch.Run`, retaining present selection/membership/per-quest M1 behavior. The proposed **new** worker's whole-selected-batch pre-M1 selection and resource gate is a genuine change, not an implementation of unchanged step 10.
+Current approved step 10 invokes unchanged `M23Batch.Run`, retaining present selection/membership/per-quest M1 behavior. The proposed **new** worker's whole-selected-batch pre-M1 selection and resource gate is a genuine change, not an implementation of unchanged step 10. In the frozen runner, `M23Membership.Check` runs before the loop, but `index.byId[source.ID]` is examined **inside** that loop: a later `REJECTED_SELECTION_MISMATCH` can occur **after earlier supported quests have already called M1**. The existing sequence therefore does not provide a global zero-M1 guarantee. See [execution-order source checkpoint](https://github.com/CosmicCuddle/N-Questie/pull/87#issuecomment-6249145170).
 
 - **A — approve explicit amendment:** permit a new distinct worker to perform complete selected-ID, membership and resource preflight before ANY M1 call; its batch refusal calls M1 zero times. Existing `M23Batch.Run` itself stays byte-identical.
 - **B — keep approved step 10:** global zero-M1 G3 worker preflight is NOT authorised; revise #76/#77 accordingly.
@@ -128,6 +139,10 @@ Regardless of A/B, the maintainer must **define the temp-count measurement**: sc
 - [#84](https://github.com/CosmicCuddle/N-Questie/pull/84) `aa2f3cf` — supported/unsupported K64/K65 object/item, identity and real M1 spy controls; 6/6 CI, exact-head developer PASS.
 - [#85](https://github.com/CosmicCuddle/N-Questie/pull/85) `c49d703` — **21 synthetic** candidate nested/zone cases, pure adapter checks; **6/6 CI and current-head independent developer PASS**.
 - [#86](https://github.com/CosmicCuddle/N-Questie/pull/86) `da1d4e4` — **10 synthetic** other-ordinary cases, pure adapter checks; **6/6 CI and current-head independent developer PASS**; does NOT call M1.
+- [#90](https://github.com/CosmicCuddle/N-Questie/pull/90#issuecomment-6249901083) `faa718e` — exact 140 / 140-K65-object / 148 finding-order, kind/reference fixtures; 6/6 exact-head CI and independent **CS02-15 PASS**.
+- [#91](https://github.com/CosmicCuddle/N-Questie/pull/91#issuecomment-6249900800) `c1167f9` — original M1 explanation bytes **8,222 / 5,658**, K64 scripted and NPC-set templates/refs; 6/6 exact-head CI and **CS02-14 PASS**.
+- [#92](https://github.com/CosmicCuddle/N-Questie/pull/92#issuecomment-6249985799) `dc3e30b` — `R-ITEM-SET` **960** raw explanation / **766** Questie reference bytes at K64; separate frozen-v2-valid K69/K70 boundary observations; 6/6 exact-head CI and **CS02-16 PASS**. The superseded first commit failed before its corrected child.
+- [CS02-03 source-bound audit](https://github.com/CosmicCuddle/N-Questie/pull/87#issuecomment-6249901337) — conditional K64 maximum **148**, not yet a worker limit or owner budget selection.
 - Peer/CI success never substitutes for maintainer approval of **B1/D5/D6/R1/R2/R3/C1/P1**.
 
 ## Gate to any actual G3 implementation
