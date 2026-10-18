@@ -1,6 +1,6 @@
 # N-Questie — read-only 3.3.5a packaging and distribution source audit
 
-**Status:** DRAFT source inventory, 18 October 2026. **No ZIP built, no tag created, no file removed, no private export or addon installation, no legal determination and no permission to release.**
+**Status:** DRAFT source inventory, 18 October 2026. No **official/tagged release ZIP** was built or published by this investigation; **existing PR CI has previously uploaded downloadable QA test-build artifacts** (see §2A), which must be distinguished from tagged releases and from unbuilt local source audits. No release tag, file removal, private export or addon installation was performed by this investigation; no legal determination or release permission is implied.
 
 **Frozen inspected baseline:** protected `335` at `2be0f6f3001a20242c2fe81cb1915ff18602a4c8`. Everything below describes the *source paths present at that commit*, not an observed release artefact. The existing [living master checklist](NQ-LIVING-PROJECT-MASTER-CHECKLIST.md) controls completion gates, and [Grok's single CS02 queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348) contains CS02-32 for independent source/packaging review.
 
@@ -32,6 +32,16 @@ The source [`build.py`](../build.py) sets:
 The inherited [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) defines a **`publish` job** conditional on `startsWith(github.ref, 'refs/tags/v')`. The job runs `python build.py -r` and then contains steps to **create a GitHub release, upload to CurseForge and upload to WAGO**. Whether external uploads succeed depends on permissions/tokens/services; **the workflow instructions themselves are present**. Merely merging a draft does not meet that tag condition.
 
 **Safety gate:** Do not create/push a `v*` release tag as a test. A future 3.3.5a-specific, fail-closed, human-approved release plan should specify the correct folder, `30300` TOC, complete `Compat` files, missing-file refusal, inclusion allowlist, third-party licence/credit review, test logs and explicit publisher control. This is a **proposal only**, not implementation authorisation. The inherited [`release.py`](../release.py) also targets upstream Classic/WOTLKC TOCs and creates a tag; do not invoke it for N-Questie.
+
+## 2A. Confirmed historic PR-only QA build uploads — separate from tagged releases
+
+**Correction to the initial read-only audit:** the existing [3.3.5a overlay workflow](../.github/workflows/nquestie-overlay.yml) also contains two **`pull_request`-only** steps: `Assemble PR-only WoW 3.3.5a addon package` and `Upload temporary N-Questie PR test build`. These directly `cp -R Compat Database Icons Libs Localization Modules` into a temporary `qa-package/Questie-335` folder, copy the 335 TOC and root `embeds.xml`, and use GitHub `actions/upload-artifact@v4` with 14-day retention. The workflow is **not** the old release-tag `build.py` path; nevertheless, it creates a **downloadable QA test build** which can contain the broadly copied rights-unclear icons/Krowi files. The uploaded artifact is not necessarily an addon already installed or a marketplace release.
+
+**Observed existing artifact:** GitHub [overlay run `39153149060`](https://github.com/CosmicCuddle/N-Questie/actions/runs/39153149060) exposed artifact `N-Questie-335-PR-TestBuild`, ID `12145947337`, **35,107,043 bytes** and not expired when inspected on 18 October. This is live workflow evidence, **not merely a guess from YAML**. Existing previous-run artifacts are not deleted or retroactively made safe by a new draft branch; retention policy and repository access determine future availability. No artifact download, removal, re-upload, or public distribution action was performed in this audit.
+
+**Isolated safety proof:** [DRAFT PR #102](https://github.com/CosmicCuddle/N-Questie/pull/102) current initial head `cd594fabc82d43c05e6df6914efef68ad873ebfe` makes two changes **only on its own branch**: adds nine test-only/read-only 3.3.5a manifest preflight unittests and sets the two inherited automatic PR artifact steps to `if: ${{ false }}` during review. Its [dedicated overlay run `39157421599`](https://github.com/CosmicCuddle/N-Questie/actions/runs/39157421599) **PASS** showed `Ran 9 tests / OK`, both assembly/upload **SKIPPED**, and GitHub artifacts list returned `total_count=0`. Full six-workflow CI and independent CS02 review must be checked separately. **This branch-only hold is NOT a global fix**; other old PRs can continue using inherited upload steps until a separately reviewed approved policy change is integrated.
+
+**Required maintainer gate:** decide how (or whether) to make private QA builds available to collaborators before third-party file rights are verified, and whether future CI should require explicit owner review/authorization for artifact upload. Do **not** create `v*` tags, publish market releases, or delete source artwork simply to silence this warning. A rigorous future staged-file check must also assess **any included root `embeds.xml` and its active Krowi reference**, even when the selected 335 `Compat/embeds.xml` comments it out.
 
 ## 3. Asset inclusion, source licences and remaining evidence
 
@@ -78,7 +88,7 @@ This result reinforces the core packaging distinction: **the correct `335` sourc
 - Build a separate **non-executable, source-backed** licence/notice inventory for file-level inclusion, including `Icons/`, `Libs/` and original copyright/attribution. Do not equate “not loaded by the selected TOC” with “not copied into a zip”.
 - Do not use the inherited `build.py -r` or `release.py` for a proof-run. No `v*` tag, GitHub release, CurseForge/WAGO upload or local addon overwrite is authorised by these source checks.
 
-## 5. Proposed 335 packaging acceptance tests — NOT implemented
+## 5. Proposed 335 package acceptance tests — partial test-only preflight on draft #102
 
 1. **Manifest:** The package root folder is the owner-approved `Questie-335` name, with one `Questie-335.toc` indicating interface `30300`; no simultaneous duplicate Questie installation. Do not substitute `Questie-WOTLKC.toc` (`30403`).
 2. **Required paths:** Every enabled `Questie-335.toc` and embedded XML `Script`/`Include` source resolves inside the package, including the N-Questie `Compat/` data and cache-revision components; prohibit path escapes, unreadable files and accidental case/path changes.
@@ -87,7 +97,7 @@ This result reinforces the core packaging distinction: **the correct `335` sourc
 5. **Nonpublication:** A proof/check must **not** create a release tag, run upload scripts, alter the installed addon or server, or upload a ZIP. CI dry validation should output only safe aggregate/pass-fail data.
 6. **In-game acceptance after approval:** Back up both the current addon folder and Questie account/per-character SavedVariables, install only one approved QA build, verify original quest-2001 basic lifecycle **already recorded as passed on 14 Oct** plus remaining objective/minimap/cache/phase/IP axes, and confirm a rollback.
 
-Until a maintainer explicitly selects a release scope and approves the packaging implementation, **all of these are OPEN release-readiness tests**, not verified features or proof of lawful distribution.
+The **read-only manifest path/XML subset** is now covered by [draft #102](https://github.com/CosmicCuddle/N-Questie/pull/102) nine synthetic tests and a source-file reference-count assertion. **Full staging ZIP provenance, dynamic image references, third-party permissions, deployment/install, auto-upload policy, and user-side game QA remain OPEN.** Neither the tests nor a skipped artifact upload constitute a licence clearance or a distributable addon.
 
 ## 6. Review task and handoff
 
