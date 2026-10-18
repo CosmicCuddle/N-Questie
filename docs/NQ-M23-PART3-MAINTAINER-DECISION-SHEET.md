@@ -123,11 +123,11 @@ Regardless of A/B, the maintainer must **define the temp-count measurement**: sc
 
 ## Evidence already available — not policy decisions
 
-- [#77](https://github.com/CosmicCuddle/N-Questie/pull/77) `94925ced` — G2 plan and D5/D6 design; 6/6 GitHub CI, exact-head developer PASS.
+- [#77](https://github.com/CosmicCuddle/N-Questie/pull/77) `598d5b2` — G2 plan and D5/D6 design, now with B1 approval-scope wording fixed; 6/6 GitHub CI, current-head developer PASS.
 - [#83](https://github.com/CosmicCuddle/N-Questie/pull/83) `3ddfc389` — synthetic Part 2 precedence, **all twelve synthetic public-reason cohort patterns**, no-M1 unsupported oracles; 6/6 CI, exact-head developer PASS. Public `9,159 = 8,401 + 758` reflects **v1 shape representability**, not quests repaired.
 - [#84](https://github.com/CosmicCuddle/N-Questie/pull/84) `aa2f3cf` — supported/unsupported K64/K65 object/item, identity and real M1 spy controls; 6/6 CI, exact-head developer PASS.
 - [#85](https://github.com/CosmicCuddle/N-Questie/pull/85) `c49d703` — **21 synthetic** candidate nested/zone cases, pure adapter checks; **6/6 CI and current-head independent developer PASS**.
-- [#86](https://github.com/CosmicCuddle/N-Questie/pull/86) `da1d4e4` — **10 synthetic** other-ordinary cases, pure adapter checks; **6/6 CI; new-head peer review pending**; does NOT call M1.
+- [#86](https://github.com/CosmicCuddle/N-Questie/pull/86) `da1d4e4` — **10 synthetic** other-ordinary cases, pure adapter checks; **6/6 CI and current-head independent developer PASS**; does NOT call M1.
 - Peer/CI success never substitutes for maintainer approval of **B1/D5/D6/R1/R2/R3/C1/P1**.
 
 ## Gate to any actual G3 implementation
@@ -149,6 +149,6 @@ C1 = [A / B / C]  complete byte-format decisions:
 P1 = [A / B]      trusted provenance + temp scan semantics:
 ~~~
 
-Until an explicit B1 confirmation, the numbers in the G1 #82 “Previously approved invariants” section must also be read as **proposals**, not as independent approval evidence.
+Until an explicit B1 confirmation, the recalculated numbers in G1 [#82's updated “Owner-approved invariants versus K=64 recalculation PROPOSALS” section](https://github.com/CosmicCuddle/N-Questie/pull/82) remain **proposals**, not independent approval evidence.
 
 If any field remains unanswered, **that gate remains open**. This document approves no choice and changes no worker, parser, trusted CLI, exporter, release or server files.
