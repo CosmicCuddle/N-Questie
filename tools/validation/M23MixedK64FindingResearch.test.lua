@@ -66,13 +66,6 @@ describe("M2.3 mixed K64/K65 creature+item frozen M1 baseline", function()
         return adapted
     end
 
-    local function hasRule(f, rule)
-        for _, r in ipairs(f.rules or {}) do
-            if r == rule then return true end
-        end
-        return false
-    end
-
     it("confirms frozen v2 accepts all four mixed K64/K65 shapes", function()
         for _, case in ipairs(cases) do
             local q = fakeQuest(case.creatures, case.items)
@@ -101,14 +94,19 @@ describe("M2.3 mixed K64/K65 creature+item frozen M1 baseline", function()
             -- creature and each item, even at structurally valid 65-per-kind.
             assert.are.equal(case.creatures + case.items, #findings)
             local npc, item, textBytes = 0, 0, 0
-            for _, finding in ipairs(findings) do
-                if hasRule(finding, "R-NPC-UNPAIRED") then
-                    npc = npc + 1
-                elseif hasRule(finding, "R-ITEM-UNPAIRED") then
-                    item = item + 1
-                else
-                    error("unexpected synthetic M1 rule")
-                end
+            for ordinal, finding in ipairs(findings) do
+                -- Pin frozen M1's actual cross-kind and per-slot order,
+                -- rather than counting rules while accepting reversed output.
+                local isCreature = ordinal <= case.creatures
+                local rule = isCreature and "R-NPC-UNPAIRED" or "R-ITEM-UNPAIRED"
+                local kind = isCreature and "creature" or "item"
+                local slot = isCreature and ordinal or ordinal - case.creatures
+                local firstId = isCreature and 1000000000 or 1200000000
+                assert.are.same({ rule }, finding.rules)
+                assert.are.equal(kind, finding.kind)
+                assert.is_nil(finding.server)
+                assert.are.equal(firstId + slot, finding.questie)
+                if isCreature then npc = npc + 1 else item = item + 1 end
                 assert.are.equal("string", type(finding.explanation))
                 textBytes = textBytes + #finding.explanation
             end
@@ -119,7 +117,7 @@ describe("M2.3 mixed K64/K65 creature+item frozen M1 baseline", function()
             assert.are.same(beforeQuest, q)
             assert.are.same(beforeServer, server)
         end
-        -- 128/129/130 observed findings do NOT prove the proposed B1
+        -- 128/129/129/130 observed findings do NOT prove the proposed B1
         -- 192-finding, 1024-string, 256-KiB or 64-MiB encoding budgets.
         -- Full future bundle bytes require the separately approved C1 codec.
     end)
