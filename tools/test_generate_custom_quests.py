@@ -109,6 +109,11 @@ class GeneratorTests(unittest.TestCase):
         # loader accepts, and both quests must coexist without clobbering NPCs.
         second = quest(2002)
         second["title"] = 'Synthetic "Second" \\ Quest'
+        # Directional-link oracle: NPC 2121 starts both quests but ends only
+        # 2001; 1868 is an extra starter and 1869 is the distinct 2002 ender.
+        # All three NPC IDs already belong to the invented/public fixture.
+        second["starter_npcs"] = [2121, 1868]
+        second["ender_npcs"] = [1869]
         result = generate(reviewed(quest(), second),
                           approved=[2002, 2001],
                           verified=[1869, 2121, 1868], revision=7)
@@ -156,9 +161,15 @@ assert(quests[2001][keys.objectives][1][1][1] == 1868)
 assert(quests[2002][keys.objectives][1][2][1] == 1869)
 assert(quests[2001][keys.preQuestSingle][1] == 437)
 assert(quests[2002][keys.requiredLevel] == 12)
-local npc = callbacks.npcData()[2121]
-assert(npc and #npc[10] == 4 and #npc[11] == 4,
-    "existing NPC relations lost or generated reverse link duplicated")
+assert(quests[2002][keys.startedBy][1][1] == 2121)
+assert(quests[2002][keys.startedBy][1][2] == 1868)
+assert(quests[2002][keys.finishedBy][1][1] == 1869)
+assert(#quests[2002][keys.finishedBy][1] == 1,
+    "generated quest starter/ender fields were crossed")
+local overlayNpcs = callbacks.npcData()
+local npc = overlayNpcs[2121]
+assert(npc and #npc[10] == 4 and #npc[11] == 3,
+    "existing NPC relations lost or incorrect directional link count")
 assert(npc[10][1] == 477 and npc[10][2] == 479)
 assert(npc[11][1] == 478 and npc[11][2] == 480)
 local function count(list, needle)
@@ -168,15 +179,27 @@ local function count(list, needle)
     end
     return found
 end
-for _, field in ipairs({10, 11}) do
-    assert(count(npc[field], 2001) == 1)
-    assert(count(npc[field], 2002) == 1)
-end
+assert(count(npc[10], 2001) == 1 and count(npc[10], 2002) == 1,
+    "shared starter lost or duplicated a generated reverse link")
+assert(count(npc[11], 2001) == 1 and count(npc[11], 2002) == 0,
+    "starter-only NPC incorrectly became a quest ender")
+assert(count(overlayNpcs[1868][10], 2002) == 1
+    and count(overlayNpcs[1868][11], 2002) == 0,
+    "second starter was missing or also registered as an ender")
+assert(count(overlayNpcs[1869][10], 2002) == 0
+    and count(overlayNpcs[1869][11], 2002) == 1,
+    "separate ender was missing or also registered as a starter")
 assert(#db.npcData[2121][10] == 2 and #db.npcData[2121][11] == 2,
     "generator/loader integration mutated base NPC relations")
-local again = callbacks.npcData()[2121]
-assert(#again[10] == 4 and #again[11] == 4,
-    "repeated generated callback appended duplicate NPC links")
+assert(#db.npcData[1868][10] == 0 and #db.npcData[1868][11] == 0
+    and #db.npcData[1869][10] == 0 and #db.npcData[1869][11] == 0,
+    "generated directional links mutated unrelated base NPC tables")
+local repeated = callbacks.npcData()
+local again = repeated[2121]
+assert(#again[10] == 4 and #again[11] == 3
+    and count(repeated[1868][10], 2002) == 1
+    and count(repeated[1869][11], 2002) == 1,
+    "repeated generated callback appended duplicate directional links")
 print("PASS: generated reviewed JSON Lua loads through frozen Questie 3.3.5a overlay")
 """
         with tempfile.TemporaryDirectory() as temp:
