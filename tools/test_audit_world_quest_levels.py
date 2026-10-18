@@ -146,7 +146,12 @@ class QuestLevelAuditTests(unittest.TestCase):
     def test_duplicate_world_quest_rejected_for_sql_and_zip(self):
         # The SQL parser must not treat repeated quest IDs as two reliable
         # records. Neither public fixture contains a real private export.
-        duplicate = sql_fixture() + sql_fixture().split("\n", 1)[1]
+        duplicate = sql_fixture().replace(
+            "(2001, 'Ravenclaw Cleanup', 12, 16);",
+            "(2001, 'Ravenclaw Cleanup', 12, 16),\n"
+            "(1202, 'Jarl Needs Eyes', 30, 35);")
+        self.assertEqual(duplicate.count("INSERT INTO"), 1)
+        self.assertEqual(duplicate.count("(1202,"), 2)
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp)
             world = base / "repeated-quest.sql"
