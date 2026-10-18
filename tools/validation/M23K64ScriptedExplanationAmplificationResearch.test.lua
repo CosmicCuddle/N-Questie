@@ -78,10 +78,31 @@ describe("M2.3 K64 scripted explanation amplification baseline", function()
             assert.are.equal(1, #finding.rules)
             local rule = finding.rules[1]
             rules[rule] = (rules[rule] or 0) + 1
+            -- Pin the original frozen M1 kind for every observed rule.
+            local expectedKind = {
+                ["C-UNKNOWN"] = "availability",
+                ["E-QTY"] = "quantity",
+                ["C-SCRIPT"] = "creature",
+                ["R-NPC-SET"] = "creature",
+                ["E-SRCITEM"] = "item",
+                ["R-ITEM-UNPAIRED"] = "item",
+            }
+            assert.are.equal(expectedKind[rule], finding.kind)
             assert.are.equal("string", type(finding.explanation))
             assert.is_true(#finding.explanation > 0)
+            if rule == "R-NPC-SET" then
+                -- Frozen set finding carries two typed comma-space strings;
+                -- these bytes belong to output budget accounting too.
+                assert.are.equal(944, #finding.explanation)
+                assert.are.equal("string", type(finding.server))
+                assert.are.equal("string", type(finding.questie))
+                assert.are.equal(46, #finding.server)
+                assert.are.equal(766, #finding.questie)
+            end
             bytes = bytes + #finding.explanation
             if rule == "C-SCRIPT" then
+                assert.are.equal("number", type(finding.server))
+                assert.is_nil(finding.questie)
                 scriptedBytes = scriptedBytes + #finding.explanation
                 scriptedLengths[#scriptedLengths + 1] = #finding.explanation
             end
@@ -118,8 +139,14 @@ describe("M2.3 K64 scripted explanation amplification baseline", function()
         assert.are.same({ 877, 877, 877, 877 }, lengths)
         assert.are.equal(3508, scriptBytes)
         assert.are.same({}, missingScriptLengths)
-        assert.is_true(aBytes > bBytes)
-        assert.is_true(aBytes > 3508)
+        -- Exact original explanation bytes, independent of rules counts.
+        -- 4x877 C-SCRIPT explains the 2,564-byte delta vs R-NPC-SET.
+        assert.are.equal(8222, aBytes)
+        assert.are.equal(5658, bBytes)
+        assert.are.equal(2564, aBytes - bBytes)
+        -- The ordinary R-NPC-SET additionally carries 46 + 766 reference
+        -- string bytes. This is still NOT canonical JSON/framing overhead.
+        assert.are.equal(6470, bBytes + 46 + 766)
         -- Every count/byte observation is about ORIGINAL M1 explanations.
         -- Neither figure is a full canonical JSON quest/bundle byte count.
         assert.are.same(qBefore, q)
