@@ -44,6 +44,14 @@ The inherited [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) defines 
 | `ExternalScripts(DONOTINCLUDEINRELEASE)/**` | Separate development/tool files, excluded from `build.py` by omission; `.gitattributes` also has export-ignore rules for Git archives. | **Not in `directoriesToInclude`.** | **Exclude unless separately authorised**. | No source or private generated data should be bundled accidentally. |
 | `Compat/**` | Contains the **actual current 3.3.5a N-Questie loader and curated source files**. | **No**, missing from legacy builder's directory allowlist. | **Required by the 335 TOC**, subject to reviewed field-level package manifest. | Check every referenced file exists and all compiled source/lua syntax checks pass for the 3.3.5a release candidate. |
 
+### Frozen file-level counts for rights triage (not legal clearance)
+
+Read-only inspection of protected `335` Git tree found **909 tracked files across 1,065 tree entries**. `build.py`'s broad-copy source directory groups contain **53 `Icons/` files (51 image files plus two licence texts)** and **102 `Libs/` files**, including **7 files under `Libs/Krowi_WorldMapButtons/`**. These are tracked **source inventories**, not a claim that a ZIP has been generated.
+
+Within `Icons/`, the existing `Icons/LICENSE.md` lists **18 individual MIT-covered image filenames**, and all 18 appear in the protected tree. The other **33 image files** are **not on that licence's named MIT list** (29 `.blp` and 4 `.tga`). The same document directs readers to treat unspecified assets as all rights reserved/unclear. **Do not infer that any of those 33 files are available for redistribution under MIT**. They need independently sourced permission/licence and an **actual proposed package inclusion** check; do not remove them without checking their references and obtaining approval.
+
+The inherited broad-copy code can include all 53 `Icons/` files and the Krowi subtree even though the **3.3.5a runtime's** Krowi include is XML-commented out. **This reinforces the difference between a file being referenced at runtime and being copied into a release artifact.** Licence files' presence or absence in a source tree alone is not a legal clearance finding.
+
 **Important distinction:** `.gitattributes` includes `export-ignore` rules for Git archive operations; it does **not** override the Python `build.py` explicit `shutil.copytree` selection. Likewise, a source file existing in GitHub does not establish that an approved release will contain it.
 
 ## 4. Source file-reference completeness baseline — verified read-only, not a package test
