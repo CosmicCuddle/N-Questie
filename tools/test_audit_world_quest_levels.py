@@ -143,6 +143,83 @@ class QuestLevelAuditTests(unittest.TestCase):
             self.assertTrue(audit.inside(root / "report.json", root))
             self.assertFalse(audit.inside(base / "private" / "report.json", root))
 
+    def test_duplicate_world_quest_rejected_for_sql_and_zip(self):
+        # The SQL parser must not treat repeated quest IDs as two reliable
+        # records. Neither public fixture contains a real private export.
+        duplicate = sql_fixture().replace(
+            "(2001, 'Ravenclaw Cleanup', 12, 16);",
+            "(2001, 'Ravenclaw Cleanup', 12, 16),\n"
+            "(1202, 'Jarl Needs Eyes', 30, 35);")
+        self.assertEqual(duplicate.count("INSERT INTO"), 1)
+        self.assertEqual(duplicate.count("(1202,"), 2)
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            world = base / "repeated-quest.sql"
+            world.write_text(duplicate, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Invalid or repeated world quest ID"):
+                audit.parse_world_quest_levels(world)
+            archive = base / "repeated-quest.zip"
+            with zipfile.ZipFile(archive, "w") as z:
+                z.writestr("repeated-quest.sql", duplicate)
+            with self.assertRaisesRegex(ValueError, "Invalid or repeated world quest ID"):
+                audit.parse_world_quest_levels(archive)
+
+    def test_dynamic_fix_and_missing_questie_are_distinct(self):
+        # A matching literal value does not erase an unresolved dynamic
+        # correction: it still requires review. A missing raw Questie ID
+        # must not be counted as a level mismatch or a successful match.
+        raw, skipped = audit.parse_questie_raw(RAW)
+        server = {
+            1202: {"name": "Jarl Needs Eyes", "questLevel": 34, "requiredLevel": 27},
+            3001: {"name": "Invented missing Questie row", "questLevel": 20,
+                   "requiredLevel": 18},
+        }
+        corrections = [
+            ("classic", {1202: {"questLevel": 30}}, {1202}),
+            ("wotlk", {1202: {"questLevel": 34, "requiredLevel": 27}}, set()),
+        ]
+        result = audit.report_levels(server, raw, corrections,
+                                     selected=[3001, 1202], skipped=skipped)
+        self.assertEqual(result["summary"]["checked"], 2)
+        self.assertEqual(result["summary"]["needs_review"], 1)
+        self.assertEqual(result["summary"]["missing_questie"], 1)
+        self.assertEqual(result["summary"]["match"], 0)
+        self.assertEqual(result["summary"]["mismatch"], 0)
+        self.assertEqual(result["quests"][0]["id"], 1202)
+        self.assertEqual(result["quests"][0]["status"], "needs_review")
+        self.assertEqual(result["quests"][0]["different_fields"], [])
+        self.assertEqual(result["quests"][0]["levels"]["questLevel"]
+                         ["literal_fix_source"], "wotlk")
+        self.assertIn("Dynamic correction", result["quests"][0]["caution"])
+        self.assertEqual(result["quests"][1]["status"], "missing_questie")
+
+    def test_cli_incomplete_questie_source_preserves_private_report(self):
+        # A skipped/malformed source row must refuse an incomplete audit
+        # BEFORE writing any new or existing output, even with --overwrite.
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            root = base / "public-repo"
+            raw_path = root / audit.QUESTIE_RAW
+            raw_path.parent.mkdir(parents=True)
+            raw_path.write_text(
+                '[1202] = {"Synthetic Valid",{}, {},30,35},\n'
+                '[1203] = not_a_supported_quest_table,\n', encoding="utf-8")
+            world = base / "private-world.sql"
+            world.write_text(sql_fixture(), encoding="utf-8")
+            report = base / "private" / "level-review.json"
+            args = ["--questie-root", str(root), "--world", str(world),
+                    "--quest", "1203", "--output", str(report)]
+            with self.assertRaisesRegex(ValueError, "Unparsed Questie source"):
+                audit.main(args)
+            self.assertFalse(report.exists(), "Invalid audit created a report")
+            report.parent.mkdir(parents=True)
+            original = b'{"approved":false,"do_not_replace":"sentinel"}\n'
+            report.write_bytes(original)
+            with self.assertRaisesRegex(ValueError, "Unparsed Questie source"):
+                audit.main(args + ["--overwrite"])
+            self.assertEqual(report.read_bytes(), original,
+                             "Failed audit replaced the existing private report")
+
     def test_full_cli_synthetic_audit(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp)
