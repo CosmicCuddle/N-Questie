@@ -83,6 +83,23 @@ describe("M2.3 K64 additive M1 finding sources (synthetic)", function()
         return counts
     end
 
+
+    -- Each segment pins historical frozen M1 finding order and the exact
+    -- singleton rule/kind, rather than permitting multiset-only matches.
+    local function assertOrder(findings, segments)
+        local ordinal = 1
+        for _, segment in ipairs(segments) do
+            for _ = 1, segment[3] do
+                local finding = findings[ordinal]
+                assert.is_table(finding)
+                assert.are.same({ segment[1] }, finding.rules)
+                assert.are.equal(segment[2], finding.kind)
+                ordinal = ordinal + 1
+            end
+        end
+        assert.are.equal(#findings + 1, ordinal)
+    end
+
     it("observes the additive 140-finding K64 specimen with exact rules", function()
         local q, adapted = quest(64)
         local s = server()
@@ -98,6 +115,22 @@ describe("M2.3 K64 additive M1 finding sources (synthetic)", function()
             ["E-SRCITEM"] = 4,
             ["R-ITEM-UNPAIRED"] = 64,
         }, ruleCounts(findings))
+        assertOrder(findings, {
+            { "C-UNKNOWN", "availability", 3 },
+            { "E-QTY", "quantity", 1 },
+            { "R-GO-UNPAIRED", "object", 4 },
+            { "R-NPC-UNPAIRED", "creature", 64 },
+            { "E-SRCITEM", "item", 4 },
+            { "R-ITEM-UNPAIRED", "item", 64 },
+        })
+        assert.are.equal(-1600000001, findings[5].server)
+        assert.is_nil(findings[5].questie)
+        assert.is_nil(findings[9].server)
+        assert.are.equal(1000000001, findings[9].questie)
+        assert.are.equal(1400000001, findings[73].server)
+        assert.is_nil(findings[73].questie)
+        assert.is_nil(findings[77].server)
+        assert.are.equal(1200000001, findings[77].questie)
         assert.are.same(beforeQ, q)
         assert.are.same(beforeA, adapted)
         assert.are.same(beforeS, s)
@@ -115,6 +148,14 @@ describe("M2.3 K64 additive M1 finding sources (synthetic)", function()
         assert.are.equal(4, counts["R-GO-UNPAIRED"])
         assert.are.equal(64, counts["R-NPC-UNPAIRED"])
         assert.are.equal(64, counts["R-ITEM-UNPAIRED"])
+        assertOrder(findings, {
+            { "C-UNKNOWN", "availability", 3 },
+            { "E-QTY", "quantity", 1 },
+            { "R-GO-UNPAIRED", "object", 4 },
+            { "R-NPC-UNPAIRED", "creature", 64 },
+            { "E-SRCITEM", "item", 4 },
+            { "R-ITEM-UNPAIRED", "item", 64 },
+        })
         assert.are.same(beforeQ, q)
         assert.are.same(beforeA, adapted)
         assert.are.same(beforeS, s)
@@ -216,6 +257,35 @@ describe("M2.3 K64 additive M1 finding sources (synthetic)", function()
             ["R-ORDER-WITHIN-TYPE"] = 1,
             ["R-ORDER-MIXED"] = 1,
         }, ruleCounts(findings))
+        assertOrder(findings, {
+            { "C-UNKNOWN", "availability", 3 },
+            { "E-QTY", "quantity", 1 },
+            { "E-GO-SIGN", "object", 2 },
+            { "R-GO-UNPAIRED", "object", 1 },
+            { "E-KILLCREDIT", "creature", 1 },
+            { "R-NPC-UNPAIRED", "creature", 64 },
+            { "R-ITEM-UNPAIRED", "item", 6 },
+            { "E-SRCITEM", "item", 4 },
+            { "R-ITEM-UNPAIRED", "item", 64 },
+            { "R-ORDER-WITHIN-TYPE", "order", 1 },
+            { "R-ORDER-MIXED", "order", 1 },
+        })
+        assert.are.equal(-1600000001, findings[5].server)
+        assert.are.equal(1600000001, findings[5].questie)
+        assert.are.equal(-1600000002, findings[6].server)
+        assert.are.equal(1600000002, findings[6].questie)
+        assert.are.equal(-1600000003, findings[7].server)
+        assert.is_nil(findings[7].questie)
+        assert.are.equal(1600000004, findings[8].server)
+        assert.are.equal(1600000004, findings[8].questie)
+        assert.is_nil(findings[9].server)
+        assert.are.equal(1000000001, findings[9].questie)
+        assert.are.equal(1700000001, findings[73].server)
+        assert.are.equal(1700000001, findings[73].questie)
+        assert.are.equal(1800000001, findings[79].server)
+        assert.is_nil(findings[79].questie)
+        assert.is_nil(findings[83].server)
+        assert.are.equal(1200000001, findings[83].questie)
         assert.are.same(beforeQ, q)
         assert.are.same(beforeAdapter, adapted)
         assert.are.same(beforeServer, serverRecord)
