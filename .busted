@@ -1,11 +1,13 @@
--- EXPERIMENT ONLY: draft #95 test-runner configuration, NEVER for release.
--- Re-run existing frozen M1/M2 and eight synthetic research specs with a
--- reproducible alternate Busted file AND individual test execution order.
--- No workflow, production, worker, codec, trusted CLI, or addon change.
--- Intended only on this isolated research branch and not for merging.
+-- EXPERIMENT ONLY: draft #95 test-runner configuration, NEVER for merge.
+-- Busted v2.2.0 runner consumes shuffle-files and shuffle-tests separately.
+-- The --shuffle CLI callback expands those names; .busted config must supply
+-- them explicitly, not an inert generic "shuffle" key.
+-- Deterministic alternate file AND within-file test execution order.
+-- No production, workflows, worker, codec, private data or addon changes.
 return {
     default = {
-        shuffle = true,
+        ["shuffle-files"] = true,
+        ["shuffle-tests"] = true,
         seed = 20261018,
     },
 }
