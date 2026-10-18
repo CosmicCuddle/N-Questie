@@ -54,6 +54,10 @@ def check_manifest(root, require_staged_name=True):
     toc_path = root / "Questie-335.toc"
     if not toc_path.is_file():
         raise ValueError("Required Questie-335.toc is missing")
+    try:
+        toc_path.resolve().relative_to(root)
+    except ValueError as exc:
+        raise ValueError("TOC escapes addon root (symlink)") from exc
     raw = toc_path.read_text(encoding="utf-8-sig")
     interfaces = re.findall(r"(?m)^## Interface:\s*(\d+)\s*$", raw)
     if interfaces != ["30300"]:
@@ -75,6 +79,8 @@ def check_manifest(root, require_staged_name=True):
         processing.add(path)
         xml = (root / path).read_text(encoding="utf-8-sig")
         xml = XML_COMMENTS.sub("", xml)
+        if "<!--" in xml or "-->" in xml:
+            raise ValueError("Unterminated or malformed XML comment")
         for match in LOAD_TAG.finditer(xml):
             file_attrs = FILE_ATTR.findall(match.group(1))
             if len(file_attrs) != 1:
@@ -204,6 +210,27 @@ class ManifestPreflightTests(unittest.TestCase):
             (root / "Modules/Helper.lua").unlink()
             os.symlink(outside, root / "Modules/Helper.lua")
             with self.assertRaisesRegex(ValueError, "symlink"):
+                check_manifest(root)
+
+    def test_external_toc_symlink_cannot_supply_managed_manifest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            original = (root / "Questie-335.toc").read_text(encoding="utf-8")
+            external = Path(temp) / "untrusted-toc.txt"
+            external.write_text(original, encoding="utf-8")
+            (root / "Questie-335.toc").unlink()
+            os.symlink(external, root / "Questie-335.toc")
+            with self.assertRaisesRegex(ValueError, "TOC escapes"):
+                check_manifest(root)
+
+    def test_unterminated_xml_comment_cannot_hide_references(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            (root / "Compat/embeds.xml").write_text(
+                '<Ui><!-- comment was never closed '
+                '<Script file="..\\Modules\\Helper.lua"/></Ui>\\n',
+                encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "XML comment"):
                 check_manifest(root)
 
     def test_real_public_335_source_references_without_writes(self):
