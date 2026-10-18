@@ -88,13 +88,22 @@ describe("M2.3 K64 item-set explanation byte boundary (synthetic)", function()
         local s = server()
         local qBefore, adaptedBefore, sBefore = clone(q), clone(adapted), clone(s)
         local findings = M1.Compare(s, adapted)
-        -- Frozen M1 groups six unmatched server items and all Questie items
-        -- into ONE set finding. The first finding is the single quantity rule.
-        assert.are.equal(2, #findings)
+        -- Frozen M1 emits a single E-QTY, 64 Questie-only creature
+        -- findings, and finally ONE item-set finding. Questie-only objects
+        -- remain historically silent; do not accidentally drop creatures.
+        assert.are.equal(66, #findings)
         assert.are.equal("quantity", findings[1].kind)
         assert.are.equal(M1.CLASS.EXPECTED, findings[1].class)
         assert.are.same({ "E-QTY" }, findings[1].rules)
-        local f = findings[2]
+        for ordinal = 2, 65 do
+            local creature = findings[ordinal]
+            assert.are.equal("creature", creature.kind)
+            assert.are.equal(M1.CLASS.REVIEW, creature.class)
+            assert.are.same({ "R-NPC-UNPAIRED" }, creature.rules)
+            assert.is_nil(creature.server)
+            assert.are.equal(1000000000 + ordinal - 1, creature.questie)
+        end
+        local f = findings[66]
         assert.are.equal("item", f.kind)
         assert.are.equal(M1.CLASS.REVIEW, f.class)
         assert.are.same({ "R-ITEM-SET" }, f.rules)
