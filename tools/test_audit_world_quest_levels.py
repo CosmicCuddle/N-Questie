@@ -146,7 +146,7 @@ class QuestLevelAuditTests(unittest.TestCase):
     def test_duplicate_world_quest_rejected_for_sql_and_zip(self):
         # The SQL parser must not treat repeated quest IDs as two reliable
         # records. Neither public fixture contains a real private export.
-        duplicate = sql_fixture() + sql_fixture().split("\\n", 1)[1]
+        duplicate = sql_fixture() + sql_fixture().split("\n", 1)[1]
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp)
             world = base / "repeated-quest.sql"
@@ -197,8 +197,8 @@ class QuestLevelAuditTests(unittest.TestCase):
             raw_path = root / audit.QUESTIE_RAW
             raw_path.parent.mkdir(parents=True)
             raw_path.write_text(
-                '[1202] = {"Synthetic Valid",{}, {},30,35},\\n'
-                '[1203] = not_a_supported_quest_table,\\n', encoding="utf-8")
+                '[1202] = {"Synthetic Valid",{}, {},30,35},\n'
+                '[1203] = not_a_supported_quest_table,\n', encoding="utf-8")
             world = base / "private-world.sql"
             world.write_text(sql_fixture(), encoding="utf-8")
             report = base / "private" / "level-review.json"
@@ -208,7 +208,7 @@ class QuestLevelAuditTests(unittest.TestCase):
                 audit.main(args)
             self.assertFalse(report.exists(), "Invalid audit created a report")
             report.parent.mkdir(parents=True)
-            original = b'{"approved":false,"do_not_replace":"sentinel"}\\n'
+            original = b'{"approved":false,"do_not_replace":"sentinel"}\n'
             report.write_bytes(original)
             with self.assertRaisesRegex(ValueError, "Unparsed Questie source"):
                 audit.main(args + ["--overwrite"])
