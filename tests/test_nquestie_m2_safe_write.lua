@@ -17,7 +17,10 @@ local root = line("pwd -P")
 local base = line("realpath -e -- \"$(mktemp -d)\"")
 local out = base .. "/out"
 sh("mkdir -m 700 " .. q(out))
-local privDir = root .. "/private/m2-write-test-" .. os.time() .. "-" .. math.random(1e6)
+-- Preserve any private/ directory that predates this synthetic test.
+local privRoot = root .. "/private"
+local privateRootWasAbsent = not (sh("test -e " .. q(privRoot)) or sh("test -L " .. q(privRoot)))
+local privDir = privRoot .. "/m2-write-test-" .. os.time() .. "-" .. math.random(1e6)
 sh("mkdir -p -m 700 " .. q(privDir))
 
 local function expectFail(name, path, content, opts, needle)
@@ -229,6 +232,11 @@ local okRun, err = pcall(function()
 end)
 
 sh("rm -rf -- " .. q(base) .. " " .. q(privDir))
+-- Nonrecursive cleanup cannot erase unknown data. Do not touch a pre-existing
+-- private/ parent; report a failure if the parent we created is not empty.
+if privateRootWasAbsent and not sh("rmdir -- " .. q(privRoot)) then
+    fail("temporary private/ parent is not empty or could not be removed")
+end
 if not okRun then fail("harness error: " .. tostring(err)) end
 if failures > 0 then io.stderr:write("FAILED: " .. failures .. "\n"); os.exit(1) end
 print(string.format("PASS: M2.2 safe writer (%d checks)", passes))

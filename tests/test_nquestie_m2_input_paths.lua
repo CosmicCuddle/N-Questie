@@ -25,11 +25,20 @@ local fixture = root .. "/tests/fixtures/m2_input/valid_selected_quests.lua"
 local outside = readLine("mktemp -d")
 assert(outside and outside:sub(1, 1) == "/", "mktemp failed")
 outside = readLine("realpath -e -- " .. q(outside))
-local privDir = root .. "/private/m2-path-test-" .. tostring(os.time()) .. "-" .. tostring(math.random(1e6))
+-- Remember whether this test created the parent. A pre-existing private/
+-- directory can hold operator data and must never be removed by this test.
+local privRoot = root .. "/private"
+local privateRootWasAbsent = not (sh("test -e " .. q(privRoot)) or sh("test -L " .. q(privRoot)))
+local privDir = privRoot .. "/m2-path-test-" .. tostring(os.time()) .. "-" .. tostring(math.random(1e6))
 assert(sh("mkdir -p " .. q(privDir)), "cannot create private test dir")
 
 local function cleanup()
     sh("rm -rf -- " .. q(outside) .. " " .. q(privDir))
+    -- rmdir is nonrecursive: it refuses to erase any leftover/private files.
+    -- Only remove the parent if this test created it and it is now empty.
+    if privateRootWasAbsent and not sh("rmdir -- " .. q(privRoot)) then
+        fail("temporary private/ parent is not empty or could not be removed")
+    end
 end
 
 local function expectReject(name, path, needle)
