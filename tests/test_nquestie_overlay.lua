@@ -193,7 +193,15 @@ for index, case in ipairs(invalidFieldCases) do
            #originalNpcStarts == 5 and #originalNpcEnds == 5,
            "inherited NPC database mutated: " .. case[1])
 end
-assert(invalidFixtureCount == 16 and #invalidFieldCases == 16,
+-- Verify the physical fixture-key set too: Lua 5.1's ipairs and #
+-- may disagree on sparse tables, silently skipping an invalid case.
+local indexedInvalidFieldCases = 0
+for key in pairs(invalidFieldCases) do
+    assert(type(key) == "number" and key == math.floor(key) and
+           key >= 1 and key <= 16, "invalid-metadata fixture keys are not dense")
+    indexedInvalidFieldCases = indexedInvalidFieldCases + 1
+end
+assert(invalidFixtureCount == 16 and indexedInvalidFieldCases == 16,
        "did not execute all sixteen invalid-metadata probes")
 assert(registry.questData()[2001] and registry.questData()[2002] and
        registry.questData()[2003],
