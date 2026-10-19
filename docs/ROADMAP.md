@@ -1,5 +1,17 @@
 # N-Questie — Development Roadmap
 
+## 19 October 2026 — Historical quest 2001 QA checklist reconciliation (draft only)
+
+This entry corrects old unchecked roadmap items using the previously recorded **14 October** maintainer-observed [Quest 2001 smoke-test](QUEST-2001-SMOKE-TEST.md). It is a documentation reconciliation, **not** a new game-client run, runtime patch, installed addon upgrade or release approval.
+
+- [x] Basic addon smoke test (5/5): N-Questie loaded, ordinary world-map/minimap icons displayed and existing settings remained intact.
+- [x] Ravenclaw Cleanup (2001) observed sequence: available starter → two initial 0/8 kill-objective tooltips → completed turn-in marker at NPC 2121 → disappearance after normal hand-in.
+- [ ] Separate future tests: interim kill counts, quest-2001-specific minimap presentation, individual active spawn/phase positions, cache/relog persistence and IP/prerequisite eligibility across characters.
+- [ ] In-game validation of newer level/item and other quest corrections; do not inherit quest 2001's narrow PASS.
+- [ ] Third-party asset rights, packaging/distribution and protected-335 integration require separate owner approval; earlier automated test PASS is not publication clearance.
+
+---
+
 ## Combined M1 integration milestone — 14 October 2026
 
 - [x] Review Grok's M1 safety fixes and their completed local QA evidence ([draft #18](https://github.com/CosmicCuddle/N-Questie/pull/18)); require explicit complete creature KillCredit and no false one-to-one pairing.
@@ -72,19 +84,20 @@
 - [x] Confirm addon loader, database sources, correction layer and SavedVariables names in source.
 - [x] Document safe backups, release boundaries, proposed import data contract and maintainer handover.
 - [ ] Finish attribution/licence review for any redistributable custom Questie package; retain original credits.
-- [ ] Verify baseline addon behaviour and current warnings in-game without modifying saved settings or quests.
+- [x] Verify basic addon loading, ordinary world-map/minimap quest icons and retained preferences (maintainer's five checks, 14 October 2026). Further warning/performance regression coverage remains untested.
 - [ ] Determine whether baseline fork CI is applicable/passable or needs scoped 3.3.5a checks.
 
 ## Phase 1 — Reliable custom quest starter/ender map icons
 
 - [x] Identify quest 2001 — Ravenclaw Cleanup as missing from Questie's raw WotLK quest table; its NPC giver, ender and kill target IDs were obtained from the private read-only world export.
-- [ ] Confirm quest 2001 is available to a suitable character in-game; its missing marker must be reproduced before claiming a fix.
+- [x] Confirm quest 2001's available starter marker at Shadow Priest Allister in-game (14 October 2026). Its absence from the original raw WotLK quest table was source-verified; a separate unmodified-fork before/after screenshot was NOT recorded.
 - [ ] Inspect **read-only** `world` quest starter/ender and spawn data; detect server-specific NPC/object or quest ID differences.
 - [x] Implement first **unmerged** N-Questie-specific quest/NPC correction overlay, separate from generated WotLK tables, with cache revision invalidation.
-- [ ] Validate in actual WoW 3.3.5a and refine unsupported cases.
+- [x] Validate quest 2001's observed WoW 3.3.5a marker lifecycle: available starter, initial objective tooltips (1868/1869 each 0/8), completed turn-in and marker removal after natural hand-in (14 October 2026). Other custom quest types remain untested.
 - [ ] Verify correction loading order, compiled-DB invalidation/rebuild behavior, map conversion and marker filters.
 - [ ] Add tests for custom IDs, malformed data rejection, duplicate-safe merges and optional hide/availability rules.
-- [ ] Test one quest icon on the world map and minimap; preserve vanilla quest behavior.
+- [x] Verify quest 2001's world-map markers and objective tooltips; ordinary Questie world-map/minimap icons also continued working (14 October 2026).
+- [ ] Separately verify quest 2001-specific minimap markers, each interim objective-counter change, active/phased NPC spawn accuracy and IP-stage eligibility; none follows automatically from the basic visual PASS.
 
 **Acceptance:** A confirmed, available custom quest displays its correct start and end markers at real NPC/gameobject spawn locations; unrelated native quests still display as before. Markers must not appear on unrelated maps.
 
@@ -174,7 +187,8 @@ No auto-complete quests, server quest edits, account/character DB edits, progres
 
 ## Active follow-up — 14 October 2026
 
-- [ ] Verify Step 2 in game: quest 2001 starter, kill NPC markers 1868/1869 and NPC 2121 turn-in; preserve normal icon behavior. An eligible quest 437-complete Horde character is required; otherwise pick a genuinely available alternative.
+- [x] Step 2 basic quest-2001 visual marker lifecycle PASS in game on 14 October 2026 (NPC 2121 starter and turn-in, initial 1868/1869 objective tooltips, post-hand-in marker removal); see [smoke-test evidence](QUEST-2001-SMOKE-TEST.md).
+- [ ] Keep further quest-2001 counter-by-counter, minimap-specific, spawn/phase, relog/cache and IP eligibility QA separate. Prerequisite quest 437 remains server-authoritative; do not bypass it or infer every character's access.
 - [ ] Review and test [stacked draft PR #3](https://github.com/CosmicCuddle/N-Questie/pull/3): offline reviewed-JSON → curated Lua generation with explicit quest/NPC approval. **Code proposed, not merged or released; CI result pending inspection.**
 - [ ] Keep NPC spawn accuracy and special objective/GO handling as separate source-verified milestones; do not interpret syntactically valid Lua as working pins.
 - [ ] Investigate inherited Busted suite initialization independently of successful scoped overlay tests.
