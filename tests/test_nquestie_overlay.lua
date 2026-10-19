@@ -142,6 +142,61 @@ assert(#cleanNpc[10] == 7 and #cleanNpc[11] == 7,
 assert(onlyValid[2001] and onlyValid[2002] and onlyValid[2003],
     "invalid quest suppressed previously accepted valid quests")
 
+-- Invented invalid metadata must never publish a quest or inject reverse
+-- NPC links. Keep this strictly synthetic: no server SQL or real quest IDs.
+-- Each case differs in exactly one field from an otherwise valid quest.
+local invalidFieldCases = {
+    {"empty quest name", "name", ""},
+    {"negative minimum level", "requiredLevel", -1},
+    {"fractional minimum level", "requiredLevel", 5.5},
+    {"zero nominal level", "questLevel", 0},
+    {"fractional nominal level", "questLevel", 8.5},
+    {"negative race mask", "requiredRaces", -1},
+    {"negative quest flags", "questFlags", -1},
+    {"fractional zone ID", "zoneOrSort", 130.5},
+    {"zero starter ID", "startedByNpcs", {0}},
+    {"string starter ID", "startedByNpcs", {"2121"}},
+    {"empty ender list", "finishedByNpcs", {}},
+    {"fractional ender ID", "finishedByNpcs", {2121.25}},
+    {"zero kill target", "killNpcs", {0}},
+    {"string kill target", "killNpcs", {"1868"}},
+    {"zero prerequisite ID", "preQuestSingle", {0}},
+    {"fractional prerequisite ID", "preQuestSingle", {437.5}},
+}
+local invalidFixtureCount = 0
+for index, case in ipairs(invalidFieldCases) do
+    invalidFixtureCount = invalidFixtureCount + 1
+    local badId = 910100 + index
+    local synthetic = {
+        name = "Synthetic Invalid Metadata " .. index,
+        requiredLevel = 5, questLevel = 8, zoneOrSort = 130,
+        requiredRaces = 690, questFlags = 8,
+        startedByNpcs = {2121}, finishedByNpcs = {2121},
+        killNpcs = {1868}, preQuestSingle = {437},
+    }
+    synthetic[case[2]] = case[3]
+    NQuestieCustomQuestData.quests[badId] = synthetic
+    assert(registry.questData()[badId] == nil,
+           "invalid quest metadata accepted: " .. case[1])
+    local npcResult = registry.npcData()[2121]
+    assert(#npcResult[10] == 7 and #npcResult[11] == 7,
+           "invalid quest metadata altered NPC reverse links: " .. case[1])
+    for _, field in ipairs({10, 11}) do
+        for _, questId in ipairs(npcResult[field]) do
+            assert(questId ~= badId, "invalid quest linked to NPC: " .. case[1])
+        end
+    end
+    assert(QuestieDB.npcData[2121][10] == twoNpc[10] or
+           (#QuestieDB.npcData[2121][10] == 5 and
+            #QuestieDB.npcData[2121][11] == 5),
+           "inherited NPC database mutated: " .. case[1])
+end
+assert(invalidFixtureCount == 16 and #invalidFieldCases == 16,
+       "did not execute all sixteen invalid-metadata probes")
+assert(registry.questData()[2001] and registry.questData()[2002] and
+       registry.questData()[2003],
+       "invalid-metadata probes suppressed valid custom quests")
+
 -- The custom overlay is exclusive to the intended 3.3.5a client.
 registry = {}
 QuestieCompat.Is335 = false
