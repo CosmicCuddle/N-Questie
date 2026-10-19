@@ -170,9 +170,11 @@ local invalidFieldCases = {
 local originalNpcStarts = QuestieDB.npcData[2121][10]
 local originalNpcEnds = QuestieDB.npcData[2121][11]
 local invalidFixtureCount = 0
+local invalidMetadataQuestIds = {}
 for index, case in ipairs(invalidFieldCases) do
     invalidFixtureCount = invalidFixtureCount + 1
     local badId = 910100 + index
+    invalidMetadataQuestIds[#invalidMetadataQuestIds + 1] = badId
     local synthetic = {
         name = "Synthetic Invalid Metadata " .. index,
         requiredLevel = 5, questLevel = 8, zoneOrSort = 130,
@@ -263,14 +265,18 @@ end
 assert(invalidQuestIdCount == 6 and indexedInvalidQuestIdCases == 6,
        "did not execute all six malformed quest ID probes")
 
--- Keep subsequent startup/client-guard tests independent from this matrix.
--- These invented invalid records were added only by the preceding test loop.
-for index = 1, 19 do
-    NQuestieCustomQuestData.quests[910100 + index] = nil
+-- Remove exactly the invented metadata IDs created by the preceding loop.
+-- This also keeps cleanup correct when future reviewed cases are added.
+assert(#invalidMetadataQuestIds == invalidFixtureCount,
+       "invalid metadata cleanup ID count diverged from executed fixtures")
+for _, badId in ipairs(invalidMetadataQuestIds) do
+    NQuestieCustomQuestData.quests[badId] = nil
 end
-assert(NQuestieCustomQuestData.quests[910101] == nil and
-       NQuestieCustomQuestData.quests[910119] == nil and
-       registry.questData()[2001] and registry.questData()[2002] and
+for _, badId in ipairs(invalidMetadataQuestIds) do
+    assert(NQuestieCustomQuestData.quests[badId] == nil,
+           "invalid metadata fixture leaked into later loader checks")
+end
+assert(registry.questData()[2001] and registry.questData()[2002] and
        registry.questData()[2003],
        "invalid fixture cleanup lost valid custom quests")
 
