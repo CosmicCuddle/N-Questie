@@ -17,6 +17,9 @@ XML_COMMENTS = re.compile(r"<!--.*?-->", re.DOTALL)
 # Only an exact attribute name "file" may supply the target; never data-file,
 # file-looking text inside another value, or an unquoted/malformed attribute.
 LOAD_START = re.compile(r"<\s*(?:Script|Include)\b", re.I)
+# Reject prefixed loader elements instead of overlooking a possible include.
+PREFIXED_LOAD_START = re.compile(
+    r"<\s*[A-Za-z_][\w.-]*:(?:Script|Include)\b", re.I)
 LOAD_TAG = re.compile(
     r"""<\s*(?:Script|Include)\b((?:[^>"']|"[^"]*"|'[^']*')*)>""",
     re.I | re.DOTALL)
@@ -115,6 +118,8 @@ def check_manifest(root, require_staged_name=True):
         # Fail closed rather than allow parser/runtime interpretation to differ.
         if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", xml, re.I):
             raise ValueError("Unsupported XML DTD/entity declaration")
+        if PREFIXED_LOAD_START.search(xml):
+            raise ValueError("Unsupported prefixed XML Script/Include tag")
         load_tags = list(LOAD_TAG.finditer(xml))
         if len(load_tags) != len(LOAD_START.findall(xml)):
             raise ValueError("Malformed XML Script/Include tag")
@@ -125,6 +130,8 @@ def check_manifest(root, require_staged_name=True):
             position = 0
             file_attrs = []
             while position < len(attributes):
+                if position and not attributes[position].isspace():
+                    raise ValueError("XML attributes require separating whitespace")
                 attribute = ATTRIBUTE.match(attributes, position)
                 if attribute is None:
                     raise ValueError("Malformed XML Script/Include attribute")
@@ -434,6 +441,44 @@ class ManifestPreflightTests(unittest.TestCase):
                 "toc_paths": 2, "xml_paths": 3,
                 "total_references": 5, "xml_documents": 2,
             })
+
+    def test_prefixed_xml_loader_tags_fail_closed(self):
+        # An unsupported namespace prefix must not hide an active dependency.
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            target = root / "Compat/Libs/inner.xml"
+            for kind in ("Script", "Include"):
+                with self.subTest(kind=kind):
+                    target.write_text(
+                        '<Ui><ui:' + kind + ' file="../Impl.lua"/></Ui>\n',
+                        encoding="utf-8")
+                    with self.assertRaisesRegex(
+                            ValueError, "Unsupported prefixed XML"):
+                        check_manifest(root)
+            target.write_text(
+                '<Ui><!-- <ui:Script file="../Missing.lua"/> -->'
+                '<Script file="../Impl.lua"/></Ui>\n',
+                encoding="utf-8")
+            self.assertEqual(check_manifest(root)["total_references"], 5)
+
+    def test_adjacent_xml_attributes_without_whitespace_refused(self):
+        # XML requires whitespace between consecutive attributes.
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            target = root / "Compat/Libs/inner.xml"
+            valid = '<Ui><Script note="safe" file="../Impl.lua"/></Ui>\n'
+            target.write_text(valid, encoding="utf-8")
+            self.assertEqual(check_manifest(root)["total_references"], 5)
+            for inner in (
+                    'note="safe"file="../Impl.lua"',
+                    'file="../Impl.lua"note="safe"'):
+                with self.subTest(attributes=inner):
+                    target.write_text(
+                        "<Ui><Script " + inner + "/></Ui>\n",
+                        encoding="utf-8")
+                    with self.assertRaisesRegex(
+                            ValueError, "separating whitespace"):
+                        check_manifest(root)
 
     def test_unterminated_quoted_xml_load_attribute_is_refused(self):
         with tempfile.TemporaryDirectory() as temp:
