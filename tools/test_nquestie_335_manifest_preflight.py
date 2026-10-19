@@ -81,6 +81,10 @@ def check_manifest(root, require_staged_name=True):
         xml = XML_COMMENTS.sub("", xml)
         if "<!--" in xml or "-->" in xml:
             raise ValueError("Unterminated or malformed XML comment")
+        # This preflight deliberately does not expand XML entities or DTDs.
+        # Fail closed rather than allow parser/runtime interpretation to differ.
+        if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", xml, re.I):
+            raise ValueError("Unsupported XML DTD/entity declaration")
         for match in LOAD_TAG.finditer(xml):
             file_attrs = FILE_ATTR.findall(match.group(1))
             if len(file_attrs) != 1:
@@ -232,6 +236,39 @@ class ManifestPreflightTests(unittest.TestCase):
                 encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "XML comment"):
                 check_manifest(root)
+
+    def test_xml_missing_or_duplicate_file_attribute_refused(self):
+        examples = (
+            '<Ui><Script/></Ui>\\n',
+            '<Ui><Include/></Ui>\\n',
+            '<Ui><Script file="../Impl.lua" file="../Impl.lua"/></Ui>\\n',
+            '<Ui><Include file="../Impl.lua" file="../Impl.lua"/></Ui>\\n',
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            for contents in examples:
+                with self.subTest(xml=contents):
+                    (root / "Compat/Libs/inner.xml").write_text(
+                        contents, encoding="utf-8")
+                    with self.assertRaisesRegex(
+                            ValueError, "without one file attribute"):
+                        check_manifest(root)
+
+    def test_xml_dtd_and_entity_declarations_refused(self):
+        examples = (
+            '<!DOCTYPE Ui><Ui><Script file="../Impl.lua"/></Ui>\\n',
+            '<!ENTITY external SYSTEM "file:///etc/passwd">'
+            '<Ui><Script file="../Impl.lua"/></Ui>\\n',
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            for contents in examples:
+                with self.subTest(xml=contents):
+                    (root / "Compat/Libs/inner.xml").write_text(
+                        contents, encoding="utf-8")
+                    with self.assertRaisesRegex(
+                            ValueError, "Unsupported XML DTD/entity"):
+                        check_manifest(root)
 
     def test_real_public_335_source_references_without_writes(self):
         # This source graph is publicly tracked; it is NOT a staged ZIP and
