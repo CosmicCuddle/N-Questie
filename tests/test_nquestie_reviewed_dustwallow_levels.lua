@@ -94,11 +94,18 @@ for id, value in pairs(levels) do
     assert(registry[1]()[id] == nil,
            "non-table quest record unexpectedly patched: " .. id)
     guardChecks = guardChecks + 1
+    -- Lua 5.1 strings can return nil on numeric indexing, so a string-only
+    -- fixture may fail to detect a weakened type(base) guard. A number cannot
+    -- be indexed: this checks the table-type requirement independently.
+    database[id] = 7
+    assert(registry[1]()[id] == nil,
+           "numeric quest record unexpectedly patched: " .. id)
+    guardChecks = guardChecks + 1
     database[id] = row
     assert(row[4] == value[1] and row[5] == value[2],
            "synthetic level fixture not restored: " .. id)
 end
-assert(guardChecks == 64, "did not execute all eight-by-eight guard probes")
+assert(guardChecks == 72, "did not execute all eight-by-nine guard probes")
 
 -- Already corrected or unexpected inherited values must not be overwritten.
 database[1166][5] = 99
@@ -116,4 +123,4 @@ QuestieCompat.Is335 = false
 dofile("Compat/NQuestieReviewedQuestLevelCorrections.lua")
 assert(#registry == 0, "overrides registered on unsupported client")
 
-print("PASS: 8 precise Dustwallow level updates and 64 synthetic base-guard probes")
+print("PASS: 8 precise Dustwallow level updates and 72 synthetic base-guard probes")
