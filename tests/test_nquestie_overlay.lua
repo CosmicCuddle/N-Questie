@@ -162,6 +162,10 @@ local invalidFieldCases = {
     {"string kill target", "killNpcs", {"1868"}},
     {"zero prerequisite ID", "preQuestSingle", {0}},
     {"fractional prerequisite ID", "preQuestSingle", {437.5}},
+    -- Independent CS02 review of #121 found these three surviving guard mutants.
+    {"numeric quest name", "name", 5},
+    {"fractional race mask", "requiredRaces", 690.5},
+    {"fractional quest flags", "questFlags", 8.5},
 }
 local originalNpcStarts = QuestieDB.npcData[2121][10]
 local originalNpcEnds = QuestieDB.npcData[2121][11]
@@ -198,11 +202,11 @@ end
 local indexedInvalidFieldCases = 0
 for key in pairs(invalidFieldCases) do
     assert(type(key) == "number" and key == math.floor(key) and
-           key >= 1 and key <= 16, "invalid-metadata fixture keys are not dense")
+           key >= 1 and key <= 19, "invalid-metadata fixture keys are not dense")
     indexedInvalidFieldCases = indexedInvalidFieldCases + 1
 end
-assert(invalidFixtureCount == 16 and indexedInvalidFieldCases == 16,
-       "did not execute all sixteen invalid-metadata probes")
+assert(invalidFixtureCount == 19 and indexedInvalidFieldCases == 19,
+       "did not execute all nineteen invalid-metadata probes")
 assert(registry.questData()[2001] and registry.questData()[2002] and
        registry.questData()[2003],
        "invalid-metadata probes suppressed valid custom quests")
@@ -249,4 +253,5 @@ QuestieCompat.Is335 = false
 assert(type(NQuestieCustomQuestData.quests[2001]) == "table",
        "valid custom quest fixture was lost during loader guards")
 
+print("PASS: 19 rejected custom quest metadata fixtures and 6 loader-startup refusals")
 print("PASS: N-Questie quest, multi-quest deduped links, malformed-record refusal, missing-NPC safety, client guard")
