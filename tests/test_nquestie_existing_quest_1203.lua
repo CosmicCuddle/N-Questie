@@ -136,6 +136,11 @@ assert(original[10] == goodObjectives and
        goodObjectives[5] == fifthGroup and
        goodObjectives.syntheticMarker == supplementalMarker,
        "inherited Questie objective payload changed during callbacks")
+assert(#fifthGroup == 2 and #fifthGroup[1] == 1 and
+       #fifthGroup[2] == 1 and
+       fifthGroup[1][1] == 424242 and fifthGroup[2][1] == 434343 and
+       supplementalMarker.source == "synthetic",
+       "inherited nested objective or metadata values mutated during callbacks")
 -- Restore the source fixture so the non-3.3.5a registration test below remains
 -- independent of these synthetic preservation probes.
 goodObjectives[5] = nil
