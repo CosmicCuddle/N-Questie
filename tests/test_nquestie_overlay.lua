@@ -211,6 +211,69 @@ assert(registry.questData()[2001] and registry.questData()[2002] and
        registry.questData()[2003],
        "invalid-metadata probes suppressed valid custom quests")
 
+-- Invalid quest IDs used as collection keys must be rejected even when
+-- every value inside the quest record is otherwise valid. These are
+-- invented Lua 5.1 shapes, not server data or an approved policy change.
+local invalidQuestIdCases = {
+    {label = "zero ID", id = 0},
+    {label = "negative ID", id = -910201},
+    {label = "fractional ID", id = 910201.5},
+    {label = "string ID", id = "910201"},
+    {label = "boolean ID", id = false},
+    {label = "table ID", id = {}},
+}
+local invalidQuestIdCount = 0
+for _, testCase in ipairs(invalidQuestIdCases) do
+    invalidQuestIdCount = invalidQuestIdCount + 1
+    local badId = testCase.id
+    NQuestieCustomQuestData.quests[badId] = {
+        name = "Synthetic Invalid Quest Key",
+        requiredLevel = 5, questLevel = 8, zoneOrSort = 130,
+        requiredRaces = 690, questFlags = 8,
+        startedByNpcs = {2121}, finishedByNpcs = {2121},
+        killNpcs = {1868}, preQuestSingle = {437},
+    }
+    assert(registry.questData()[badId] == nil,
+           "malformed quest ID accepted: " .. testCase.label)
+    local npcResult = registry.npcData()[2121]
+    assert(#npcResult[10] == 7 and #npcResult[11] == 7,
+           "malformed quest ID changed NPC link counts: " .. testCase.label)
+    for _, field in ipairs({10, 11}) do
+        assert(containsExactlyOnce(npcResult[field], 2001) and
+               containsExactlyOnce(npcResult[field], 2002),
+               "malformed quest ID suppressed valid reverse links: " .. testCase.label)
+        for _, questId in ipairs(npcResult[field]) do
+            assert(questId ~= badId,
+                   "malformed quest ID linked to NPC: " .. testCase.label)
+        end
+    end
+    assert(QuestieDB.npcData[2121][10] == originalNpcStarts and
+           QuestieDB.npcData[2121][11] == originalNpcEnds,
+           "malformed quest ID mutated inherited NPC links: " .. testCase.label)
+    NQuestieCustomQuestData.quests[badId] = nil
+end
+-- Count both executed probes and the full fixture-key set: ipairs skips
+-- later cases after a nil hole in a Lua 5.1 sequence.
+local indexedInvalidQuestIdCases = 0
+for key in pairs(invalidQuestIdCases) do
+    assert(type(key) == "number" and key == math.floor(key) and
+           key >= 1 and key <= 6, "invalid quest ID fixture keys are not dense")
+    indexedInvalidQuestIdCases = indexedInvalidQuestIdCases + 1
+end
+assert(invalidQuestIdCount == 6 and indexedInvalidQuestIdCases == 6,
+       "did not execute all six malformed quest ID probes")
+
+-- Keep subsequent startup/client-guard tests independent from this matrix.
+-- These invented invalid records were added only by the preceding test loop.
+for index = 1, 19 do
+    NQuestieCustomQuestData.quests[910100 + index] = nil
+end
+assert(NQuestieCustomQuestData.quests[910101] == nil and
+       NQuestieCustomQuestData.quests[910119] == nil and
+       registry.questData()[2001] and registry.questData()[2002] and
+       registry.questData()[2003],
+       "invalid fixture cleanup lost valid custom quests")
+
 -- The custom overlay is exclusive to the intended 3.3.5a client.
 registry = {}
 QuestieCompat.Is335 = false
