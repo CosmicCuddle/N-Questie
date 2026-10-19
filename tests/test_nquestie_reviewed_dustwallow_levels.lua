@@ -107,6 +107,28 @@ for id, value in pairs(levels) do
 end
 assert(guardChecks == 72, "did not execute all eight-by-nine guard probes")
 
+-- Whole-quest-database guard: malformed storage must fail closed before
+-- looking up any individual quest. Restore the original table afterwards.
+local savedQuestData = db.questData
+local databaseGuardChecks = 0
+local function rejectBadQuestDatabase(label)
+    local refusal = registry[1]()
+    assert(type(refusal) == "table" and next(refusal) == nil,
+           "Dustwallow accepted malformed quest database: " .. label)
+    databaseGuardChecks = databaseGuardChecks + 1
+end
+db.questData = nil
+rejectBadQuestDatabase("missing")
+for _, scalar in ipairs({7, true}) do
+    db.questData = scalar
+    rejectBadQuestDatabase("scalar " .. type(scalar))
+    assert(db.questData == scalar, "quest database scalar was mutated")
+end
+db.questData = savedQuestData
+assert(db.questData == savedQuestData and registry[1]()[1166] ~= nil,
+       "Dustwallow valid database was not restored")
+assert(databaseGuardChecks == 3, "incomplete quest database guard probes")
+
 -- Already corrected or unexpected inherited values must not be overwritten.
 database[1166][5] = 99
 assert(registry[1]()[1166] == nil, "unknown upstream quest-level fix replaced")
