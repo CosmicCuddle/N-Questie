@@ -107,6 +107,44 @@ questDB.questData[1203] = original
 assert(registered[1]()[1203] ~= nil,
        "valid quest was not restored after numeric quest-record probe")
 
+-- Synthetic extra objective slots must be carried forward without changing
+-- either the inherited objective list or unrelated payloads. This exercises
+-- the existing outer-table copy, not a new game/client acceptance policy.
+local fifthGroup = {{424242}, {434343}}
+local supplementalMarker = {source = "synthetic"}
+goodObjectives[5] = fifthGroup
+goodObjectives.syntheticMarker = supplementalMarker
+local firstExtra = registered[1]()[1203]
+local secondExtra = registered[1]()[1203]
+assert(firstExtra and secondExtra,
+       "valid 1203 correction disappeared with unrelated objective data")
+for _, patch in ipairs({firstExtra, secondExtra}) do
+    local patchedObjectives = patch[10]
+    assert(patchedObjectives ~= goodObjectives,
+           "correction reused the inherited objective-list table")
+    assert(patchedObjectives[3][1][1] == 3853 and
+           patchedObjectives[3] ~= goodObjectives[3],
+           "item correction failed to replace only the intended group")
+    assert(patchedObjectives[5] == fifthGroup and
+           patchedObjectives.syntheticMarker == supplementalMarker,
+           "unrelated synthetic objective data was dropped or replaced")
+    assert(patch[8][1]:find("Moonsteel Broadsword", 1, true),
+           "objective text was lost during repeated correction")
+end
+assert(original[10] == goodObjectives and
+       goodObjectives[3][1][1] == 33110 and
+       goodObjectives[5] == fifthGroup and
+       goodObjectives.syntheticMarker == supplementalMarker,
+       "inherited Questie objective payload changed during callbacks")
+-- Restore the source fixture so the non-3.3.5a registration test below remains
+-- independent of these synthetic preservation probes.
+goodObjectives[5] = nil
+goodObjectives.syntheticMarker = nil
+assert(original[10] == goodObjectives and
+       original[10][3][1][1] == 33110 and
+       registered[1]()[1203] ~= nil,
+       "synthetic objective cleanup damaged the valid source fixture")
+
 registered = {}
 QuestieCompat.Is335 = false
 dofile("Compat/NQuestieExistingQuestCorrections.lua")
