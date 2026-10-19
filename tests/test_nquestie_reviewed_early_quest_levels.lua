@@ -109,6 +109,28 @@ end
 assert(guardChecks == 88,
        "incomplete synthetic source-guard matrix")
 
+-- Whole-quest-database guard: malformed storage must fail closed before
+-- looking up any individual quest. Restore the original table afterwards.
+local savedQuestData = questDb.questData
+local databaseGuardChecks = 0
+local function rejectBadQuestDatabase(label)
+    local refusal = callbacks[1]()
+    assert(type(refusal) == "table" and next(refusal) == nil,
+           "early-zone accepted malformed quest database: " .. label)
+    databaseGuardChecks = databaseGuardChecks + 1
+end
+questDb.questData = nil
+rejectBadQuestDatabase("missing")
+for _, scalar in ipairs({7, true}) do
+    questDb.questData = scalar
+    rejectBadQuestDatabase("scalar " .. type(scalar))
+    assert(questDb.questData == scalar, "quest database scalar was mutated")
+end
+questDb.questData = savedQuestData
+assert(questDb.questData == savedQuestData and callbacks[1]()[98] ~= nil,
+       "early-zone valid database was not restored")
+assert(databaseGuardChecks == 3, "incomplete quest database guard probes")
+
 -- Source guards fail closed when another correction already changed values.
 originals[398][4] = 88
 assert(callbacks[1]()[398] == nil, "unknown minimum-level value overwritten")

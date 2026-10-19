@@ -123,6 +123,28 @@ end
 assert(guardChecks == 72,
        "incomplete synthetic source-guard matrix")
 
+-- Whole-quest-database guard: malformed storage must fail closed before
+-- looking up any individual quest. Restore the original table afterwards.
+local savedQuestData = db.questData
+local databaseGuardChecks = 0
+local function rejectBadQuestDatabase(label)
+    local refusal = callbacks[1]()
+    assert(type(refusal) == "table" and next(refusal) == nil,
+           "Classic-chain accepted malformed quest database: " .. label)
+    databaseGuardChecks = databaseGuardChecks + 1
+end
+db.questData = nil
+rejectBadQuestDatabase("missing")
+for _, scalar in ipairs({7, true}) do
+    db.questData = scalar
+    rejectBadQuestDatabase("scalar " .. type(scalar))
+    assert(db.questData == scalar, "quest database scalar was mutated")
+end
+db.questData = savedQuestData
+assert(db.questData == savedQuestData and callbacks[1]()[225] ~= nil,
+       "Classic-chain valid database was not restored")
+assert(databaseGuardChecks == 3, "incomplete quest database guard probes")
+
 -- Guard: a changed upstream nominal level must not be replaced.
 originals[225][5] = 99
 assert(callbacks[1]()[225] == nil, "unexpected upstream nominal level overwritten")
