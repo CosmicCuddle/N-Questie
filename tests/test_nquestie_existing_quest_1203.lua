@@ -61,7 +61,9 @@ local malformed = {
     {label = "different numeric ID", objectives = {[3] = {{33111}}}},
     {label = "two item entries", objectives = {[3] = {{33110}, {33110}}}},
 }
+local malformedProbeCount = 0
 for _, testCase in ipairs(malformed) do
+    malformedProbeCount = malformedProbeCount + 1
     original[10] = testCase.objectives
     local refused = registered[1]()
     assert(next(refused) == nil,
@@ -73,6 +75,17 @@ for _, testCase in ipairs(malformed) do
            and original[4] == 30 and original[5] == 35,
            "unrelated inherited quest fields changed: " .. testCase.label)
 end
+-- A sparse Lua 5.1 sequence can stop ipairs early. Count both executed
+-- cases and indexed entries so the claimed twelve probes cannot silently
+-- drift after a fixture deletion, nil hole or unexpected table key.
+local indexedMalformedCases = 0
+for key in pairs(malformed) do
+    assert(type(key) == "number" and key == math.floor(key) and
+           key >= 1 and key <= 12, "malformed fixture list is not dense")
+    indexedMalformedCases = indexedMalformedCases + 1
+end
+assert(malformedProbeCount == 12 and indexedMalformedCases == 12,
+       "quest 1203 did not execute all twelve malformed-objective probes")
 original[10] = goodObjectives
 assert(registered[1]()[1203] ~= nil,
        "valid quest correction not restored after malformed fixtures")
