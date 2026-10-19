@@ -197,6 +197,33 @@ class ManifestPreflightTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Unsafe absolute"):
                 check_manifest(root)
 
+    def test_windows_drive_and_unc_paths_refused_in_toc_and_xml(self):
+        # Two distinct Windows-style escape attempts. These must be refused
+        # by the drive/UNC guard, not merely because a file is missing.
+        references = (
+            r"C:\untrusted\module.lua",
+            r"\\server\share\module.lua",
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            for reference in references:
+                with self.subTest(source="toc", reference=reference):
+                    (root / "Questie-335.toc").write_text(
+                        "## Interface: 30300\n" + reference + "\n",
+                        encoding="utf-8")
+                    with self.assertRaisesRegex(
+                            ValueError, "Unsafe absolute/drive"):
+                        check_manifest(root)
+                synthetic_package(temp)
+                with self.subTest(source="xml", reference=reference):
+                    (root / "Compat/Libs/inner.xml").write_text(
+                        '<Ui><Script file="' + reference + '"/></Ui>\n',
+                        encoding="utf-8")
+                    with self.assertRaisesRegex(
+                            ValueError, "Unsafe absolute/drive"):
+                        check_manifest(root)
+                synthetic_package(temp)
+
     def test_recursive_xml_include_cycle_refused(self):
         with tempfile.TemporaryDirectory() as temp:
             root = synthetic_package(temp)
