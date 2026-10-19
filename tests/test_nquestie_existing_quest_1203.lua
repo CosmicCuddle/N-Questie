@@ -54,6 +54,8 @@ local malformed = {
     {label = "non-table item group", objectives = {[3] = "malformed"}},
     {label = "empty item group", objectives = {[3] = {}}},
     {label = "non-table item entry", objectives = {[3] = {"malformed"}}},
+    -- Numeric entries must not bypass the item-entry table-type guard.
+    {label = "flat numeric item entry", objectives = {[3] = {33110}}},
     {label = "empty item entry", objectives = {[3] = {{}}}},
     {label = "text instead of item ID", objectives = {[3] = {{"33110"}}}},
     {label = "different numeric ID", objectives = {[3] = {{33111}}}},
@@ -83,10 +85,18 @@ assert(next(registered[1]()) == nil, "multiple objectives were overwritten")
 original[10][3] = {{33110}}
 questDB.questData[1203] = nil
 assert(next(registered[1]()) == nil, "missing quest entry was created")
+-- A numeric quest record detects weak `quest ~= nil` substitutes for the
+-- Lua 5.1 table guard; all invented fixtures must refuse without mutation.
+questDB.questData[1203] = 7
+assert(next(registered[1]()) == nil, "numeric quest entry was corrected")
+assert(questDB.questData[1203] == 7, "numeric quest entry was mutated")
+questDB.questData[1203] = original
+assert(registered[1]()[1203] ~= nil,
+       "valid quest was not restored after numeric quest-record probe")
 
 registered = {}
 QuestieCompat.Is335 = false
 dofile("Compat/NQuestieExistingQuestCorrections.lua")
 assert(#registered == 0, "correction activated outside 3.3.5a")
 
-print("PASS: quest 1203 item/text correction preserves fields and rejects 11 malformed objective shapes")
+print("PASS: quest 1203 item/text correction preserves fields and rejects 12 malformed objective shapes and numeric quest-record inputs")
