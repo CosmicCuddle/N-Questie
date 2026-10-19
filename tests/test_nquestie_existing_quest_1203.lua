@@ -41,6 +41,40 @@ assert(quest[10][1] == original[10][1] and
        "existing non-item objectives were lost")
 assert(original[10][3][1][1] == 33110, "original Questie objectives were mutated")
 
+-- Missing or malformed objective lists must never publish an item/text
+-- correction. These are invented public test shapes, not real-world records.
+local goodObjectives = original[10]
+local originalStarter, originalEnder = original[2], original[3]
+local originalPrior, originalText = original[13], original[8]
+local malformed = {
+    {label = "missing objectives"},
+    {label = "non-table objectives", objectives = "malformed"},
+    {label = "empty objectives", objectives = {}},
+    {label = "missing item group", objectives = {[1] = {{8888}}}},
+    {label = "non-table item group", objectives = {[3] = "malformed"}},
+    {label = "empty item group", objectives = {[3] = {}}},
+    {label = "non-table item entry", objectives = {[3] = {"malformed"}}},
+    {label = "empty item entry", objectives = {[3] = {{}}}},
+    {label = "text instead of item ID", objectives = {[3] = {{"33110"}}}},
+    {label = "different numeric ID", objectives = {[3] = {{33111}}}},
+    {label = "two item entries", objectives = {[3] = {{33110}, {33110}}}},
+}
+for _, testCase in ipairs(malformed) do
+    original[10] = testCase.objectives
+    local refused = registered[1]()
+    assert(next(refused) == nil,
+           "unsafe quest 1203 correction accepted: " .. testCase.label)
+    assert(original[10] == testCase.objectives,
+           "input objective list changed: " .. testCase.label)
+    assert(original[2] == originalStarter and original[3] == originalEnder
+           and original[13] == originalPrior and original[8] == originalText
+           and original[4] == 30 and original[5] == 35,
+           "unrelated inherited quest fields changed: " .. testCase.label)
+end
+original[10] = goodObjectives
+assert(registered[1]()[1203] ~= nil,
+       "valid quest correction not restored after malformed fixtures")
+
 -- A newer Questie correction with a different ID should be respected.
 original[10][3] = {{12345}}
 assert(next(registered[1]()) == nil, "unexpected source objective was overwritten")
@@ -55,4 +89,4 @@ QuestieCompat.Is335 = false
 dofile("Compat/NQuestieExistingQuestCorrections.lua")
 assert(#registered == 0, "correction activated outside 3.3.5a")
 
-print("PASS: quest 1203 item/text correction preserves existing levels and relationships")
+print("PASS: quest 1203 item/text correction preserves fields and rejects 11 malformed objective shapes")
