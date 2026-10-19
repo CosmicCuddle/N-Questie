@@ -12,8 +12,16 @@ from pathlib import Path
 
 
 XML_COMMENTS = re.compile(r"<!--.*?-->", re.DOTALL)
-LOAD_TAG = re.compile(r"<\s*(?:Script|Include)\b([^>]*)>", re.I | re.DOTALL)
-FILE_ATTR = re.compile(r"""\bfile\s*=\s*(["'])(.*?)\1""", re.I | re.DOTALL)
+# A quote-aware token boundary: a > inside a quoted attribute is not the tag end.
+# Only an exact attribute name "file" may supply the target; never data-file,
+# file-looking text inside another value, or an unquoted/malformed attribute.
+LOAD_START = re.compile(r"<\s*(?:Script|Include)\b", re.I)
+LOAD_TAG = re.compile(
+    r"""<\s*(?:Script|Include)\b((?:[^>"']|"[^"]*"|'[^']*')*)>""",
+    re.I | re.DOTALL)
+ATTRIBUTE = re.compile(
+    r"""\s*([A-Za-z_][\w.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')""",
+    re.DOTALL)
 
 
 def _checked_path(root, parent, supplied):
@@ -85,11 +93,27 @@ def check_manifest(root, require_staged_name=True):
         # Fail closed rather than allow parser/runtime interpretation to differ.
         if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", xml, re.I):
             raise ValueError("Unsupported XML DTD/entity declaration")
-        for match in LOAD_TAG.finditer(xml):
-            file_attrs = FILE_ATTR.findall(match.group(1))
+        load_tags = list(LOAD_TAG.finditer(xml))
+        if len(load_tags) != len(LOAD_START.findall(xml)):
+            raise ValueError("Malformed XML Script/Include tag")
+        for match in load_tags:
+            attributes = match.group(1).strip()
+            if attributes.endswith("/"):
+                attributes = attributes[:-1].rstrip()
+            position = 0
+            file_attrs = []
+            while position < len(attributes):
+                attribute = ATTRIBUTE.match(attributes, position)
+                if attribute is None:
+                    raise ValueError("Malformed XML Script/Include attribute")
+                if attribute.group(1).lower() == "file":
+                    value = (attribute.group(2) if attribute.group(2) is not None
+                             else attribute.group(3))
+                    file_attrs.append(value)
+                position = attribute.end()
             if len(file_attrs) != 1:
                 raise ValueError("XML Script/Include without one file attribute")
-            target = _checked_path(root, root / path, file_attrs[0][1])
+            target = _checked_path(root, root / path, file_attrs[0])
             references.append(target)
             if target.lower().endswith(".xml"):
                 visit_xml(target)
@@ -253,6 +277,48 @@ class ManifestPreflightTests(unittest.TestCase):
                     with self.assertRaisesRegex(
                             ValueError, "without one file attribute"):
                         check_manifest(root)
+
+    def test_spoofed_xml_file_attribute_is_not_a_file_reference(self):
+        examples = (
+            ('<Ui><Script data-file="../Impl.lua"/></Ui>\n',
+             "without one file attribute"),
+            ('<Ui><Include meta-file="../Impl.lua"/></Ui>\n',
+             "without one file attribute"),
+            ('<Ui><Script note=\'file="../Impl.lua"\'/></Ui>\n',
+             "without one file attribute"),
+            ('<Ui><Script file=../Impl.lua/></Ui>\n',
+             "Malformed XML Script/Include attribute"),
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            for xml, expected in examples:
+                with self.subTest(xml=xml):
+                    (root / "Compat/Libs/inner.xml").write_text(
+                        xml, encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, expected):
+                        check_manifest(root)
+
+    def test_quoted_attribute_contents_do_not_create_false_dependencies(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            (root / "Compat/Libs/inner.xml").write_text(
+                '<Ui><Script note=\'file="../Unreviewed.lua" > ignored\' '
+                'file="../Impl.lua"/></Ui>\n',
+                encoding="utf-8")
+            self.assertEqual(check_manifest(root), {
+                "toc_paths": 2, "xml_paths": 3,
+                "total_references": 5, "xml_documents": 2,
+            })
+
+    def test_unterminated_quoted_xml_load_attribute_is_refused(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            (root / "Compat/Libs/inner.xml").write_text(
+                '<Ui><Script file="../Impl.lua/></Ui>\n',
+                encoding="utf-8")
+            with self.assertRaisesRegex(
+                    ValueError, "Malformed XML Script/Include tag"):
+                check_manifest(root)
 
     def test_xml_dtd_and_entity_declarations_refused(self):
         examples = (
