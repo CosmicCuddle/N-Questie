@@ -73,6 +73,13 @@ def check_manifest(root, require_staged_name=True):
         toc_path.resolve().relative_to(root)
     except ValueError as exc:
         raise ValueError("TOC escapes addon root (symlink)") from exc
+    # TOC name must be spelled exactly even on case-insensitive hosts.
+    try:
+        top_level_names = {entry.name for entry in root.iterdir()}
+    except OSError as exc:
+        raise ValueError("Cannot inspect staged addon root") from exc
+    if "Questie-335.toc" not in top_level_names:
+        raise ValueError("Required Questie-335.toc has wrong-case spelling")
     raw = toc_path.read_text(encoding="utf-8-sig")
     interfaces = re.findall(r"(?m)^## Interface:\s*(\d+)\s*$", raw)
     if interfaces != ["30300"]:
@@ -275,6 +282,25 @@ class ManifestPreflightTests(unittest.TestCase):
             os.symlink(external, root / "Questie-335.toc")
             with self.assertRaisesRegex(ValueError, "TOC escapes"):
                 check_manifest(root)
+
+    def test_toc_name_case_refused_when_is_file_is_case_insensitive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            correct_toc = root / "Questie-335.toc"
+            wrong_toc = root / "questie-335.toc"
+            correct_toc.rename(wrong_toc)
+            original_is_file = Path.is_file
+
+            def simulated_case_insensitive_is_file(candidate):
+                if candidate == correct_toc:
+                    return True
+                return original_is_file(candidate)
+
+            with mock.patch.object(Path, "is_file",
+                                   simulated_case_insensitive_is_file):
+                with self.assertRaisesRegex(
+                        ValueError, "Required Questie-335.toc.*wrong-case"):
+                    check_manifest(root)
 
     def test_unterminated_xml_comment_cannot_hide_references(self):
         with tempfile.TemporaryDirectory() as temp:
