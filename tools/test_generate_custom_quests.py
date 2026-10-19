@@ -332,6 +332,45 @@ print("PASS: generated reviewed JSON Lua loads through frozen Questie 3.3.5a ove
             self.assertFalse(output.exists(),
                              "unapproved synthetic quest was written")
 
+    def test_cli_higher_revision_still_requires_overwrite(self):
+        # Mutation oracle: removing the default no-overwrite guard must fail
+        # this test even when the requested revision is otherwise valid.
+        # Completely invented review and filesystem fixture; no world DB.
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            review = directory / "synthetic-review.json"
+            output = directory / "curated.lua"
+            review.write_text(
+                json.dumps(reviewed(quest())), encoding="utf-8")
+            args = [
+                "--review", str(review),
+                "--approved-quest", "2001",
+                "--verified-npc", "2121",
+                "--verified-npc", "1868",
+                "--verified-npc", "1869",
+                "--revision", "2", "--output", str(output),
+            ]
+            generator.main(args)
+            before = output.read_bytes()
+            self.assertIn(b"revision = 2", before)
+
+            revised = args.copy()
+            revised[revised.index("--revision") + 1] = "3"
+            with self.assertRaises(SystemExit):
+                generator.main(revised)
+            self.assertEqual(before, output.read_bytes(),
+                             "higher revision replaced Lua without consent")
+            self.assertFalse(any(directory.glob("*.tmp")),
+                             "refused overwrite left a temporary file")
+
+            # Positive control: explicit --overwrite plus higher revision
+            # is still supported and does not discard approved quest 2001.
+            generator.main(revised + ["--overwrite"])
+            after = output.read_text(encoding="utf-8")
+            self.assertIn("revision = 3", after)
+            self.assertIn("[2001] = {", after)
+
+
     def test_cli_never_overwrites_existing_file_by_default(self):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
