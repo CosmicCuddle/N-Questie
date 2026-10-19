@@ -163,6 +163,8 @@ local invalidFieldCases = {
     {"zero prerequisite ID", "preQuestSingle", {0}},
     {"fractional prerequisite ID", "preQuestSingle", {437.5}},
 }
+local originalNpcStarts = QuestieDB.npcData[2121][10]
+local originalNpcEnds = QuestieDB.npcData[2121][11]
 local invalidFixtureCount = 0
 for index, case in ipairs(invalidFieldCases) do
     invalidFixtureCount = invalidFixtureCount + 1
@@ -186,9 +188,9 @@ for index, case in ipairs(invalidFieldCases) do
             assert(questId ~= badId, "invalid quest linked to NPC: " .. case[1])
         end
     end
-    assert(QuestieDB.npcData[2121][10] == twoNpc[10] or
-           (#QuestieDB.npcData[2121][10] == 5 and
-            #QuestieDB.npcData[2121][11] == 5),
+    assert(QuestieDB.npcData[2121][10] == originalNpcStarts and
+           QuestieDB.npcData[2121][11] == originalNpcEnds and
+           #originalNpcStarts == 5 and #originalNpcEnds == 5,
            "inherited NPC database mutated: " .. case[1])
 end
 assert(invalidFixtureCount == 16 and #invalidFieldCases == 16,
