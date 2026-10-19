@@ -52,6 +52,54 @@ end
 assert(count == 8)
 assert(corrected[2001] == nil, "custom quest unexpectedly overridden")
 
+-- Matrix: each reviewed ID must refuse all unexpected, partially missing,
+-- already-patched, absent and non-table inherited records. Unlike the
+-- original two spot checks, this covers every one of the eight level pairs.
+-- All mutations are temporary synthetic fixtures, not a production database.
+local guardChecks = 0
+for id, value in pairs(levels) do
+    local row = database[id]
+    local originalStarter, originalEnder = row[2], row[3]
+    local originalObjectives, originalPrior = row[10], row[13]
+    local originalFlags = row[17]
+
+    local function refused(label, minimum, questLevel)
+        row[4], row[5] = minimum, questLevel
+        assert(registry[1]()[id] == nil,
+               "unsafe level update for quest " .. id .. ": " .. label)
+        assert(row[2] == originalStarter and row[3] == originalEnder and
+               row[10] == originalObjectives and row[13] == originalPrior and
+               row[17] == originalFlags,
+               "unrelated inherited metadata changed: " .. id .. " " .. label)
+        assert(row[4] == minimum and row[5] == questLevel,
+               "inherited level values mutated: " .. id .. " " .. label)
+        guardChecks = guardChecks + 1
+    end
+
+    refused("unexpected minimum", value[1] + 1, value[2])
+    refused("unexpected quest level", value[1], value[2] + 1)
+    refused("both levels unexpected", value[1] + 1, value[2] + 1)
+    refused("missing minimum", nil, value[2])
+    refused("missing quest level", value[1], nil)
+    refused("already corrected", value[3], value[4])
+
+    row[4], row[5] = value[1], value[2]
+    assert(registry[1]()[id] ~= nil,
+           "legitimate corrected pair not restored for quest " .. id)
+    database[id] = nil
+    assert(registry[1]()[id] == nil,
+           "missing quest record unexpectedly patched: " .. id)
+    guardChecks = guardChecks + 1
+    database[id] = "malformed"
+    assert(registry[1]()[id] == nil,
+           "non-table quest record unexpectedly patched: " .. id)
+    guardChecks = guardChecks + 1
+    database[id] = row
+    assert(row[4] == value[1] and row[5] == value[2],
+           "synthetic level fixture not restored: " .. id)
+end
+assert(guardChecks == 64, "did not execute all eight-by-eight guard probes")
+
 -- Already corrected or unexpected inherited values must not be overwritten.
 database[1166][5] = 99
 assert(registry[1]()[1166] == nil, "unknown upstream quest-level fix replaced")
@@ -68,4 +116,4 @@ QuestieCompat.Is335 = false
 dofile("Compat/NQuestieReviewedQuestLevelCorrections.lua")
 assert(#registry == 0, "overrides registered on unsupported client")
 
-print("PASS: 8 precise Dustwallow quest-level updates, base guard, retained metadata")
+print("PASS: 8 precise Dustwallow level updates and 64 synthetic base-guard probes")
