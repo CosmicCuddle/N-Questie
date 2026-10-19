@@ -213,4 +213,40 @@ QuestieCompat.Is335 = false
 dofile("Compat/NQuestieCustomQuestLoader.lua")
 assert(next(registry) == nil, "custom overlay registered for a different client")
 
+-- Missing loader services and malformed top-level custom data must fail
+-- closed before any correction callback is registered. These invented shapes
+-- are a Lua 5.1 harness check, NOT evidence of normal client initialization.
+local savedCompat = QuestieCompat
+local savedCustom = NQuestieCustomQuestData
+local function rejectUnreadyLoader(label)
+    registry = {}
+    dofile("Compat/NQuestieCustomQuestLoader.lua")
+    assert(next(registry) == nil,
+           "custom loader registered while unready: " .. label)
+    assert(QuestieDB.npcData[2121][10] == originalNpcStarts and
+           QuestieDB.npcData[2121][11] == originalNpcEnds,
+           "unready custom loader mutated inherited NPC data: " .. label)
+end
+QuestieCompat = nil
+rejectUnreadyLoader("missing compatibility layer")
+QuestieCompat = {RegisterCorrection = function()
+    error("client guard unexpectedly registered a correction")
+end}
+rejectUnreadyLoader("missing Is335 client flag")
+QuestieCompat = {Is335 = true}
+rejectUnreadyLoader("missing RegisterCorrection")
+QuestieCompat = savedCompat
+QuestieCompat.Is335 = true
+NQuestieCustomQuestData = nil
+rejectUnreadyLoader("missing custom quest source")
+NQuestieCustomQuestData = "malformed"
+rejectUnreadyLoader("scalar custom quest source")
+NQuestieCustomQuestData = {quests = 7}
+rejectUnreadyLoader("scalar quests collection")
+NQuestieCustomQuestData = savedCustom
+QuestieCompat = savedCompat
+QuestieCompat.Is335 = false
+assert(type(NQuestieCustomQuestData.quests[2001]) == "table",
+       "valid custom quest fixture was lost during loader guards")
+
 print("PASS: N-Questie quest, multi-quest deduped links, malformed-record refusal, missing-NPC safety, client guard")
