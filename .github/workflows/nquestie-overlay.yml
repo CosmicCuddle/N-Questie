@@ -54,6 +54,385 @@ jobs:
         run: python3 tools/test_reviewed_classic_chain_sources.py
       - name: Test 3.3.5a manifest preflight (synthetic, no package or upload)
         run: python3 tools/test_nquestie_335_manifest_preflight.py
+      - name: Discover all Python tests and enforce the pinned identity inventory
+        # Pinned at frozen #140 a503d6ce3cc536dbddfb6f4f802246ec578b6369.
+        # Discovery of tools/test_*.py runs these 118 tests (11 modules):
+        # 117 passes and exactly one intentional skip,
+        # test_audit_world_quest_levels_counts.AuditCountAndOrderTests.test_repeated_correction_id_policy_is_not_stated.
+        # That test is skipped because a repeated-correction policy is not stated
+        # (DEV-063 overlap) and must not be chosen in this inventory.
+        run: |
+          set -euo pipefail
+          discover_dir="$(mktemp -d)"
+          set +e
+          python3 -m unittest discover -s tools -p 'test_*.py' -v >"$discover_dir/stdout.txt" 2>"$discover_dir/stderr.txt"
+          discover_status=$?
+          set -e
+          cat "$discover_dir/stdout.txt"
+          cat "$discover_dir/stderr.txt" >&2
+          python3 - "$discover_status" "$discover_dir/stderr.txt" <<'PY'
+          import re
+          import sys
+
+          # Frozen inventory for a503d6ce3cc536dbddfb6f4f802246ec578b6369.
+          # Discovery of tools/test_*.py runs these 118 tests: 117 passes and exactly
+          # one intentional skip. The skip stays skipped because a repeated-correction
+          # policy is not stated (DEV-063 overlap) and must not be chosen here.
+          EXPECTED_SKIP_ID = (
+              "test_audit_world_quest_levels_counts.AuditCountAndOrderTests"
+              ".test_repeated_correction_id_policy_is_not_stated"
+          )
+
+          PINNED_TEST_IDS = (
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_cli_incomplete_questie_source_preserves_private_report",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_cli_nonnumeric_questie_level_fails_closed_before_output",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_commas_and_escapes_in_lua",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_duplicate_world_quest_rejected_for_sql_and_zip",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_dynamic_fix_and_missing_questie_are_distinct",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_full_cli_synthetic_audit",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_mismatch_detection_with_literal_layer",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_missing_fix_table_rejected",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_missing_quest_rejected",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_negative_dynamic_quest_requires_review",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_parse_generated_lua_nested_quests",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_parse_static_layer_and_dynamic_guard",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_private_server_sql_and_zip",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_real_repository_jarl_record_and_literal_layers",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_refuse_private_output_inside_repo",
+              "test_audit_world_quest_levels.QuestLevelAuditTests.test_requested_match_is_included",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_cli_column_refusal_does_not_write_a_report",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_duplicate_minlevel_header_keeps_the_later_value",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_explicit_zero_levels_are_kept",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_extra_header_without_matching_value_is_refused",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_extra_unknown_column_is_ignored",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_later_missing_column_does_not_return_earlier_rows",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_later_unrecognized_insert_is_not_merged",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_missing_or_misspelled_level_columns_are_refused",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_named_columns_parse_in_any_order",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_non_numeric_levels_are_not_coerced",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_parse_row_maps_by_header_name_and_rejects_width",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_scrambled_header_with_extra_column_keeps_named_levels",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_tuple_width_must_match_header",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_unrecognized_insert_header_is_refused",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_whitespace_around_header_names_still_matches",
+              "test_audit_world_quest_levels_columns.QuestLevelColumnTests.test_zip_follows_the_same_column_rules",
+              "test_audit_world_quest_levels_counts.AuditCountAndOrderTests.test_cli_json_bytes_identical_and_outside_repo",
+              "test_audit_world_quest_levels_counts.AuditCountAndOrderTests.test_duplicate_questie_id_rejected",
+              "test_audit_world_quest_levels_counts.AuditCountAndOrderTests.test_duplicate_world_quest_id_rejected",
+              "test_audit_world_quest_levels_counts.AuditCountAndOrderTests.test_known_dataset_counts_and_exact_order",
+              "test_audit_world_quest_levels_counts.AuditCountAndOrderTests.test_order_stable_across_runs_and_input_permutations",
+              "test_audit_world_quest_levels_counts.AuditCountAndOrderTests.test_repeated_correction_id_policy_is_not_stated",
+              "test_export_world_quests.ExportTests.test_empty_integer_fields_are_refused",
+              "test_export_world_quests.ExportTests.test_incorrect_sql_tuple_width",
+              "test_export_world_quests.ExportTests.test_leading_whitespace_and_tabs_are_accepted",
+              "test_export_world_quests.ExportTests.test_missing_integer_column_defaults_to_zero",
+              "test_export_world_quests.ExportTests.test_missing_quest_fails_closed",
+              "test_export_world_quests.ExportTests.test_negative_prev_quest_id_is_refused",
+              "test_export_world_quests.ExportTests.test_negative_quest_id_is_skipped_and_missing_id_is_refused",
+              "test_export_world_quests.ExportTests.test_row_must_end_as_heidi_tuple",
+              "test_export_world_quests.ExportTests.test_signed_npc_ids_on_creature_links",
+              "test_export_world_quests.ExportTests.test_single_realistic_quest",
+              "test_export_world_quests.ExportTests.test_space_or_tab_after_opening_paren_skips_quest_row",
+              "test_export_world_quests.ExportTests.test_unsafe_integer_coercion",
+              "test_export_world_quests.ExportTests.test_unsupported_gameobject_fails_closed",
+              "test_export_world_quests.ExportTests.test_zip_equals_sql",
+              "test_generate_custom_quests.GeneratorTests.test_bad_ids_counts_and_duplicates_refused",
+              "test_generate_custom_quests.GeneratorTests.test_cli_failed_review_never_replaces_existing_generated_lua",
+              "test_generate_custom_quests.GeneratorTests.test_cli_higher_revision_still_requires_overwrite",
+              "test_generate_custom_quests.GeneratorTests.test_cli_invalid_new_review_creates_no_lua_file",
+              "test_generate_custom_quests.GeneratorTests.test_cli_never_overwrites_existing_file_by_default",
+              "test_generate_custom_quests.GeneratorTests.test_cli_requires_explicit_removal_approval",
+              "test_generate_custom_quests.GeneratorTests.test_explicit_quest_approval",
+              "test_generate_custom_quests.GeneratorTests.test_explicit_verified_npcs",
+              "test_generate_custom_quests.GeneratorTests.test_generated_lua_loads_through_real_335_overlay",
+              "test_generate_custom_quests.GeneratorTests.test_known_quest_lua_structure",
+              "test_generate_custom_quests.GeneratorTests.test_sort_order_and_stable_output",
+              "test_generate_custom_quests.GeneratorTests.test_title_escaping_no_lua_injection",
+              "test_generate_custom_quests.GeneratorTests.test_unknown_format_and_fields_refused",
+              "test_generate_custom_quests_json_roots.InvalidJsonRootTests.test_existing_output_unchanged_with_overwrite",
+              "test_generate_custom_quests_json_roots.InvalidJsonRootTests.test_existing_output_unchanged_without_overwrite",
+              "test_generate_custom_quests_json_roots.InvalidJsonRootTests.test_invalid_roots_do_not_create_output",
+              "test_generate_custom_quests_json_roots.InvalidJsonRootTests.test_valid_minimal_document_generates_lua",
+              "test_generate_custom_quests_numeric_types.NumericJsonTypeTests.test_cli_approved_and_verified_tokens",
+              "test_generate_custom_quests_numeric_types.NumericJsonTypeTests.test_cli_numeric_string_revision_token_is_currently_accepted",
+              "test_generate_custom_quests_numeric_types.NumericJsonTypeTests.test_cli_revision_tokens_follow_argparse_then_whole",
+              "test_generate_custom_quests_numeric_types.NumericJsonTypeTests.test_generate_refuses_non_ints_that_argparse_would_coerce",
+              "test_generate_custom_quests_numeric_types.NumericJsonTypeTests.test_json_numeric_fields_are_refused_without_writing",
+              "test_generate_custom_quests_numeric_types.NumericJsonTypeTests.test_positive_control_minimal_review_generates_lua",
+              "test_generate_custom_quests_numeric_types.NumericJsonTypeTests.test_quests_value_must_be_a_list",
+              "test_generate_custom_quests_numeric_types.NumericJsonTypeTests.test_zero_on_minimum_zero_fields_is_currently_accepted",
+              "test_generate_custom_quests_numeric_types.NumericJsonTypeTests.test_zone_or_sort_currently_accepts_negative_and_zero",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_adjacent_xml_attributes_without_whitespace_refused",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_exact_case_refusal_when_is_file_claims_wrong_case_exists",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_external_toc_symlink_cannot_supply_managed_manifest",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_missing_compat_after_legacy_style_copy_is_refused",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_missing_nested_script_and_exact_case_guard",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_path_traversal_and_absolute_path_refused",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_prefixed_xml_loader_tags_fail_closed",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_quoted_attribute_contents_do_not_create_false_dependencies",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_real_public_335_source_references_without_writes",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_recursive_xml_include_cycle_refused",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_retail_wotlk_toc_is_not_a_335_toc",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_spoofed_xml_file_attribute_is_not_a_file_reference",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_symlink_outside_staging_root_refused",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_synthetic_valid_nested_xml_and_commented_script",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_toc_name_case_refused_when_is_file_is_case_insensitive",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_unterminated_quoted_xml_load_attribute_is_refused",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_unterminated_xml_comment_cannot_hide_references",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_unusual_prefixed_loader_spellings_are_refused",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_windows_drive_and_unc_paths_refused_in_toc_and_xml",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_wrong_case_intermediate_dir_refused_with_case_insensitive_listing",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_wrong_interface_and_wrong_package_folder_refused",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_xml_dtd_and_entity_declarations_refused",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_xml_missing_or_duplicate_file_attribute_refused",
+              "test_nquestie_335_manifest_preflight.ManifestPreflightTests.test_xml_s_whitespace_only_in_loader_attributes",
+              "test_reviewed_classic_chain_sources.ClassicQuestChainSourceTests.test_all_nine_inherited_level_pairs",
+              "test_reviewed_classic_chain_sources.ClassicQuestChainSourceTests.test_prior_level_batches_and_jarl_do_not_overlap",
+              "test_reviewed_classic_chain_sources.ClassicQuestChainSourceTests.test_static_numeric_fix_layers_are_accounted_for",
+              "test_reviewed_early_quest_sources.EarlyQuestSourceTests.test_all_eleven_source_values_still_match",
+              "test_reviewed_early_quest_sources.EarlyQuestSourceTests.test_no_original_static_numeric_corrections_for_these_ids",
+              "test_reviewed_early_quest_sources.EarlyQuestSourceTests.test_quest_1203_and_custom_2001_not_in_the_batch",
+              "test_world_quest_sql_quoting.SqlQuotingTests.test_carriage_return_inside_a_title_differs_for_a_zip",
+              "test_world_quest_sql_quoting.SqlQuotingTests.test_cli_refusal_prints_a_fixed_line",
+              "test_world_quest_sql_quoting.SqlQuotingTests.test_double_quoted_comma_is_refused",
+              "test_world_quest_sql_quoting.SqlQuotingTests.test_invalid_utf8_is_replaced_without_shifting_levels",
+              "test_world_quest_sql_quoting.SqlQuotingTests.test_lf_and_crlf_files_and_zips_keep_the_same_levels",
+              "test_world_quest_sql_quoting.SqlQuotingTests.test_odd_trailing_backslash_is_refused_without_the_row",
+              "test_world_quest_sql_quoting.SqlQuotingTests.test_parse_row_quotes_do_not_move_numeric_fields",
+              "test_world_quest_sql_quoting.SqlQuotingTests.test_real_newline_inside_quotes_is_refused",
+              "test_world_quest_sql_quoting.SqlQuotingTests.test_shared_parser_and_fixture_bytes",
+              "test_world_quest_sql_quoting.SqlQuotingTests.test_unescaped_apostrophe_corrupts_or_refuses",
+          )
+
+          START_RE = re.compile(r"^(\w+) \(([\w.]+)\)(.*)$")
+          STATUS_RE = re.compile(
+              r" \.\.\. (ok|FAIL|ERROR|expected failure|unexpected success|skipped .+)$"
+          )
+          BARE_STATUS_RE = re.compile(
+              r"^(ok|FAIL|ERROR|expected failure|unexpected success|skipped .+)$"
+          )
+          SUMMARY_RE = re.compile(
+              r"^Ran (\d+) tests? in [0-9.]+s\n\n"
+              r"(OK|FAILED|NO TESTS RAN)(?: \(([^)]*)\))?[ \t]*$",
+              re.MULTILINE,
+          )
+
+
+          def extract_status(line):
+              match = STATUS_RE.search(line)
+              if match:
+                  return match.group(1)
+              match = BARE_STATUS_RE.fullmatch(line.strip())
+              if match:
+                  return match.group(1)
+              return None
+
+
+          def progress_lines(text):
+              lines = []
+              for raw in text.splitlines():
+                  line = raw.rstrip("\r")
+                  if line in ("=" * 70, "-" * 70):
+                      break
+                  lines.append(line)
+              return lines
+
+
+          def parse_summary(text):
+              matches = list(SUMMARY_RE.finditer(text))
+              if not matches:
+                  return None
+              match = matches[-1]
+              ran = int(match.group(1))
+              status = match.group(2)
+              infos = {}
+              if match.group(3):
+                  for part in match.group(3).split(", "):
+                      key, value = part.split("=", 1)
+                      infos[key] = int(value) if value.isdigit() else value
+              return ran, status, infos
+
+
+          def parse_discovery(text):
+              problems = []
+              discovered = []
+              outcomes = {}
+              pending = None
+              lines = progress_lines(text)
+              index = 0
+              while index < len(lines):
+                  line = lines[index]
+                  start = START_RE.match(line)
+                  if pending is None and start:
+                      test_id = start.group(2)
+                      if test_id in discovered:
+                          problems.append("duplicate test ID in discovery output: " + test_id)
+                      discovered.append(test_id)
+                      status = extract_status(line)
+                      if status is None:
+                          pending = test_id
+                      else:
+                          outcomes[test_id] = status
+                      index += 1
+                      continue
+                  if pending is not None:
+                      if start:
+                          problems.append(
+                              "discovery output ended " + pending + " before a pass/fail/skip status"
+                          )
+                          outcomes[pending] = "UNREADABLE"
+                          pending = None
+                          continue
+                      status = extract_status(line)
+                      if status is not None:
+                          outcomes[pending] = status
+                          pending = None
+                      index += 1
+                      continue
+                  index += 1
+              if pending is not None:
+                  problems.append("discovery output ended before a status for " + pending)
+                  outcomes[pending] = "UNREADABLE"
+              return discovered, outcomes, problems
+
+
+          def main():
+              discover_status = int(sys.argv[1])
+              stderr_path = sys.argv[2]
+              with open(stderr_path, encoding="utf-8", errors="replace") as handle:
+                  stderr_text = handle.read()
+
+              problems = []
+              pinned = list(PINNED_TEST_IDS)
+              if len(pinned) != len(set(pinned)):
+                  duplicates = sorted({item for item in pinned if pinned.count(item) > 1})
+                  problems.append(
+                      "pinned inventory contains duplicate test IDs: " + ", ".join(duplicates)
+                  )
+              if EXPECTED_SKIP_ID not in pinned:
+                  problems.append(
+                      "expected skip ID is not in the pinned inventory: " + EXPECTED_SKIP_ID
+                  )
+
+              discovered, outcomes, parse_problems = parse_discovery(stderr_text)
+              problems.extend(parse_problems)
+              summary = parse_summary(stderr_text)
+
+              if summary is None:
+                  problems.append(
+                      "could not parse the unittest summary "
+                      "(expected a final 'Ran N tests' line and an OK/FAILED line)"
+                  )
+              else:
+                  ran, status, infos = summary
+                  detail = ", ".join("%s=%s" % (key, value) for key, value in infos.items())
+                  if ran != len(pinned):
+                      problems.append(
+                          "unittest summary ran %d tests; pinned inventory has %d"
+                          % (ran, len(pinned))
+                      )
+                  if status != "OK":
+                      problems.append("unittest summary status is %s, expected OK" % status)
+                  if infos != {"skipped": 1}:
+                      problems.append(
+                          "unittest summary details are %s; expected exactly skipped=1"
+                          % (detail or "(none)")
+                      )
+                  if ran != len(discovered):
+                      problems.append(
+                          "unittest summary ran %d tests but the verbose log identified %d test IDs"
+                          % (ran, len(discovered))
+                      )
+
+              if discover_status != 0:
+                  problems.append(
+                      "python3 -m unittest discover exited %d; expected 0" % discover_status
+                  )
+
+              pinned_set = set(pinned)
+              discovered_set = set(discovered)
+              missing = sorted(pinned_set - discovered_set)
+              extra = sorted(discovered_set - pinned_set)
+              if missing:
+                  problems.append(
+                      "missing pinned test IDs (discovery did not run them):\n  - "
+                      + "\n  - ".join(missing)
+                  )
+              if extra:
+                  problems.append(
+                      "unexpected test IDs (not in the pinned inventory):\n  - "
+                      + "\n  - ".join(extra)
+                  )
+
+              skips = []
+              bad_outcomes = []
+              seen = set()
+              for test_id in discovered:
+                  if test_id in seen:
+                      continue
+                  seen.add(test_id)
+                  outcome = outcomes.get(test_id)
+                  if outcome is None or outcome == "UNREADABLE":
+                      bad_outcomes.append(test_id + ": outcome was not readable")
+                      continue
+                  if outcome == "ok":
+                      continue
+                  if outcome.startswith("skipped"):
+                      reason = outcome[len("skipped"):].strip()
+                      skips.append((test_id, reason))
+                      continue
+                  bad_outcomes.append(test_id + ": " + outcome)
+
+              if bad_outcomes:
+                  problems.append(
+                      "tests that failed, errored, or were not a plain pass:\n  - "
+                      + "\n  - ".join(bad_outcomes)
+                  )
+              if len(skips) != 1:
+                  rendered = "\n  - ".join(
+                      "%s %s" % (test_id, reason) for test_id, reason in skips
+                  ) or "(none)"
+                  problems.append(
+                      "expected exactly 1 skipped test, found %d:\n  - %s" % (len(skips), rendered)
+                  )
+              elif skips[0][0] != EXPECTED_SKIP_ID:
+                  problems.append(
+                      "the skipped test is not the pinned intentional skip:\n"
+                      "  expected: %s\n"
+                      "  actual:   %s %s" % (EXPECTED_SKIP_ID, skips[0][0], skips[0][1])
+                  )
+
+              if problems:
+                  print("Python discovery inventory check FAILED.", file=sys.stderr)
+                  print("Pinned test IDs: %d" % len(pinned), file=sys.stderr)
+                  print("Discovered test IDs: %d" % len(discovered_set), file=sys.stderr)
+                  print("Discovery exit status: %d" % discover_status, file=sys.stderr)
+                  if summary is not None:
+                      ran, status, infos = summary
+                      detail = ", ".join("%s=%s" % (key, value) for key, value in infos.items())
+                      suffix = " (%s)" % detail if detail else ""
+                      print(
+                          "Unittest summary: Ran %d / %s%s" % (ran, status, suffix),
+                          file=sys.stderr,
+                      )
+                  print("Expected skip: " + EXPECTED_SKIP_ID, file=sys.stderr)
+                  for index, problem in enumerate(problems, 1):
+                      print("\n[%d] %s" % (index, problem), file=sys.stderr)
+                  sys.exit(1)
+
+              reason = skips[0][1]
+              print("Pinned Python discovery inventory matched.")
+              print(
+                  "Ran %d tests: %d passed, 1 skipped."
+                  % (len(discovered_set), len(discovered_set) - 1)
+              )
+              print("Skipped test: " + EXPECTED_SKIP_ID)
+              print("Skip reason: " + reason)
+
+
+          if __name__ == "__main__":
+              main()
+          PY
       - name: Verify 3.3.5a TOC integration
         run: |
           grep -Fq '## Interface: 30300' Questie-335.toc
