@@ -60,6 +60,55 @@ assert(count == 11, "expected 11 reviewed quests")
 assert(changes[1203] == nil and changes[2001] == nil,
        "unrelated existing/custom quests altered")
 
+-- Regression matrix: each reviewed quest refuses all eight unexpected
+-- inherited-record states. These are invented, temporary Lua 5.1 fixtures.
+-- Retain the original spot checks and positive metadata/chain assertions.
+local guardChecks = 0
+for id, levels in pairs(expected) do
+    local row = originals[id]
+    local starter, ender = row[2], row[3]
+    local text, objectives, prior, flags = row[8], row[10], row[13], row[17]
+
+    local function refused(label, minLevel, questLevel)
+        row[4], row[5] = minLevel, questLevel
+        assert(callbacks[1]()[id] == nil,
+               "unsafe level update for quest " .. id .. ": " .. label)
+        assert(row[2] == starter and row[3] == ender and
+               row[8] == text and row[10] == objectives and
+               row[13] == prior and row[17] == flags,
+               "unrelated early-zone source fields changed: " .. id .. " " .. label)
+        assert(row[4] == minLevel and row[5] == questLevel,
+               "source level fields mutated: " .. id .. " " .. label)
+        guardChecks = guardChecks + 1
+    end
+
+    refused("unexpected minimum", levels[1] + 1, levels[2])
+    refused("unexpected quest level", levels[1], levels[2] + 1)
+    refused("both levels unexpected", levels[1] + 1, levels[2] + 1)
+    refused("missing minimum", nil, levels[2])
+    refused("missing quest level", levels[1], nil)
+    refused("already corrected", levels[3], levels[4])
+
+    row[4], row[5] = levels[1], levels[2]
+    assert(callbacks[1]()[id] ~= nil,
+           "valid source levels not restored for " .. id)
+    originals[id] = nil
+    assert(callbacks[1]()[id] == nil,
+           "absent quest was unexpectedly corrected: " .. id)
+    guardChecks = guardChecks + 1
+    -- A number checks table-type guards better than a Lua 5.1 string.
+    originals[id] = 7
+    assert(callbacks[1]()[id] == nil,
+           "numeric quest record unexpectedly corrected: " .. id)
+    guardChecks = guardChecks + 1
+    originals[id] = row
+    assert(row[4] == levels[1] and row[5] == levels[2] and
+           callbacks[1]()[id] ~= nil,
+           "legitimate quest source not restored: " .. id)
+end
+assert(guardChecks == 88,
+       "incomplete synthetic source-guard matrix")
+
 -- Source guards fail closed when another correction already changed values.
 originals[398][4] = 88
 assert(callbacks[1]()[398] == nil, "unknown minimum-level value overwritten")
@@ -76,4 +125,4 @@ QuestieCompat.Is335 = false
 dofile("Compat/NQuestieReviewedEarlyQuestLevels.lua")
 assert(#callbacks == 0, "registered corrections outside 3.3.5a")
 
-print("PASS: eleven guarded early-zone level corrections; metadata unchanged")
+print("PASS: eleven guarded early-zone level corrections; metadata unchanged; 88 source-guard probes")
