@@ -239,10 +239,10 @@ class ManifestPreflightTests(unittest.TestCase):
 
     def test_xml_missing_or_duplicate_file_attribute_refused(self):
         examples = (
-            '<Ui><Script/></Ui>\\n',
-            '<Ui><Include/></Ui>\\n',
-            '<Ui><Script file="../Impl.lua" file="../Impl.lua"/></Ui>\\n',
-            '<Ui><Include file="../Impl.lua" file="../Impl.lua"/></Ui>\\n',
+            '<Ui><Script/></Ui>\n',
+            '<Ui><Include/></Ui>\n',
+            '<Ui><Script file="../Impl.lua" file="../Impl.lua"/></Ui>\n',
+            '<Ui><Include file="../Impl.lua" file="../Impl.lua"/></Ui>\n',
         )
         with tempfile.TemporaryDirectory() as temp:
             root = synthetic_package(temp)
@@ -256,9 +256,9 @@ class ManifestPreflightTests(unittest.TestCase):
 
     def test_xml_dtd_and_entity_declarations_refused(self):
         examples = (
-            '<!DOCTYPE Ui><Ui><Script file="../Impl.lua"/></Ui>\\n',
+            '<!DOCTYPE Ui><Ui><Script file="../Impl.lua"/></Ui>\n',
             '<!ENTITY external SYSTEM "file:///etc/passwd">'
-            '<Ui><Script file="../Impl.lua"/></Ui>\\n',
+            '<Ui><Script file="../Impl.lua"/></Ui>\n',
         )
         with tempfile.TemporaryDirectory() as temp:
             root = synthetic_package(temp)
