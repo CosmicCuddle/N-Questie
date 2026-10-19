@@ -48,6 +48,8 @@ jobs:
         run: python3 tools/test_reviewed_early_quest_sources.py
       - name: Verify real public Questie baselines for the two Classic chains
         run: python3 tools/test_reviewed_classic_chain_sources.py
+      - name: Test 3.3.5a manifest preflight (synthetic, no package or upload)
+        run: python3 tools/test_nquestie_335_manifest_preflight.py
       - name: Verify 3.3.5a TOC integration
         run: |
           grep -Fq '## Interface: 30300' Questie-335.toc
@@ -59,7 +61,10 @@ jobs:
           grep -Fq 'Compat\NQuestieReviewedClassicChainLevels.lua' Questie-335.toc
           grep -Fq 'nQuestieDataRevision' Modules/QuestieInit.lua
       - name: Assemble PR-only WoW 3.3.5a addon package
-        if: github.event_name == 'pull_request'
+        # DRAFT SAFETY HOLD: prevent automatic QA artifact distribution while
+        # third-party icon/library inclusion and 3.3.5a package rights remain unreviewed.
+        # This test branch does not create a ZIP, release tag or QA artifact.
+        if: ${{ false }}
         run: |
           mkdir -p qa-package/Questie-335
           cp Questie.lua Questie-335.toc embeds.xml qa-package/Questie-335/
@@ -80,7 +85,10 @@ jobs:
           test -s qa-package/Questie-335/Compat/NQuestieReviewedClassicChainLevels.lua
           echo "QA build only. Run in-game tests before merging or releasing." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload temporary N-Questie PR test build
-        if: github.event_name == 'pull_request'
+        # DRAFT SAFETY HOLD: prevent automatic QA artifact distribution while
+        # third-party icon/library inclusion and 3.3.5a package rights remain unreviewed.
+        # This test branch does not create a ZIP, release tag or QA artifact.
+        if: ${{ false }}
         uses: actions/upload-artifact@v4
         with:
           name: N-Questie-335-PR-TestBuild
