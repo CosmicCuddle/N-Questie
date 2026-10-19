@@ -169,11 +169,20 @@ local invalidFieldCases = {
 }
 local originalNpcStarts = QuestieDB.npcData[2121][10]
 local originalNpcEnds = QuestieDB.npcData[2121][11]
+-- Independent baseline of the complete synthetic quest registry. Comparing
+-- against this later catches any untracked inserted ID left behind when the
+-- cleanup tracking list records the wrong key (CS02's M3 survivor on #125).
+local preInvalidMetadataQuestRecords = {}
+for questId, record in pairs(NQuestieCustomQuestData.quests) do
+    preInvalidMetadataQuestRecords[questId] = record
+end
 local invalidFixtureCount = 0
 local invalidMetadataQuestIds = {}
 for index, case in ipairs(invalidFieldCases) do
     invalidFixtureCount = invalidFixtureCount + 1
     local badId = 910100 + index
+    assert(preInvalidMetadataQuestRecords[badId] == nil,
+           "synthetic invalid metadata fixture collided with existing quest")
     invalidMetadataQuestIds[#invalidMetadataQuestIds + 1] = badId
     local synthetic = {
         name = "Synthetic Invalid Metadata " .. index,
@@ -275,6 +284,17 @@ end
 for _, badId in ipairs(invalidMetadataQuestIds) do
     assert(NQuestieCustomQuestData.quests[badId] == nil,
            "invalid metadata fixture leaked into later loader checks")
+end
+-- Unlike the tracked-ID assertion above, this checks the original quest
+-- registry independently. It catches both leftover untracked bad IDs and
+-- accidental removal or replacement of any original fixture record.
+for questId, record in pairs(NQuestieCustomQuestData.quests) do
+    assert(preInvalidMetadataQuestRecords[questId] == record,
+           "untracked quest or changed record after metadata cleanup")
+end
+for questId, record in pairs(preInvalidMetadataQuestRecords) do
+    assert(NQuestieCustomQuestData.quests[questId] == record,
+           "preexisting quest was removed or changed by metadata cleanup")
 end
 assert(registry.questData()[2001] and registry.questData()[2002] and
        registry.questData()[2003],
