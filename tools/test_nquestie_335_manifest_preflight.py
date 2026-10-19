@@ -9,6 +9,7 @@ import re
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 XML_COMMENTS = re.compile(r"<!--.*?-->", re.DOTALL)
@@ -40,6 +41,20 @@ def _checked_path(root, parent, supplied):
         target.resolve().relative_to(root.resolve())
     except ValueError as exc:
         raise ValueError("Reference escapes addon root (symlink)") from exc
+    # Check each component using the directory's actual spelling, not
+    # Path.is_file() alone. Case-insensitive filesystems can otherwise
+    # silently accept a source path that fails on Linux/WoW deployments.
+    cursor = root
+    for component in relative.parts:
+        try:
+            actual_names = {entry.name for entry in cursor.iterdir()}
+        except OSError as exc:
+            raise ValueError("Missing or wrong-case referenced file: " +
+                             relative.as_posix()) from exc
+        if component not in actual_names:
+            raise ValueError("Missing or wrong-case referenced file: " +
+                             relative.as_posix())
+        cursor = cursor / component
     if not target.is_file():
         raise ValueError("Missing or wrong-case referenced file: " +
                          relative.as_posix())
@@ -182,6 +197,40 @@ class ManifestPreflightTests(unittest.TestCase):
                 root / "Compat/Libs/Inner.xml")
             with self.assertRaisesRegex(ValueError, "Missing or wrong-case"):
                 check_manifest(root)
+
+    def test_exact_case_refusal_when_is_file_claims_wrong_case_exists(self):
+        # Simulate case-insensitive is_file() while preserving actual
+        # directory entries. Without component-level spelling checks, every
+        # wrong-case reference below would be incorrectly accepted.
+        with tempfile.TemporaryDirectory() as temp:
+            root = synthetic_package(temp)
+            examples = (
+                (root / "Questie-335.toc", "modules/Entry.lua",
+                 root / "modules/Entry.lua"),
+                (root / "Questie-335.toc", "Modules/entry.lua",
+                 root / "Modules/entry.lua"),
+                (root / "Compat/embeds.xml", "Libs/Inner.xml",
+                 root / "Compat/Libs/Inner.xml"),
+            )
+            fake_targets = {target for _, _, target in examples}
+            original_is_file = Path.is_file
+
+            def simulated_case_insensitive_is_file(candidate):
+                if candidate in fake_targets:
+                    return True
+                return original_is_file(candidate)
+
+            with mock.patch.object(Path, "is_file",
+                                   simulated_case_insensitive_is_file):
+                for parent, supplied, _ in examples:
+                    with self.subTest(supplied=supplied):
+                        with self.assertRaisesRegex(
+                                ValueError, "Missing or wrong-case"):
+                            _checked_path(root, parent, supplied)
+                self.assertEqual(
+                    _checked_path(root, root / "Questie-335.toc",
+                                  "Modules/Entry.lua"),
+                    "Modules/Entry.lua")
 
     def test_path_traversal_and_absolute_path_refused(self):
         with tempfile.TemporaryDirectory() as temp:
