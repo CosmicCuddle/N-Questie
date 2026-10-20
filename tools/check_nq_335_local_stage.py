@@ -4,15 +4,20 @@
 Usage:  python tools/check_nq_335_local_stage.py <path-to>/Questie-335
 
 What it does (reads only, inside the folder you name):
-  * pre-walks that folder without following links; if any symlink, junction
-    or reparse point is present, reports FAIL and does not read TOC, XML,
-    Lua or textures;
+  * pre-walks that folder without following links. A symlink, a junction,
+    or a Windows reparse point (`os.lstat` `st_file_attributes` &
+    `stat.FILE_ATTRIBUTE_REPARSE_POINT`, where that attribute exists)
+    fails the run before any TOC, XML, Lua or texture read. Off Windows
+    the reparse-attribute check is a no-op. Real Windows reparse points
+    are NOT TESTED;
+  * any other layout failure (forbidden or unexpected entry, missing
+    required top-level entry) also skips those content reads;
   * reuses the reviewed `check_manifest` from
     tools/test_nquestie_335_manifest_preflight.py (Interface 30300, every
     active TOC entry and reachable XML Script/Include, exact path spelling);
   * checks the allowed top-level layout and rejects stray/unsafe content
     (private/, WTF/, SQL, archives, credential-like files, extra top-level
-    .toc, any symlink/junction/reparse point);
+    .toc, any symlink, junction, or reparse-attribute hit);
   * checks presence (not contents) of notice files that belong to the
     agreed 557-file layout;
   * statically resolves addon-relative texture literals in ACTIVE Lua files
@@ -23,14 +28,21 @@ What it does (reads only, inside the folder you name):
 
 What it never does: copy, build, zip, install, delete, rename or modify any
 file; write a report or Python bytecode; use the network; read WoW/WTF or
-any default game path; enumerate or read through a symlink or junction.
+any default game path; enumerate or read through a symlink or junction;
+read TOC, XML, Lua or texture bytes after a layout failure; print an
+absolute path or an arbitrary exception string. Non-OSError results are
+the exception type only. An OSError path is shown only after a lexical
+in-root check, and an outside filename is not resolved just to format
+that diagnostic.
 It is NOT a game-client test, NOT rights/licence clearance and NOT a
 source-commit attestation.
 
 Static Lua scan limits (also printed on the NOT TESTED line): unbalanced
 quotes, unclosed long brackets, texture-like text that only appears inside
-a string, and loadstring/dynamic code. Windows junctions/reparse points and
-Python on Windows are NOT TESTED; `os.path.isjunction` is still consulted.
+a string, and loadstring/dynamic code. Windows junctions/reparse points,
+PowerShell and Python on Windows are NOT TESTED. `os.path.isjunction` is
+still consulted. `FILE_ATTRIBUTE_REPARSE_POINT` is consulted only where
+`st_file_attributes` exists and is a no-op off Windows.
 Exit status: 0 = PASS (warnings allowed), 1 = FAIL, 2 = usage/internal error.
 """
 import sys
@@ -40,6 +52,7 @@ sys.dont_write_bytecode = True  # must precede the import below (no .pyc)
 import importlib.util  # noqa: E402
 import os  # noqa: E402
 import re  # noqa: E402
+import stat  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 STAGED_NAME = "Questie-335"
@@ -72,7 +85,11 @@ NOTICE_FILES = (
 )
 KROWI_NOTICE_DIR = "Libs/Krowi_WorldMapButtons"
 KROWI_NOTICE_FILE = "Libs/Krowi_WorldMapButtons/LICENSE.md"
-_ABS_LEAK = re.compile(r"(?:^|[\s'\"`(])(?:[A-Za-z]:[\\/]|\\\\|/)")
+# Drive, UNC, or a slash that starts a path. A slash inside a relative
+# segment such as Modules/Tracker.lua does not match.
+_EMBEDDED_ABS = re.compile(
+    r"(?:[A-Za-z]:[\\/]|\\\\|(?<![A-Za-z0-9_.-])/(?:[A-Za-z0-9._+-]+))"
+)
 
 
 def _load_manifest_module():
@@ -176,17 +193,40 @@ def _strip_lua_comments(text):
     return "".join(parts)
 
 
-def _is_link(path):
-    """True for a symlink or, where Python can see it, a junction.
+def _reparse_point(path):
+    """True when lstat reports FILE_ATTRIBUTE_REPARSE_POINT.
 
-    Real Windows junction/reparse coverage is NOT TESTED on this host.
-    `os.path.isjunction` is still consulted on every entry.
+    The flag is only meaningful together with `st_file_attributes`, which
+    Windows fills in. Off Windows that field is absent, so this returns
+    False and is a no-op. Real Windows reparse points are NOT TESTED.
+    """
+    flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", None)
+    if flag is None:
+        return False
+    try:
+        attrs = getattr(os.lstat(path), "st_file_attributes", None)
+    except OSError:
+        return False
+    if not isinstance(attrs, int):
+        return False
+    return bool(attrs & flag)
+
+
+def _is_link(path):
+    """True for a symlink, a junction, or a Windows reparse point.
+
+    Junctions use `os.path.isjunction` where that function exists. Other
+    reparse points use `st_file_attributes & FILE_ATTRIBUTE_REPARSE_POINT`
+    when the attribute exists; that check is a no-op off Windows. Real
+    Windows junction and reparse-point behaviour is NOT TESTED.
     """
     try:
         if Path(path).is_symlink():
             return True
     except OSError:
         return False
+    if _reparse_point(path):
+        return True
     is_junction = getattr(os.path, "isjunction", None)
     if is_junction is None:
         return False
@@ -418,57 +458,109 @@ def check_textures(root, lua_paths):
     return fails, warns, notes
 
 
-def _safe_relative(root, filename):
-    """Relative posix path of `filename` if it stays inside `root`."""
-    if not isinstance(filename, (str, bytes, os.PathLike)):
+def _drive_prefix(text):
+    """`C:` style prefix, or None. Does not touch the filesystem."""
+    if len(text) >= 2 and text[0].isalpha() and text[1] == ":":
+        return text[0].upper() + ":"
+    return None
+
+
+def _collapse_lexical(text):
+    """Return `(absolute, parts)` or None when `..` escapes.
+
+    Understands `/` and `\\` only. No resolve, stat, or read.
+    """
+    if not isinstance(text, str) or not text or "\x00" in text:
+        return None
+    drive = _drive_prefix(text)
+    absolute = bool(drive) or text.startswith(("/", "\\"))
+    body = text[2:] if drive else text
+    collapsed = [drive] if drive else []
+    for piece in body.replace("\\", "/").split("/"):
+        if piece in ("", "."):
+            continue
+        if piece == "..":
+            if drive and len(collapsed) == 1:
+                return None
+            if not collapsed:
+                return None
+            collapsed.pop()
+            continue
+        collapsed.append(piece)
+    return absolute, collapsed
+
+
+def _plain_component(part):
+    if not part or part in (".", ".."):
+        return False
+    if ":" in part or "/" in part or "\\" in part:
+        return False
+    return True
+
+
+def _lexical_in_root(root, filename):
+    """Relative posix path if `filename` is lexically inside `root`.
+
+    Absolute paths are compared as strings. An outside path, a drive or
+    UNC path, or a `..` escape returns None and is never resolved.
+    """
+    if isinstance(filename, bytes):
+        try:
+            filename = os.fsdecode(filename)
+        except (UnicodeError, ValueError):
+            return None
+    elif isinstance(filename, os.PathLike):
+        try:
+            filename = os.fspath(filename)
+        except (TypeError, ValueError):
+            return None
+    if not isinstance(filename, str):
         return None
     try:
-        text = os.fsdecode(filename) if isinstance(filename, bytes) \
-            else os.fspath(filename)
+        root_text = os.fspath(root)
     except (TypeError, ValueError):
         return None
-    if not text:
+    file_norm = _collapse_lexical(filename)
+    root_norm = _collapse_lexical(root_text)
+    if file_norm is None or root_norm is None:
         return None
-    candidate = Path(text)
-    try:
-        if not candidate.is_absolute():
-            candidate = root / candidate
-        rel = candidate.resolve().relative_to(root.resolve())
-    except (ValueError, OSError):
+    file_abs, file_parts = file_norm
+    root_abs, root_parts = root_norm
+    if file_abs:
+        if not root_abs or not root_parts:
+            return None
+        if file_parts[:len(root_parts)] != root_parts:
+            return None
+        if len(file_parts) <= len(root_parts):
+            return None
+        rel_parts = file_parts[len(root_parts):]
+    else:
+        rel_parts = file_parts
+    if not rel_parts or any(not _plain_component(part) for part in rel_parts):
         return None
-    shown = rel.as_posix()
-    if shown in ("", ".") or shown.startswith("../") or "/../" in shown:
+    shown = "/".join(rel_parts)
+    if _EMBEDDED_ABS.search(shown):
         return None
     return shown
 
 
-def _leaks_absolute(root, message):
-    try:
-        root_text = str(Path(root).resolve())
-    except OSError:
-        root_text = str(root)
-    parent = str(Path(root_text).parent)
-    if root_text and root_text in message:
-        return True
-    if parent and parent not in ("/", "") and parent in message:
-        return True
-    return _ABS_LEAK.search(message) is not None
-
-
 def _public_error(root, exc):
-    """Exception type plus a staged-relative path. Never an absolute path."""
+    """Exception type, plus a lexical in-root OSError filename.
+
+    Non-OSError failures contribute only the exception type. Arbitrary
+    exception strings are never echoed. An OSError filename is included
+    only when `_lexical_in_root` accepts it; outside or unknown paths are
+    omitted and are not resolved.
+    """
     kind = type(exc).__name__
-    if isinstance(exc, OSError):
-        rel = _safe_relative(root, getattr(exc, "filename", None))
-        if rel is None:
-            rel = _safe_relative(root, getattr(exc, "filename2", None))
-        if rel:
-            return "%s: %s" % (kind, rel)
+    if not isinstance(exc, OSError):
         return kind
-    message = str(exc).strip()
-    if not message or _leaks_absolute(root, message):
+    rel = _lexical_in_root(root, getattr(exc, "filename", None))
+    if rel is None:
+        rel = _lexical_in_root(root, getattr(exc, "filename2", None))
+    if rel is None:
         return kind
-    return "%s: %s" % (kind, message)
+    return "%s: %s" % (kind, rel)
 
 
 def _reject_root(out):
@@ -490,11 +582,15 @@ def run(path, manifest_module=None, out=print):
     fails, warns, notes = [], [], []
     layout_fails, links, files, dirs = check_layout(root)
     fails.extend(layout_fails)
-    # Any symlink/junction/reparse point fails closed BEFORE manifest, XML,
-    # Lua or texture reads. The source tree has none.
-    if links:
-        notes.append("Skipped TOC/XML, Lua and texture reads because a "
-                     "symlink, junction or reparse point is present")
+    # Any layout failure, including a symlink, junction or reparse point,
+    # fails closed BEFORE manifest, XML, Lua or texture reads.
+    if layout_fails:
+        if links:
+            notes.append("Skipped TOC/XML, Lua and texture reads because a "
+                         "symlink, junction or reparse point is present")
+        else:
+            notes.append("Skipped TOC/XML, Lua and texture reads because "
+                         "the staged layout failed")
     else:
         fails.extend(check_notices(files, dirs))
         module = manifest_module or _load_manifest_module()
@@ -522,7 +618,10 @@ def run(path, manifest_module=None, out=print):
     out("NOT TESTED: game-client loading/rendering, Lua runtime errors, "
         "SavedVariables, rights/licence clearance, source-SHA attestation, "
         "Windows junctions/reparse points (os.path.isjunction is consulted; "
-        "real junction coverage is NOT TESTED), Python on Windows, "
+        "st_file_attributes & FILE_ATTRIBUTE_REPARSE_POINT is consulted "
+        "where that attribute exists and is a no-op off Windows; "
+        "real junction coverage is NOT TESTED; real Windows reparse points "
+        "are NOT TESTED), Python on Windows, PowerShell, "
         "static Lua scan limits (not a Lua parser: unbalanced quotes, "
         "unclosed long brackets, texture text inside strings, "
         "loadstring/dynamic code)")

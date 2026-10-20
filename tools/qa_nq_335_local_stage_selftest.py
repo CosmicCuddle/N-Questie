@@ -7,9 +7,12 @@ Notice fixtures are invented sentences, not copies of third-party licenses.
 Deliberately not named test_*.py so pinned CI discovery is unchanged.
 Run: python tools/qa_nq_335_local_stage_selftest.py
 
-Real Windows junctions cannot be created here. The checker still calls
-os.path.isjunction; a monkeypatched True is covered, real junction
-coverage is NOT TESTED. Python on Windows is NOT TESTED.
+Real Windows junctions and reparse points cannot be created here. The
+checker still calls os.path.isjunction and, where st_file_attributes
+exists, FILE_ATTRIBUTE_REPARSE_POINT. A monkeypatched junction and a
+monkeypatched reparse bit are covered. Real Windows junction/reparse
+coverage, PowerShell and the game client are NOT TESTED. Python on
+Windows is NOT TESTED.
 """
 import sys
 
@@ -20,7 +23,9 @@ import hashlib  # noqa: E402
 import importlib.util  # noqa: E402
 import io  # noqa: E402
 import os  # noqa: E402
+import re  # noqa: E402
 import shutil  # noqa: E402
+import stat  # noqa: E402
 import subprocess  # noqa: E402
 import tempfile  # noqa: E402
 import unittest  # noqa: E402
@@ -30,6 +35,13 @@ from unittest import mock  # noqa: E402
 HERE = Path(__file__).resolve().parent
 CANARY = "NQ335_EXTERNAL_CANARY_SENTINEL"
 PRIVATE = "NQ335_PRIVATE_OWNER_PATH_do_not_print"
+LAYOUT_CANARY = "NQ335_LAYOUT_FORBIDDEN_CANARY"
+OWNER_MARKER = "OWNER_STAGING_ROOT"
+# Drive, UNC, or a slash that starts a path. A slash inside a word
+# (loading/rendering, Icons/LICENSE) is not an absolute path.
+_EMITTED_ABSOLUTE = re.compile(
+    r"(?:[A-Za-z]:[\\/]|\\\\|(?<![A-Za-z0-9_])/(?:[A-Za-z0-9._+-]+))"
+)
 
 
 def _load(name, filename):
@@ -242,7 +254,10 @@ class StageCheckerSelfTest(unittest.TestCase):
             self.assertNotIn("commented_out", out)
             self.assertIn("NOT TESTED", out)
             self.assertIn("real junction coverage is NOT TESTED", out)
+            self.assertIn("real Windows reparse points are NOT TESTED", out)
+            self.assertIn("no-op off Windows", out)
             self.assertIn("Python on Windows", out)
+            self.assertIn("PowerShell", out)
             self.assertIn("static Lua scan limits", out)
 
     def test_missing_toc_entry_fails(self):
@@ -493,6 +508,266 @@ class StageCheckerSelfTest(unittest.TestCase):
             self.assertNotIn("long_missing", out)
             self.assertIn(
                 "3 distinct static addon texture paths checked", out)
+
+    def _assert_emitted_paths_private(self, lines, root, message):
+        text = "\n".join(lines)
+        resolved = str(Path(root).resolve())
+        owner = str(Path(root).resolve().parent)
+        self.assertNotIn(message, text)
+        self.assertNotIn("OTHER_PRIVATE", text)
+        self.assertNotIn("sensitive.txt", text)
+        self.assertNotIn(OWNER_MARKER, text)
+        self.assertNotIn(resolved, text)
+        self.assertNotIn(owner, text)
+        for line in lines:
+            match = _EMITTED_ABSOLUTE.search(line)
+            self.assertIsNone(match, "absolute path in %r" % (line,))
+        return text
+
+    def test_injected_valueerror_never_echoes_exception_text(self):
+        """Non-OSError text is never emitted, including paths the old
+        absolute-path regex missed (after '=', ':', '[', ',').
+
+        Invented paths only. Restoring `return kind + ': ' + str(exc)`
+        makes this test fail.
+        """
+        messages = (
+            "manifest returned source=/home/OTHER_PRIVATE/sensitive.txt",
+            "path:/x/OTHER_PRIVATE/sensitive.txt",
+            "[/x/OTHER_PRIVATE/sensitive.txt]",
+            ",/x/OTHER_PRIVATE/sensitive.txt",
+            "C:\\Users\\OTHER_PRIVATE\\sensitive.txt",
+            "C:/Users/OTHER_PRIVATE/sensitive.txt",
+        )
+
+        class _Boom:
+            def __init__(self, message):
+                self._message = message
+
+            def check_manifest(self, root, require_staged_name=True):
+                raise ValueError(self._message)
+
+        for message in messages:
+            with self.subTest(message=message), \
+                    tempfile.TemporaryDirectory() as tmp:
+                parent = Path(tmp) / OWNER_MARKER
+                parent.mkdir()
+                root = build(parent)
+                lines = []
+                before = snapshot(root.parent)
+                code = CHECKER.run(str(root), manifest_module=_Boom(message),
+                                   out=lines.append)
+                self.assertEqual(before, snapshot(root.parent),
+                                 "checker mutated tree")
+                text = self._assert_emitted_paths_private(lines, root, message)
+                self.assertEqual(code, 1, text)
+                self.assertIn("FAIL: Manifest: ValueError", text)
+                self.assertNotIn("ValueError:", text)
+                self.assertIn("RESULT: FAIL", text)
+
+    def test_oserror_outside_filename_is_not_resolved(self):
+        """An outside OSError filename is not resolved and not printed.
+
+        An in-root filename is reduced lexically to a relative path.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = Path(tmp) / OWNER_MARKER
+            parent.mkdir()
+            root = build(parent)
+            root_real = root.resolve()
+            inside = str(root_real / "Modules" / "Tracker.lua")
+            outside = "/home/OTHER_PRIVATE/sensitive.txt"
+            windows = "C:\\Users\\OTHER_PRIVATE\\sensitive.txt"
+            real_resolve = Path.resolve
+
+            def guarded_resolve(pathobj, *args, **kwargs):
+                text = os.fspath(pathobj)
+                folded = text.replace("\\", "/")
+                if "OTHER_PRIVATE" in folded or "\\Users\\" in text \
+                        or "/Users/" in folded:
+                    raise AssertionError("resolved outside path " + text)
+                return real_resolve(pathobj, *args, **kwargs)
+
+            def run_case(filename, filename2=None):
+                class Module:
+                    def check_manifest(self, checked,
+                                       require_staged_name=True):
+                        err = OSError(13, "Permission denied")
+                        err.filename = filename
+                        if filename2 is not None:
+                            err.filename2 = filename2
+                        raise err
+
+                lines = []
+                before = snapshot(root.parent)
+                with mock.patch.object(Path, "resolve", guarded_resolve):
+                    code = CHECKER.run(str(root), manifest_module=Module(),
+                                       out=lines.append)
+                self.assertEqual(before, snapshot(root.parent),
+                                 "checker mutated tree")
+                return code, lines
+
+            code, lines = run_case(inside)
+            text = self._assert_emitted_paths_private(lines, root, inside)
+            self.assertEqual(code, 1, text)
+            # errno 13 is constructed as PermissionError, a subclass of OSError.
+            self.assertIn(
+                "FAIL: Manifest: PermissionError: Modules/Tracker.lua", text)
+
+            for filename in (outside, windows,
+                             "source=/home/OTHER_PRIVATE/sensitive.txt",
+                             "path:/x/OTHER_PRIVATE/sensitive.txt",
+                             "[/x/OTHER_PRIVATE/sensitive.txt]",
+                             ",/x/OTHER_PRIVATE/sensitive.txt"):
+                with self.subTest(filename=filename):
+                    code, lines = run_case(filename)
+                    text = self._assert_emitted_paths_private(
+                        lines, root, filename)
+                    self.assertEqual(code, 1, text)
+                    self.assertIn("FAIL: Manifest: PermissionError", text)
+                    self.assertNotIn("PermissionError:", text)
+
+            code, lines = run_case(outside, inside)
+            text = self._assert_emitted_paths_private(lines, root, outside)
+            self.assertEqual(code, 1, text)
+            self.assertIn(
+                "FAIL: Manifest: PermissionError: Modules/Tracker.lua", text)
+            self.assertNotIn(outside, text)
+
+    def test_layout_failure_skips_content_reads(self):
+        """Forbidden or unexpected layout must not read staged bytes.
+
+        Invented canary only. check_manifest is not called.
+        """
+        cases = {
+            "wtf-toc": (
+                {"Questie-335.toc": TOC + "WTF\\Secret.lua\n",
+                 "WTF/Secret.lua": LAYOUT_CANARY + "\n"},
+                "Forbidden directory: WTF",
+                "WTF/Secret.lua",
+            ),
+            "private-toc": (
+                {"Questie-335.toc": TOC + "private\\Secret.lua\n",
+                 "private/Secret.lua": LAYOUT_CANARY + "\n"},
+                "Forbidden directory: private",
+                "private/Secret.lua",
+            ),
+            "unexpected-dir": (
+                {"Extra/note.txt": LAYOUT_CANARY + "\n"},
+                "Unexpected top-level directory: Extra",
+                "Extra/note.txt",
+            ),
+            "unexpected-file": (
+                {"README.md": LAYOUT_CANARY + "\n"},
+                "Unexpected top-level file: README.md",
+                "README.md",
+            ),
+        }
+        for name, (overrides, expect, forbidden) in cases.items():
+            with self.subTest(name=name), \
+                    tempfile.TemporaryDirectory() as tmp:
+                root = build(tmp, overrides)
+                module = CHECKER._load_manifest_module()
+                calls = []
+                original = module.check_manifest
+
+                def wrapped(checked, require_staged_name=True,
+                            _original=original, _calls=calls):
+                    _calls.append(os.fspath(checked))
+                    return _original(checked,
+                                     require_staged_name=require_staged_name)
+
+                module.check_manifest = wrapped
+                read_calls = []
+                real_read = Path.read_text
+
+                def read_wrap(pathobj, *args, **kwargs):
+                    read_calls.append(os.fspath(pathobj))
+                    return real_read(pathobj, *args, **kwargs)
+
+                lines = []
+                before = snapshot(root.parent)
+                with mock.patch.object(Path, "read_text", read_wrap):
+                    code = CHECKER.run(str(root), manifest_module=module,
+                                       out=lines.append)
+                text = "\n".join(lines)
+                self.assertEqual(before, snapshot(root.parent),
+                                 "checker mutated tree")
+                self.assertEqual(code, 1, text)
+                self.assertIn(expect, text)
+                self.assertNotIn(LAYOUT_CANARY, text)
+                self.assertEqual(calls, [], "check_manifest ran:\n" + text)
+                self.assertEqual(read_calls, [],
+                                 "staged bytes were read:\n" + text)
+                if forbidden.endswith("Secret.lua"):
+                    self.assertNotIn(forbidden, text)
+                self.assertIn("Skipped TOC/XML", text)
+                self.assertIn("RESULT: FAIL", text)
+                self.assertIn("NOT TESTED", text)
+
+    def test_reparse_attribute_is_noop_when_absent(self):
+        """Off Windows st_file_attributes is missing. Real Windows reparse
+        points are NOT TESTED.
+        """
+        self.assertIsNotNone(
+            getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", None))
+        sample = HERE / "check_nq_335_local_stage.py"
+        attrs = getattr(os.lstat(sample), "st_file_attributes", None)
+        if attrs is not None:
+            self.skipTest("st_file_attributes is present; real Windows "
+                          "reparse points are NOT TESTED")
+        self.assertFalse(CHECKER._reparse_point(sample))
+
+    def test_injected_reparse_attribute_skips_reads(self):
+        """A monkeypatched FILE_ATTRIBUTE_REPARSE_POINT bit fails closed.
+
+        This is not a real Windows reparse point. Real Windows reparse
+        points are NOT TESTED.
+        """
+        flag = stat.FILE_ATTRIBUTE_REPARSE_POINT
+        real_lstat = os.lstat
+
+        class _AttrStat:
+            def __init__(self, inner, attrs):
+                self._inner = inner
+                self.st_file_attributes = attrs
+
+            def __getattr__(self, name):
+                return getattr(self._inner, name)
+
+        def lstat_wrap(path, *args, **kwargs):
+            result = real_lstat(path, *args, **kwargs)
+            try:
+                text = os.fspath(path).replace("\\", "/")
+            except TypeError:
+                return result
+            if text.endswith("/Modules/Tracker.lua"):
+                return _AttrStat(result, flag)
+            return result
+
+        read_calls = []
+        real_read = Path.read_text
+
+        def read_wrap(pathobj, *args, **kwargs):
+            read_calls.append(os.fspath(pathobj))
+            return real_read(pathobj, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build(tmp)
+            lines = []
+            before = snapshot(root.parent)
+            with mock.patch("os.lstat", new=lstat_wrap), \
+                    mock.patch.object(Path, "read_text", read_wrap):
+                code = CHECKER.run(str(root), out=lines.append)
+            text = "\n".join(lines)
+            self.assertEqual(before, snapshot(root.parent),
+                             "checker mutated tree")
+            self.assertEqual(code, 1, text)
+            self.assertEqual(read_calls, [], text)
+            self.assertIn("Link/junction/reparse point is not allowed: "
+                          "Modules/Tracker.lua", text)
+            self.assertIn("Skipped TOC/XML", text)
+            self.assertIn("real Windows reparse points are NOT TESTED", text)
 
     def test_no_bytecode_written_next_to_tools(self):
         env = os.environ.copy()
