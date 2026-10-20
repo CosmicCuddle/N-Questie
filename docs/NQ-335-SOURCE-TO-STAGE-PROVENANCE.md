@@ -8,6 +8,8 @@ Labels used below: **VERIFIED** (checked here against Git objects or the named s
 
 **VERIFIED:** pinned source is commit `891a627318ac403d4da28655318286507f96c1aa`. The intended stage is the 557 runtime files defined below, in a separate folder named `Questie-335`. Placeholder for that folder: `<STAGE>`. No owner-private path is written here.
 
+**STOP / PENDING:** the whole owner Windows staging and compare run is STOP / PENDING until a peer-reviewed, synthetic-verified, read-only Windows PowerShell 5.1 procedure exists for a child-by-child inventory, a hardlink check, a path-set compare, and a SHA-256 compare. Do not relax any reparse or hardlink check to reach GO. No PowerShell in this note is claimed safe or tested (**NOT TESTED**).
+
 **This procedure is not a game test, not Windows/NTFS approval, and not rights clearance. Nothing is installed by it.** Backup and rollback stay on CS01's owner worksheet (v5, private). If that backup is unverified, STOP.
 
 CS01's separate Python prototypes (`nq_private_stage_provenance_DRAFT.py` and v3) are not on GitHub. **NOT TESTED:** CS02 has not read their source. CS01 reports that v1 can return a false PASS after a directory swap, and that v3 fails closed without POSIX `O_NOFOLLOW` and directory-fd support, so v3 is not a Windows path. Do not ask the owner to run either script.
@@ -143,9 +145,11 @@ print(hashlib.sha256(text).hexdigest())
 PY
 ```
 
-**PROPOSAL, every command NOT TESTED:** the owner compares `<STAGE>` with read-only PowerShell. Git is not required on Windows. Normalize `\` to `/`, then require exact case-sensitive equality of the relative-path set with the manifest. `Get-FileHash -LiteralPath -Algorithm SHA256` must match the `sha256` column. Run the hash pass twice. Any difference is concurrent modification and is STOP.
+**PROPOSAL, every command NOT TESTED:** the owner compares `<STAGE>` with read-only PowerShell. Git is not required on Windows. Normalize `\` to `/`, then require exact case-sensitive equality of the relative-path set with the manifest. `Get-FileHash -LiteralPath -Algorithm SHA256` must match the `sha256` column. Consistency is not atomicity: two consecutive hash passes are diagnostic consistency checks only, not an atomic anti-race or anti-swap guarantee. Require a quiescent, off-game (WoW not running), unsynced (not OneDrive, Dropbox, or any other sync) stage. Any unexpected mutation is STOP. The Windows compare stays **STOP / PENDING** (section 1) until that reviewed procedure exists. Do not relax any reparse or hardlink check to reach GO.
 
-Before any `-Recurse`: reject the path string, then walk `<STAGE>` and each ancestor with `Get-Item -LiteralPath -Force` (not `-Recurse`) and STOP if `Attributes` contains `ReparsePoint`. **UNKNOWN:** whether Windows PowerShell 5.1 `Get-ChildItem -Recurse` follows junctions or directory symlinks. Do not use `-Recurse` until the non-recursive check has passed. Hard links are not reparse points. **UNKNOWN / NOT TESTED:** a PowerShell 5.1 primitive that lists extra hard-link names. If that proof is unavailable, STOP. No link-following fallback.
+**Link scan, NOT TESTED:** `Get-Item -LiteralPath -Force` on `<STAGE>` and each ancestor does not cover descendant junctions, symlinks, or other reparse points inside the stage. Do not use `Get-ChildItem -Recurse` at all for the inventory. Require an owner-reviewed, verified-safe, child-by-child non-recursive walk that inspects every immediate child's type and `ReparsePoint` attribute before entering that child. STOP if safe no-follow traversal cannot be guaranteed. Record the exact expected 557 paths, any unexpected directories or files, and hardlink evidence. Hard links are not reparse points and need their own check. No link-following fallback. No PowerShell here is claimed safe or tested.
+
+**Documentation pointers only (NOT TESTED on the owner machine):** the [Get-ChildItem PowerShell 5.1 docs](https://learn.microsoft.com/en-gb/powershell/module/microsoft.powershell.management/get-childitem?view=powershell-5.1) list `ReparsePoint` as an attribute and say `-FollowSymlink` arrived in PowerShell 6.0, so do not rely on it in 5.1. [fsutil hardlink](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-hardlink) documents `fsutil hardlink list <filename>` as the read-only enumeration form; the create form MUST NOT be used. Whether that list form works under owner permissions and NTFS is **NOT TESTED** and must be validated on invented test files before any GO.
 
 ## 6. STOP before reading file contents
 
@@ -154,7 +158,7 @@ Reject `<STAGE>` before any content read when any of these is true:
 - The path is not absolute, or it is not plain: a raw `..` segment, or a drive-relative form such as `C:..\Questie-335` or `C:Questie-335`.
 - The final folder name is not exactly `Questie-335`.
 - `<STAGE>` is inside the WoW `Interface\AddOns` tree, or inside OneDrive, Dropbox, or any other cloud-synced folder. Treat OneDrive Files On-Demand placeholders as reparse points, and treat a sync client as able to change a file during the check. Owner machine **NOT TESTED**.
-- Any symlink, junction, reparse point, or hard-link alias exists in `<STAGE>` or in an ancestor.
+- Any symlink, junction, reparse point, or hard-link alias exists on `<STAGE>`, on an ancestor, or on any descendant inside the stage. Root and ancestor `Get-Item` checks do not cover descendants (section 5).
 - The relative path set differs from the manifest: missing, extra, or case-misnamed file, an extra root `.toc`, an empty unexpected directory, or a directory Git does not track.
 - The tree contains `.git`, `WTF`, SQL, `.bak`, account data, private data, or a second Questie copy.
 
@@ -164,11 +168,12 @@ STOP, and leave the game untouched, if any of these is true:
 
 | Gate | Result required |
 | --- | --- |
+| Owner Windows run | **STOP / PENDING** until a peer-reviewed, synthetic-verified, read-only Windows PowerShell 5.1 procedure exists (child-by-child inventory, hardlink check, path-set and SHA-256 compare). Do not relax any reparse or hardlink check to reach GO. No PowerShell is claimed safe or tested. **NOT TESTED.** |
 | Path or byte vs manifest | Exact 557 paths and SHA-256 values. Any mismatch or unknown file is STOP. |
 | `Questie-335.toc` | SHA-256 `0783a6f38a530a2d646569d047dc91b6ca2f9ab408adb844b9af324f1424eee9`. That preserves Interface `30300` and the two SavedVariables names. |
 | Second Questie addon | Owner confirms no other enabled Questie. **NOT TESTED.** Do not scan the live AddOns folder with this note. |
 | WoW process | Owner confirms WoW is not running. **NOT TESTED.** |
-| Concurrent change | A second read-only pass matches the first. Any change is STOP. |
+| Concurrent change | Consistency is not atomicity. Two consecutive hash passes are diagnostic consistency checks only, not an atomic anti-race or anti-swap guarantee. Require a quiescent, off-game (WoW not running), unsynced (not OneDrive, Dropbox, or other sync) stage. Any unexpected mutation is STOP. |
 | Backup / rollback | CS01 worksheet verified by the owner. Otherwise STOP. |
 | Copying and graphics rights | Still uncleared until a separate decision. STOP before any distribution. See `docs/NQ-335-DISTRIBUTION-RIGHTS-AND-PACKAGE-PREFLIGHT.md`. |
 | Source | Trusted checkout of `891a627318ac403d4da28655318286507f96c1aa` only. |
@@ -179,4 +184,4 @@ If a safe no-follow primitive is missing, STOP. Do not fall back to a call that 
 
 Record only PASS or FAIL, plus counts (files compared, mismatches, missing, extra). Do not post absolute private paths, account names, or file copies to GitHub.
 
-A PASS here means the off-game folder matched this manifest. It does not mean the addon was installed, that Windows or NTFS was approved, that rights were cleared, or that an in-game test passed. Those remain **NOT TESTED**.
+While the owner Windows run is **STOP / PENDING** (section 1), do not record a Windows GO or PASS. A later PASS would mean only that the off-game folder matched this manifest. It would not mean the addon was installed, that Windows or NTFS was approved, that rights were cleared, or that an in-game test passed. Those remain **NOT TESTED**.
