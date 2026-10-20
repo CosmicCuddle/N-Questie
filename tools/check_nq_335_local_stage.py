@@ -4,21 +4,33 @@
 Usage:  python tools/check_nq_335_local_stage.py <path-to>/Questie-335
 
 What it does (reads only, inside the folder you name):
+  * pre-walks that folder without following links; if any symlink, junction
+    or reparse point is present, reports FAIL and does not read TOC, XML,
+    Lua or textures;
   * reuses the reviewed `check_manifest` from
     tools/test_nquestie_335_manifest_preflight.py (Interface 30300, every
     active TOC entry and reachable XML Script/Include, exact path spelling);
   * checks the allowed top-level layout and rejects stray/unsafe content
     (private/, WTF/, SQL, archives, credential-like files, extra top-level
-    .toc, symlinks or junctions that escape the folder);
+    .toc, any symlink/junction/reparse point);
+  * checks presence (not contents) of notice files that belong to the
+    agreed 557-file layout;
   * statically resolves addon-relative texture literals in ACTIVE Lua files
     (`QuestieLib.AddonPath.."Icons\\..."` and hard-coded
     `Interface\\AddOns\\Questie-335\\...`): exact match PASS, case-only
-    mismatch WARN, absent FAIL.
+    mismatch WARN, absent FAIL. Inline `--` comments outside strings are
+    ignored. This is not a Lua parser.
 
 What it never does: copy, build, zip, install, delete, rename or modify any
 file; write a report or Python bytecode; use the network; read WoW/WTF or
-any default game path. It is NOT a game-client test, NOT rights/licence
-clearance and NOT a source-commit attestation.
+any default game path; enumerate or read through a symlink or junction.
+It is NOT a game-client test, NOT rights/licence clearance and NOT a
+source-commit attestation.
+
+Static Lua scan limits (also printed on the NOT TESTED line): unbalanced
+quotes, unclosed long brackets, texture-like text that only appears inside
+a string, and loadstring/dynamic code. Windows junctions/reparse points and
+Python on Windows are NOT TESTED; `os.path.isjunction` is still consulted.
 Exit status: 0 = PASS (warnings allowed), 1 = FAIL, 2 = usage/internal error.
 """
 import sys
@@ -49,7 +61,18 @@ ADDON_PATH_DYNAMIC = re.compile(
     r"""QuestieLib\.AddonPath\s*\.\.\s*(?=[A-Za-z_(\[])""")
 HARDCODED = re.compile(
     r"""["']Interface\\\\AddOns\\\\([^\\"'\n]+)\\\\([^"'\n]+)["']""", re.I)
-LONG_COMMENT = re.compile(r"--\[(=*)\[.*?\]\1\]", re.DOTALL)
+# These four paths exist in the agreed 557-file layout. Confirmed with
+# `git ls-tree -r 2be0f6f3001a20242c2fe81cb1915ff18602a4c8` and this head
+# (same paths). ExternalScripts(...)/slpp/LICENSE is outside that layout
+# and is intentionally not checked.
+NOTICE_FILES = (
+    "Icons/LICENSE.md",
+    "Icons/MIT.txt",
+    "Libs/LICENSE.txt",
+)
+KROWI_NOTICE_DIR = "Libs/Krowi_WorldMapButtons"
+KROWI_NOTICE_FILE = "Libs/Krowi_WorldMapButtons/LICENSE.md"
+_ABS_LEAK = re.compile(r"(?:^|[\s'\"`(])(?:[A-Za-z]:[\\/]|\\\\|/)")
 
 
 def _load_manifest_module():
@@ -62,111 +85,319 @@ def _load_manifest_module():
     return module
 
 
+def _opening_long_bracket(text, index):
+    """Return the `=` count if text[index:] is `[=*[`, else None."""
+    if index >= len(text) or text[index] != "[":
+        return None
+    cursor = index + 1
+    while cursor < len(text) and text[cursor] == "=":
+        cursor += 1
+    if cursor < len(text) and text[cursor] == "[":
+        return cursor - index - 1
+    return None
+
+
+def _closing_long_bracket(text, index, level):
+    close = "]" + ("=" * level) + "]"
+    found = text.find(close, index)
+    if found < 0:
+        return len(text)
+    return found + len(close)
+
+
 def _strip_lua_comments(text):
-    """Conservative: drop --[[ ]] blocks and whole-line `--` comments."""
-    text = LONG_COMMENT.sub("", text)
-    return "\n".join("" if line.lstrip().startswith("--") else line
-                     for line in text.splitlines())
+    """Drop Lua comments that sit outside string literals.
+
+    Handles whole-line and inline `--` comments, and long comments
+    (`--[[ ]]`, `--[=[ ]=]`). A quoted `"--"` or `'--'` is not a comment.
+    Not a Lua parser: unbalanced quotes, unclosed long brackets, and
+    texture-like text inside strings remain static-scan limits.
+    """
+    if "--" not in text:
+        return text
+    parts = []
+    index = 0
+    plain = 0
+    length = len(text)
+    while index < length:
+        char = text[index]
+        if char in ("'", '"'):
+            if plain < index:
+                parts.append(text[plain:index])
+            cursor = index + 1
+            while cursor < length:
+                if text[cursor] == "\\":
+                    cursor += 2
+                    continue
+                if text[cursor] == char:
+                    cursor += 1
+                    break
+                if text[cursor] == "\n":
+                    break
+                cursor += 1
+            if cursor < index:
+                cursor = index + 1
+            parts.append(text[index:cursor])
+            index = cursor
+            plain = index
+            continue
+        if char == "[":
+            level = _opening_long_bracket(text, index)
+            if level is not None:
+                if plain < index:
+                    parts.append(text[plain:index])
+                cursor = _closing_long_bracket(text, index + 2 + level, level)
+                if cursor <= index:
+                    cursor = index + 1
+                parts.append(text[index:cursor])
+                index = cursor
+                plain = index
+                continue
+        if char == "-" and index + 1 < length and text[index + 1] == "-":
+            if plain < index:
+                parts.append(text[plain:index])
+            level = _opening_long_bracket(text, index + 2)
+            if level is not None:
+                cursor = _closing_long_bracket(text, index + 4 + level, level)
+                if cursor <= index:
+                    cursor = index + 1
+                newlines = text.count("\n", index, cursor)
+                if newlines:
+                    parts.append("\n" * newlines)
+                index = cursor
+            else:
+                cursor = text.find("\n", index)
+                index = length if cursor < 0 else cursor
+            plain = index
+            continue
+        index += 1
+    if plain < length:
+        parts.append(text[plain:length])
+    return "".join(parts)
 
 
 def _is_link(path):
+    """True for a symlink or, where Python can see it, a junction.
+
+    Real Windows junction/reparse coverage is NOT TESTED on this host.
+    `os.path.isjunction` is still consulted on every entry.
+    """
+    try:
+        if Path(path).is_symlink():
+            return True
+    except OSError:
+        return False
     is_junction = getattr(os.path, "isjunction", None)
-    return path.is_symlink() or bool(is_junction and is_junction(path))
+    if is_junction is None:
+        return False
+    try:
+        return bool(is_junction(os.fspath(path)))
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def _link_message(root, path, rel):
+    """FAIL text for a link. Uses readlink + normpath, never lists the target."""
+    try:
+        raw = os.readlink(path)
+    except OSError:
+        return "Link/junction/reparse point is not allowed: " + rel
+    if not os.path.isabs(raw):
+        raw = os.path.join(os.path.dirname(os.path.abspath(os.fspath(path))),
+                           raw)
+    norm = os.path.normpath(raw)
+    root_abs = os.path.normpath(os.path.abspath(os.fspath(root)))
+    try:
+        Path(norm).relative_to(root_abs)
+    except ValueError:
+        return "Link escapes staged folder: " + rel
+    return "Link/junction/reparse point is not allowed: " + rel
+
+
+def _scan_tree(root):
+    """Inventory `root` without following links or reading file bytes.
+
+    Returns (files, dirs, links, fails). `files` and `dirs` hold relative
+    posix paths of real (non-link) entries only.
+    """
+    files, dirs, links, fails = set(), set(), [], []
+    stack = [root]
+    while stack:
+        current = stack.pop()
+        try:
+            with os.scandir(current) as iterator:
+                entries = sorted(iterator, key=lambda entry: entry.name)
+        except OSError as exc:
+            try:
+                rel = "." if current == root else Path(current).relative_to(
+                    root).as_posix()
+            except ValueError:
+                rel = "."
+            fails.append("Cannot list staged directory %s: %s"
+                         % (rel, type(exc).__name__))
+            continue
+        children = []
+        for entry in entries:
+            path = Path(entry.path)
+            rel = path.relative_to(root).as_posix()
+            if _is_link(path):
+                links.append(rel)
+                fails.append(_link_message(root, path, rel))
+                continue
+            try:
+                is_dir = entry.is_dir(follow_symlinks=False)
+            except OSError:
+                is_dir = False
+            if is_dir:
+                dirs.add(rel)
+                if path.name.lower() in FORBIDDEN_DIR_NAMES:
+                    fails.append("Forbidden directory: " + rel)
+                    continue
+                children.append(path)
+            else:
+                files.add(rel)
+                if (path.suffix.lower() in FORBIDDEN_SUFFIXES
+                        or FORBIDDEN_NAME_RE.match(path.name)):
+                    fails.append("Forbidden/unsafe file: " + rel)
+        stack.extend(reversed(children))
+    return files, dirs, links, fails
 
 
 def check_layout(root):
-    """Return (fails, warns). Walks without following links."""
-    fails, warns = [], []
-    entries = {e.name: e for e in root.iterdir()}
+    """Return (fails, links, files, dirs). Does not follow links or read bytes."""
+    files, dirs, links, fails = _scan_tree(root)
+    top_links = {name for name in links if "/" not in name}
+    top_dirs = {name for name in dirs if "/" not in name}
+    top_files = {name for name in files if "/" not in name}
+    top_names = top_links | top_dirs | top_files
     for name in sorted(TOP_FILES_REQUIRED | TOP_DIRS_REQUIRED):
-        if name not in entries:
+        if name not in top_names:
             fails.append("Missing required top-level entry: " + name)
-    for name, entry in sorted(entries.items()):
-        if _is_link(entry):
-            continue  # reported by the walk below
-        if entry.is_dir():
-            if name not in TOP_DIRS_REQUIRED:
-                fails.append("Unexpected top-level directory: " + name)
-        elif name not in TOP_FILES_REQUIRED | TOP_FILES_OPTIONAL:
+    for name in sorted(top_dirs):
+        if name not in TOP_DIRS_REQUIRED:
+            fails.append("Unexpected top-level directory: " + name)
+    for name in sorted(top_files):
+        if name not in TOP_FILES_REQUIRED | TOP_FILES_OPTIONAL:
             fails.append("Unexpected top-level file: " + name)
-    root_real = root.resolve()
-    for current, dirs, files in os.walk(root, followlinks=False):
-        here = Path(current)
-        for name in list(dirs) + files:
-            path = here / name
-            rel = path.relative_to(root).as_posix()
-            if _is_link(path):
-                try:
-                    path.resolve().relative_to(root_real)
-                    warns.append("Link inside folder (not followed): " + rel)
-                except (ValueError, OSError):
-                    fails.append("Link escapes staged folder: " + rel)
-                if name in dirs:
-                    dirs.remove(name)
-                continue
-            if name in dirs and name.lower() in FORBIDDEN_DIR_NAMES:
-                fails.append("Forbidden directory: " + rel)
-                dirs.remove(name)
-            elif name in files and (Path(name).suffix.lower()
-                                    in FORBIDDEN_SUFFIXES
-                                    or FORBIDDEN_NAME_RE.match(name)):
-                fails.append("Forbidden/unsafe file: " + rel)
-    return fails, warns
+    return fails, links, files, dirs
+
+
+def check_notices(files, dirs):
+    """Presence only. Does not read notice bytes."""
+    fails = []
+    for rel in NOTICE_FILES:
+        if rel not in files:
+            fails.append("Missing required notice: " + rel)
+    if KROWI_NOTICE_DIR in dirs and KROWI_NOTICE_FILE not in files:
+        fails.append("Missing required notice: " + KROWI_NOTICE_FILE)
+    return fails
+
+
+def _cursor_inside(root_real, cursor):
+    """False if `cursor` is a link or resolves outside `root_real`."""
+    if _is_link(cursor):
+        return False
+    try:
+        cursor.resolve().relative_to(root_real)
+    except (ValueError, OSError):
+        return False
+    return True
 
 
 def _resolve_case(root, parts):
-    """Return 'exact', 'case' or None for addon-relative path parts."""
+    """Return 'exact', 'case' or None for addon-relative path parts.
+
+    Refuses any component that is a link, or a cursor that resolves outside
+    `root`, before calling iterdir.
+    """
+    if not parts or any(part in ("", ".", "..") for part in parts):
+        return None
+    try:
+        root_real = root.resolve()
+    except OSError:
+        return None
     cursor, exact = root, True
     for index, part in enumerate(parts):
+        if not _cursor_inside(root_real, cursor):
+            return None
         try:
-            names = {e.name: e for e in cursor.iterdir()}
+            names = {entry.name: entry for entry in cursor.iterdir()}
         except OSError:
             return None
         last = index == len(parts) - 1
         candidates = [part]
         if last and not part.lower().endswith(TEXTURE_EXTS):
             candidates = [part + ext for ext in TEXTURE_EXTS]
-        hit = next((c for c in candidates if c in names), None)
+        hit = next((cand for cand in candidates if cand in names), None)
         if hit is None:
-            folded = {n.lower(): n for n in names}
-            hit = next((folded[c.lower()] for c in candidates
-                        if c.lower() in folded), None)
+            folded = {name.lower(): name for name in names}
+            hit = next((folded[cand.lower()] for cand in candidates
+                        if cand.lower() in folded), None)
             if hit is None:
                 return None
             exact = False
+        if _is_link(names[hit]):
+            return None
         cursor = cursor / hit
-    if not cursor.is_file():
+        if not _cursor_inside(root_real, cursor):
+            return None
+    if not _cursor_inside(root_real, cursor):
+        return None
+    try:
+        if not cursor.is_file():
+            return None
+    except OSError:
         return None
     return "exact" if exact else "case"
+
+
+def _display_rel(rel):
+    if not isinstance(rel, str) or not rel:
+        return None
+    text = rel.replace("\\", "/")
+    if os.path.isabs(text) or text.startswith("../") or "/../" in text:
+        return None
+    return text
 
 
 def check_textures(root, lua_paths):
     fails, warns, notes = [], [], []
     seen = {}
     dynamic = 0
+    try:
+        root_real = root.resolve()
+    except OSError:
+        fails.append("Cannot resolve staged folder: OSError")
+        return fails, warns, notes
     for rel in lua_paths:
+        shown = _display_rel(rel)
+        target = None if shown is None else root.joinpath(*shown.split("/"))
+        if target is None or not _cursor_inside(root_real, target):
+            fails.append("Cannot read active Lua: UnsafePath")
+            continue
         try:
-            text = (root / rel).read_text(encoding="utf-8-sig",
-                                          errors="replace")
+            text = target.read_text(encoding="utf-8-sig", errors="replace")
         except OSError as exc:
-            fails.append("Cannot read active Lua %s: %s" % (rel, exc))
+            fails.append("Cannot read active Lua %s: %s"
+                         % (shown, type(exc).__name__))
             continue
         text = _strip_lua_comments(text)
         dynamic += len(ADDON_PATH_DYNAMIC.findall(text))
         for match in ADDON_PATH_LITERAL.finditer(text):
             value = match.group(1) if match.group(1) is not None \
                 else match.group(2)
-            seen.setdefault(value, rel)
+            seen.setdefault(value, shown)
         for match in HARDCODED.finditer(text):
             folder, rest = match.group(1), match.group(2)
             if folder == STAGED_NAME:
-                seen.setdefault(rest, rel)
+                seen.setdefault(rest, shown)
             elif folder.lower().startswith("questie"):
                 warns.append("Active %s hard-codes another addon folder "
-                             "'%s' (not %s)" % (rel, folder, STAGED_NAME))
+                             "'%s' (not %s)" % (shown, folder, STAGED_NAME))
     textures = 0
     for value, rel in sorted(seen.items()):
-        parts = [p for p in value.replace("\\\\", "\\").split("\\") if p]
+        parts = [part for part in value.replace("\\\\", "\\").split("\\")
+                 if part]
         if not parts or ".." in parts:
             warns.append("Unresolvable addon path literal in %s: %r"
                          % (rel, value))
@@ -187,32 +418,101 @@ def check_textures(root, lua_paths):
     return fails, warns, notes
 
 
+def _safe_relative(root, filename):
+    """Relative posix path of `filename` if it stays inside `root`."""
+    if not isinstance(filename, (str, bytes, os.PathLike)):
+        return None
+    try:
+        text = os.fsdecode(filename) if isinstance(filename, bytes) \
+            else os.fspath(filename)
+    except (TypeError, ValueError):
+        return None
+    if not text:
+        return None
+    candidate = Path(text)
+    try:
+        if not candidate.is_absolute():
+            candidate = root / candidate
+        rel = candidate.resolve().relative_to(root.resolve())
+    except (ValueError, OSError):
+        return None
+    shown = rel.as_posix()
+    if shown in ("", ".") or shown.startswith("../") or "/../" in shown:
+        return None
+    return shown
+
+
+def _leaks_absolute(root, message):
+    try:
+        root_text = str(Path(root).resolve())
+    except OSError:
+        root_text = str(root)
+    parent = str(Path(root_text).parent)
+    if root_text and root_text in message:
+        return True
+    if parent and parent not in ("/", "") and parent in message:
+        return True
+    return _ABS_LEAK.search(message) is not None
+
+
+def _public_error(root, exc):
+    """Exception type plus a staged-relative path. Never an absolute path."""
+    kind = type(exc).__name__
+    if isinstance(exc, OSError):
+        rel = _safe_relative(root, getattr(exc, "filename", None))
+        if rel is None:
+            rel = _safe_relative(root, getattr(exc, "filename2", None))
+        if rel:
+            return "%s: %s" % (kind, rel)
+        return kind
+    message = str(exc).strip()
+    if not message or _leaks_absolute(root, message):
+        return kind
+    return "%s: %s" % (kind, message)
+
+
+def _reject_root(out):
+    out("FAIL: argument must be an existing real directory named "
+        + STAGED_NAME)
+    return 1
+
+
 def run(path, manifest_module=None, out=print):
     root = Path(path)
-    if root.name != STAGED_NAME or not root.is_dir() or _is_link(root):
-        out("FAIL: argument must be an existing real directory named "
-            + STAGED_NAME)
-        return 1
-    root = root.resolve()
-    module = manifest_module or _load_manifest_module()
-    fails, warns, notes = [], [], []
-    lua_paths = []
+    if root.name != STAGED_NAME or _is_link(root):
+        return _reject_root(out)
     try:
-        result = module.check_manifest(root, require_staged_name=True)
-        notes.append("TOC/XML graph: %(toc_paths)d TOC, %(xml_paths)d XML "
-                     "refs, %(total_references)d total, %(xml_documents)d "
-                     "XML docs" % result)
-        lua_paths = _active_lua(module, root)
-    except (ValueError, OSError) as exc:
-        fails.append("Manifest: " + str(exc))
-    lf, lw = check_layout(root)
-    fails += lf
-    warns += lw
-    if lua_paths:
-        tf, tw, tn = check_textures(root, lua_paths)
-        fails += tf
-        warns += tw
-        notes += tn
+        if not root.is_dir():
+            return _reject_root(out)
+        root = root.resolve()
+    except OSError:
+        return _reject_root(out)
+    fails, warns, notes = [], [], []
+    layout_fails, links, files, dirs = check_layout(root)
+    fails.extend(layout_fails)
+    # Any symlink/junction/reparse point fails closed BEFORE manifest, XML,
+    # Lua or texture reads. The source tree has none.
+    if links:
+        notes.append("Skipped TOC/XML, Lua and texture reads because a "
+                     "symlink, junction or reparse point is present")
+    else:
+        fails.extend(check_notices(files, dirs))
+        module = manifest_module or _load_manifest_module()
+        lua_paths = []
+        try:
+            result = module.check_manifest(root, require_staged_name=True)
+            notes.append("TOC/XML graph: %(toc_paths)d TOC, %(xml_paths)d XML "
+                         "refs, %(total_references)d total, %(xml_documents)d "
+                         "XML docs" % result)
+            lua_paths = _active_lua(module, root)
+        except (ValueError, OSError) as exc:
+            fails.append("Manifest: " + _public_error(root, exc))
+        if lua_paths:
+            texture_fails, texture_warns, texture_notes = check_textures(
+                root, lua_paths)
+            fails.extend(texture_fails)
+            warns.extend(texture_warns)
+            notes.extend(texture_notes)
     for line in fails:
         out("FAIL: " + line)
     for line in warns:
@@ -220,7 +520,12 @@ def run(path, manifest_module=None, out=print):
     for line in notes:
         out("INFO: " + line)
     out("NOT TESTED: game-client loading/rendering, Lua runtime errors, "
-        "SavedVariables, rights/licence clearance, source-SHA attestation")
+        "SavedVariables, rights/licence clearance, source-SHA attestation, "
+        "Windows junctions/reparse points (os.path.isjunction is consulted; "
+        "real junction coverage is NOT TESTED), Python on Windows, "
+        "static Lua scan limits (not a Lua parser: unbalanced quotes, "
+        "unclosed long brackets, texture text inside strings, "
+        "loadstring/dynamic code)")
     out("RESULT: " + ("FAIL" if fails else "PASS") +
         " (%d fail, %d warn)" % (len(fails), len(warns)))
     return 1 if fails else 0
@@ -231,8 +536,8 @@ def _active_lua(module, root):
     collected = []
     original = module._checked_path
 
-    def recording(r, parent, supplied):
-        rel = original(r, parent, supplied)
+    def recording(checked_root, parent, supplied):
+        rel = original(checked_root, parent, supplied)
         if rel.lower().endswith(".lua"):
             collected.append(rel)
         return rel

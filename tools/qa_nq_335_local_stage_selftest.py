@@ -3,21 +3,33 @@
 
 Uses only invented files in disposable temporary directories; never touches
 a WoW install, user data, private/server data or the repository tree.
+Notice fixtures are invented sentences, not copies of third-party licenses.
 Deliberately not named test_*.py so pinned CI discovery is unchanged.
 Run: python tools/qa_nq_335_local_stage_selftest.py
+
+Real Windows junctions cannot be created here. The checker still calls
+os.path.isjunction; a monkeypatched True is covered, real junction
+coverage is NOT TESTED. Python on Windows is NOT TESTED.
 """
 import sys
 
 sys.dont_write_bytecode = True
 
+import contextlib  # noqa: E402
 import hashlib  # noqa: E402
 import importlib.util  # noqa: E402
+import io  # noqa: E402
 import os  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
 import tempfile  # noqa: E402
 import unittest  # noqa: E402
 from pathlib import Path  # noqa: E402
+from unittest import mock  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
+CANARY = "NQ335_EXTERNAL_CANARY_SENTINEL"
+PRIVATE = "NQ335_PRIVATE_OWNER_PATH_do_not_print"
 
 
 def _load(name, filename):
@@ -56,8 +68,10 @@ FILES = {
     "Database/db.lua": "-- synthetic db\n",
     "Icons/available.blp": "synthetic",
     "Icons/checkmark.tga": "synthetic",
-    "Icons/LICENSE.md": "synthetic notice\n",
+    "Icons/LICENSE.md": "synthetic notice invented for this fixture\n",
+    "Icons/MIT.txt": "synthetic mit notice invented for this fixture\n",
     "Libs/LibStub.lua": "-- synthetic\n",
+    "Libs/LICENSE.txt": "synthetic libs notice invented for this fixture\n",
     "Localization/enUS.lua": "-- synthetic\n",
 }
 
@@ -90,6 +104,112 @@ def snapshot(root):
     return digest
 
 
+def _plant_canary(parent):
+    """Readable files outside the staged root. Invented bytes only."""
+    outside = Path(parent) / "OUTSIDE"
+    outside.mkdir()
+    (outside / "NQ335_EXTERNAL_CANARY_DIR").mkdir()
+    (outside / "NQ335_EXTERNAL_CANARY_DIR" / "secret.blp").write_text(
+        CANARY + "\n", encoding="utf-8")
+    (outside / "available.blp").write_text(CANARY + "\n", encoding="utf-8")
+    (outside / "Tracker.lua").write_text(
+        'local t = QuestieLib.AddonPath.."Icons\\\\' + CANARY + '.blp"\n'
+        + CANARY + "\n", encoding="utf-8")
+    return outside
+
+
+class _OutsideAccessWatch:
+    """Record scandir/iterdir/open/read_text/resolve that land outside."""
+
+    def __init__(self, outside):
+        self.outside = os.path.realpath(outside)
+        self.seen = []
+
+    def _flag(self, path):
+        if isinstance(path, int):
+            return
+        try:
+            text = os.fspath(path)
+        except TypeError:
+            return
+        try:
+            followed = os.path.realpath(text)
+        except (OSError, ValueError):
+            return
+        outside = self.outside
+        if followed == outside or followed.startswith(outside + os.sep):
+            self.seen.append(followed)
+
+    def __enter__(self):
+        real_scandir = os.scandir
+        real_iterdir = Path.iterdir
+        real_read_text = Path.read_text
+        real_resolve = Path.resolve
+        real_open = open
+        real_io_open = io.open
+        watch = self
+
+        def scandir_wrap(path, *args, **kwargs):
+            watch._flag(path)
+            return real_scandir(path, *args, **kwargs)
+
+        def iterdir_wrap(pathobj):
+            watch._flag(pathobj)
+            return real_iterdir(pathobj)
+
+        def read_text_wrap(pathobj, *args, **kwargs):
+            watch._flag(pathobj)
+            return real_read_text(pathobj, *args, **kwargs)
+
+        def resolve_wrap(pathobj, *args, **kwargs):
+            result = real_resolve(pathobj, *args, **kwargs)
+            watch._flag(result)
+            return result
+
+        def open_wrap(file, *args, **kwargs):
+            watch._flag(file)
+            return real_open(file, *args, **kwargs)
+
+        def io_open_wrap(file, *args, **kwargs):
+            watch._flag(file)
+            return real_io_open(file, *args, **kwargs)
+
+        self._stack = contextlib.ExitStack()
+        self._stack.enter_context(mock.patch("os.scandir", new=scandir_wrap))
+        self._stack.enter_context(
+            mock.patch.object(Path, "iterdir", iterdir_wrap))
+        self._stack.enter_context(
+            mock.patch.object(Path, "read_text", read_text_wrap))
+        self._stack.enter_context(
+            mock.patch.object(Path, "resolve", resolve_wrap))
+        self._stack.enter_context(
+            mock.patch("builtins.open", new=open_wrap))
+        self._stack.enter_context(mock.patch("io.open", new=io_open_wrap))
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._stack.close()
+        return False
+
+
+def _bytecode_snapshot(directory):
+    found = {}
+
+    def record(path):
+        if path.is_file() and path.suffix == ".pyc":
+            stat = path.stat()
+            found[path.relative_to(directory).as_posix()] = (
+                stat.st_size, stat.st_mtime_ns)
+
+    for path in directory.glob("*.pyc"):
+        record(path)
+    cache = directory / "__pycache__"
+    if cache.is_dir() and not cache.is_symlink():
+        for path in cache.iterdir():
+            record(path)
+    return found
+
+
 class StageCheckerSelfTest(unittest.TestCase):
     def check(self, root):
         lines = []
@@ -97,6 +217,20 @@ class StageCheckerSelfTest(unittest.TestCase):
         code = CHECKER.run(str(root), out=lines.append)
         self.assertEqual(before, snapshot(root.parent), "checker mutated tree")
         return code, "\n".join(lines)
+
+    def _assert_outside_unread(self, root, outside):
+        lines = []
+        before = snapshot(root.parent)
+        with _OutsideAccessWatch(outside) as watch:
+            code = CHECKER.run(str(root), out=lines.append)
+        text = "\n".join(lines)
+        self.assertEqual(before, snapshot(root.parent), "checker mutated tree")
+        self.assertEqual(watch.seen, [],
+                         "outside path was enumerated or read: %r\n%s"
+                         % (watch.seen, text))
+        self.assertNotIn(CANARY, text)
+        self.assertNotIn("NQ335_EXTERNAL_CANARY_DIR", text)
+        return code, text
 
     def test_valid_pass_with_case_warning_and_inactive_ignored(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -107,6 +241,9 @@ class StageCheckerSelfTest(unittest.TestCase):
             self.assertNotIn("absent.blp", out)
             self.assertNotIn("commented_out", out)
             self.assertIn("NOT TESTED", out)
+            self.assertIn("real junction coverage is NOT TESTED", out)
+            self.assertIn("Python on Windows", out)
+            self.assertIn("static Lua scan limits", out)
 
     def test_missing_toc_entry_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -173,22 +310,212 @@ class StageCheckerSelfTest(unittest.TestCase):
             lines = []
             self.assertEqual(CHECKER.run(str(other), out=lines.append), 1)
 
+    def test_ordinary_file_named_icons_fails(self):
+        remove = [name for name in FILES
+                  if name == "Icons" or name.startswith("Icons/")]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build(tmp, {"Icons": "not a directory\n"}, remove=remove)
+            self.assertTrue((root / "Icons").is_file())
+            code, out = self.check(root)
+            self.assertEqual(code, 1, out)
+            self.assertIn("Unexpected top-level file: Icons", out)
+
+    def test_ordinary_directory_named_questie_lua_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build(tmp, remove={"Questie.lua"})
+            (root / "Questie.lua").mkdir()
+            self.assertTrue((root / "Questie.lua").is_dir())
+            code, out = self.check(root)
+            self.assertEqual(code, 1, out)
+            self.assertIn("Unexpected top-level directory: Questie.lua", out)
+
     @unittest.skipUnless(hasattr(os, "symlink"), "no symlink support")
     def test_symlink_escape_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = build(tmp)
-            outside = Path(tmp) / "outside"
-            outside.mkdir()
+            outside = _plant_canary(tmp)
+            shutil.rmtree(root / "Icons")
             try:
-                os.symlink(outside, root / "Libs" / "escape")
+                os.symlink(os.path.join("..", "OUTSIDE"), root / "Icons",
+                           target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation not permitted")
+            code, out = self._assert_outside_unread(root, outside)
+            self.assertEqual(code, 1, out)
+            self.assertIn("Link escapes staged folder: Icons", out)
+            self.assertIn("Skipped TOC/XML", out)
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "no symlink support")
+    def test_active_toc_symlink_is_not_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build(tmp)
+            outside = _plant_canary(tmp)
+            tracker = root / "Modules" / "Tracker.lua"
+            tracker.unlink()
+            try:
+                os.symlink(os.path.join("..", "..", "OUTSIDE", "Tracker.lua"),
+                           tracker)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation not permitted")
+            code, out = self._assert_outside_unread(root, outside)
+            self.assertEqual(code, 1, out)
+            self.assertIn("Link escapes staged folder: Modules/Tracker.lua",
+                          out)
+            self.assertIn("Skipped TOC/XML", out)
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "no symlink support")
+    def test_internal_symlink_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build(tmp)
+            try:
+                os.symlink("available.blp", root / "Icons" / "alias.blp")
             except (OSError, NotImplementedError):
                 self.skipTest("symlink creation not permitted")
             code, out = self.check(root)
             self.assertEqual(code, 1, out)
-            self.assertIn("Link escapes staged folder", out)
+            self.assertIn("Link/junction/reparse point is not allowed: "
+                          "Icons/alias.blp", out)
+            self.assertIn("Skipped TOC/XML", out)
+
+    def test_simulated_junction_skips_content_reads(self):
+        """Real Windows junctions are NOT TESTED. A monkeypatched
+        os.path.isjunction True must still fail closed before read_text.
+        """
+        if not hasattr(os.path, "isjunction"):
+            self.skipTest("os.path.isjunction is not available")
+
+        def fake_isjunction(path):
+            candidate = Path(os.fspath(path))
+            return candidate.parent.name == "Modules" and \
+                candidate.name == "Tracker.lua"
+
+        read_calls = []
+        real_read = Path.read_text
+
+        def read_wrap(pathobj, *args, **kwargs):
+            read_calls.append(str(pathobj))
+            return real_read(pathobj, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build(tmp)
+            lines = []
+            before = snapshot(root.parent)
+            with mock.patch("os.path.isjunction", new=fake_isjunction), \
+                    mock.patch.object(Path, "read_text", read_wrap):
+                code = CHECKER.run(str(root), out=lines.append)
+            text = "\n".join(lines)
+            self.assertEqual(before, snapshot(root.parent),
+                             "checker mutated tree")
+            self.assertEqual(code, 1, text)
+            self.assertEqual(read_calls, [], text)
+            self.assertIn("Link/junction/reparse point is not allowed: "
+                          "Modules/Tracker.lua", text)
+            self.assertIn("real junction coverage is NOT TESTED", text)
+
+    def test_unreadable_active_file_omits_private_path(self):
+        if getattr(os, "geteuid", lambda: 1)() == 0:
+            self.skipTest("chmod 000 is ignored when running as root")
+        cases = ("Modules/Tracker.lua", "Compat/embeds.xml")
+        for rel in cases:
+            with self.subTest(rel=rel), tempfile.TemporaryDirectory() as tmp:
+                parent = Path(tmp) / PRIVATE
+                parent.mkdir()
+                root = build(parent)
+                target = root.joinpath(*rel.split("/"))
+                before = snapshot(root)
+                target.chmod(0)
+                lines = []
+                try:
+                    code = CHECKER.run(str(root), out=lines.append)
+                finally:
+                    target.chmod(0o644)
+                text = "\n".join(lines)
+                self.assertEqual(snapshot(root), before, "checker mutated tree")
+                self.assertEqual(code, 1, text)
+                for line in lines:
+                    self.assertNotIn(PRIVATE, line)
+                    self.assertNotIn(str(parent), line)
+                self.assertIn("PermissionError", text)
+                self.assertIn(rel, text)
+
+    def test_missing_required_notice_fails(self):
+        for rel in ("Icons/LICENSE.md", "Icons/MIT.txt", "Libs/LICENSE.txt"):
+            with self.subTest(rel=rel), tempfile.TemporaryDirectory() as tmp:
+                code, out = self.check(build(tmp, remove={rel}))
+                self.assertEqual(code, 1, out)
+                self.assertIn("Missing required notice: " + rel, out)
+
+    def test_krowi_notice_required_only_when_directory_present(self):
+        with self.subTest("absent directory"), \
+                tempfile.TemporaryDirectory() as tmp:
+            code, out = self.check(build(tmp))
+            self.assertEqual(code, 0, out)
+            self.assertNotIn("Krowi_WorldMapButtons", out)
+        with self.subTest("present without notice"), \
+                tempfile.TemporaryDirectory() as tmp:
+            code, out = self.check(build(tmp, {
+                "Libs/Krowi_WorldMapButtons/placeholder.txt":
+                "synthetic placeholder\n",
+            }))
+            self.assertEqual(code, 1, out)
+            self.assertIn(
+                "Missing required notice: "
+                "Libs/Krowi_WorldMapButtons/LICENSE.md", out)
+        with self.subTest("present with invented notice"), \
+                tempfile.TemporaryDirectory() as tmp:
+            code, out = self.check(build(tmp, {
+                "Libs/Krowi_WorldMapButtons/LICENSE.md":
+                "synthetic krowi notice invented for this fixture\n",
+            }))
+            self.assertEqual(code, 0, out)
+
+    def test_inline_lua_comment_and_quoted_dashes(self):
+        lua = "\n".join((
+            '--[[ QuestieLib.AddonPath.."Icons\\\\long_missing.blp" ]]',
+            'local quoted = "--" local a = '
+            'QuestieLib.AddonPath.."Icons\\\\after_quoted_dashes.blp"'
+            ' -- QuestieLib.AddonPath.."Icons\\\\missing.blp"',
+        )) + "\n"
+        stripped = CHECKER._strip_lua_comments(lua)
+        self.assertIn("after_quoted_dashes.blp", stripped)
+        self.assertIn('"--"', stripped)
+        self.assertNotIn("missing.blp", stripped)
+        self.assertNotIn("long_missing", stripped)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build(tmp, {
+                "Modules/Tracker.lua": lua,
+                "Icons/after_quoted_dashes.blp": "synthetic\n",
+            })
+            code, out = self.check(root)
+            self.assertEqual(code, 0, out)
+            self.assertIn("RESULT: PASS", out)
+            self.assertNotIn("missing.blp", out)
+            self.assertNotIn("long_missing", out)
+            self.assertIn(
+                "3 distinct static addon texture paths checked", out)
 
     def test_no_bytecode_written_next_to_tools(self):
-        self.assertFalse((HERE / "__pycache__").exists())
+        env = os.environ.copy()
+        env.pop("PYTHONDONTWRITEBYTECODE", None)
+        env.pop("PYTHONPYCACHEPREFIX", None)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build(tmp)
+            before = _bytecode_snapshot(HERE)
+            proc = subprocess.run(
+                [sys.executable, str(HERE / "check_nq_335_local_stage.py"),
+                 str(root)],
+                cwd=tmp,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            after = _bytecode_snapshot(HERE)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertEqual(before, after,
+                             "checker wrote or updated bytecode next to tools")
+            self.assertFalse(list(root.rglob("__pycache__")))
+            self.assertFalse(list(root.rglob("*.pyc")))
 
 
 if __name__ == "__main__":
