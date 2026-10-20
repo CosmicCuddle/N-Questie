@@ -4,9 +4,10 @@
 Usage:  python tools/check_nq_335_local_stage.py <path-to>/Questie-335
 
 What it does (reads only, inside the folder you name):
-  * before any is_dir, resolve or content read, walks the lexical input
-    path from the filesystem root downward. A relative path is made
-    absolute with os.path.abspath, which does not resolve links. If any
+  * before any is_dir, resolve or content read, rejects raw parent (`..`)
+    components, then walks the lexical input path from the filesystem root
+    downward. A relative path is made absolute with os.path.abspath,
+    which does not resolve links. If any
     component, including the named folder, is a symlink, a junction or a
     Windows reparse point, the run fails closed. That stops a linked
     ancestor from redirecting the scan. Off Windows the reparse-attribute
@@ -248,9 +249,11 @@ def _is_link(path):
 def _lexical_chain(path):
     """Absolute lexical components from the filesystem root downward.
 
-    A relative path is absolutized with os.path.abspath, which collapses
-    `.` and `..` and does not resolve symlinks, junctions or reparse
-    points. Returns None when the path cannot be checked. Does not call
+    Raw `..` components are rejected before os.path.abspath, because
+    normalising a symlink/.. pair would conceal the linked ancestor.
+    Remaining relative paths are absolutized lexically; no symlinks,
+    junctions or reparse points are resolved. Returns None when the path
+    cannot be checked. Does not call
     is_dir, resolve, scandir or read.
     """
     try:
@@ -263,6 +266,10 @@ def _lexical_chain(path):
         except (UnicodeError, ValueError):
             return None
     if not isinstance(text, str) or text == "" or "\x00" in text:
+        return None
+    # Check the RAW input: abspath removes parent components too early.
+    # In LinkedParent/../Questie-335, LinkedParent may redirect traversal.
+    if ".." in text.replace("\\", "/").split("/"):
         return None
     try:
         absolute = os.path.abspath(text)
