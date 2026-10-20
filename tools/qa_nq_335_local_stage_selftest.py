@@ -9,10 +9,11 @@ Run: python tools/qa_nq_335_local_stage_selftest.py
 
 Real Windows junctions and reparse points cannot be created here. The
 checker still calls os.path.isjunction and, where st_file_attributes
-exists, FILE_ATTRIBUTE_REPARSE_POINT. A monkeypatched junction and a
-monkeypatched reparse bit are covered. Real Windows junction/reparse
-coverage, PowerShell and the game client are NOT TESTED. Python on
-Windows is NOT TESTED.
+exists, FILE_ATTRIBUTE_REPARSE_POINT, including on ancestors of the
+named folder. A monkeypatched junction and a monkeypatched reparse bit
+are covered. A real junction in an ancestor is NOT TESTED on Linux.
+Real Windows junction/reparse coverage, PowerShell and the game client
+are NOT TESTED. Python on Windows is NOT TESTED.
 """
 import sys
 
@@ -344,6 +345,40 @@ class StageCheckerSelfTest(unittest.TestCase):
             self.assertEqual(code, 1, out)
             self.assertIn("Unexpected top-level directory: Questie.lua", out)
 
+    def _assert_linked_input_rejected(self, path, outside, forbidden):
+        """run() returns 1 before is_dir, resolve, scandir or read_text.
+
+        `forbidden` strings (canaries, absolute paths) must be absent.
+        A real Windows junction path is NOT TESTED on Linux.
+        """
+        is_dir_calls = []
+        real_is_dir = Path.is_dir
+
+        def is_dir_wrap(pathobj, *args, **kwargs):
+            is_dir_calls.append(os.fspath(pathobj))
+            return real_is_dir(pathobj, *args, **kwargs)
+
+        lines = []
+        with mock.patch.object(Path, "is_dir", is_dir_wrap), \
+                _OutsideAccessWatch(outside) as watch:
+            code = CHECKER.run(os.fspath(path), out=lines.append)
+        text = "\n".join(lines)
+        self.assertEqual(code, 1, text)
+        self.assertEqual(is_dir_calls, [],
+                         "is_dir ran before the link check:\n" + text)
+        self.assertEqual(watch.seen, [],
+                         "outside path was enumerated or read: %r\n%s"
+                         % (watch.seen, text))
+        self.assertEqual(lines, [
+            "FAIL: symlink, junction or reparse point in the path to "
+            "Questie-335",
+        ], text)
+        for secret in forbidden:
+            self.assertNotIn(secret, text)
+        for line in lines:
+            self.assertIsNone(_EMITTED_ABSOLUTE.search(line), line)
+        return text
+
     @unittest.skipUnless(hasattr(os, "symlink"), "no symlink support")
     def test_symlink_escape_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -391,6 +426,164 @@ class StageCheckerSelfTest(unittest.TestCase):
             self.assertIn("Link/junction/reparse point is not allowed: "
                           "Icons/alias.blp", out)
             self.assertIn("Skipped TOC/XML", out)
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "no symlink support")
+    def test_symlinked_parent_does_not_read_outside(self):
+        """An ordinary Questie-335 under a linked parent must not be scanned.
+
+        Shape: INTENDED/LinkedParent/Questie-335 where LinkedParent points
+        at OUTSIDE, and OUTSIDE/Questie-335 is a real directory. The child
+        itself is not a symlink. run() must return nonzero without reading
+        or enumerating OUTSIDE.
+
+        A junction in that ancestor position is NOT TESTED on Linux.
+        """
+        canary = "NQ335_ANCESTOR_LINK_CANARY"
+        with tempfile.TemporaryDirectory() as tmp:
+            outside = Path(tmp) / "OUTSIDE"
+            intended = Path(tmp) / "INTENDED"
+            outside.mkdir()
+            intended.mkdir()
+            root_real = build(outside, {
+                "Modules/Tracker.lua":
+                    'x:SetTexture(QuestieLib.AddonPath.."Icons\\\\'
+                    + canary + '.blp")\n',
+                "Icons/" + canary + ".blp": canary + "\n",
+            })
+            (outside / "NQ335_EXTERNAL_CANARY_DIR").mkdir()
+            (outside / "NQ335_EXTERNAL_CANARY_DIR" / "secret.blp").write_text(
+                CANARY + "\n", encoding="utf-8")
+            link = intended / "LinkedParent"
+            try:
+                os.symlink(outside, link, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation not permitted")
+            lexical = link / "Questie-335"
+            self.assertFalse(lexical.is_symlink())
+            self.assertTrue(link.is_symlink())
+            self.assertTrue(lexical.is_dir())
+            self.assertEqual(lexical.resolve(), root_real.resolve())
+
+            def explode(*args, **kwargs):
+                raise AssertionError("resolve called while building chain")
+
+            with mock.patch.object(Path, "resolve", explode):
+                chain = CHECKER._lexical_chain(str(lexical))
+            self.assertIsNotNone(chain)
+            self.assertEqual(chain[0], os.sep)
+            self.assertTrue(any(part.endswith(os.sep + "LinkedParent")
+                                for part in chain))
+            self.assertTrue(chain[-1].endswith(os.sep + "Questie-335"))
+            self.assertNotIn(str(outside), "\n".join(chain))
+            self.assertNotIn(str(root_real), chain)
+            before = snapshot(outside)
+            forbidden = (canary, CANARY, "NQ335_EXTERNAL_CANARY_DIR",
+                         str(outside), str(lexical), str(root_real),
+                         str(link), str(intended))
+            self._assert_linked_input_rejected(str(lexical), outside,
+                                               forbidden)
+            self.assertEqual(before, snapshot(outside),
+                             "checker mutated the outside tree")
+
+            cwd = os.getcwd()
+            try:
+                os.chdir(intended)
+                relative = os.path.join("LinkedParent", "Questie-335")
+                self.assertFalse(os.path.isabs(relative))
+                with mock.patch.object(Path, "resolve", explode):
+                    relative_chain = CHECKER._lexical_chain(relative)
+                self.assertNotIn(str(outside), "\n".join(relative_chain))
+                self.assertTrue(any(
+                    part.endswith(os.sep + "LinkedParent")
+                    for part in relative_chain))
+                self._assert_linked_input_rejected(relative, outside,
+                                                   forbidden)
+            finally:
+                os.chdir(cwd)
+            self.assertEqual(before, snapshot(outside),
+                             "checker mutated the outside tree")
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "no symlink support")
+    def test_root_symlink_is_not_followed(self):
+        """The named Questie-335 itself being a symlink still fails closed."""
+        with tempfile.TemporaryDirectory() as tmp:
+            outside = _plant_canary(tmp)
+            real = build(outside)
+            intended = Path(tmp) / "INTENDED"
+            intended.mkdir()
+            link = intended / "Questie-335"
+            try:
+                os.symlink(real, link, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation not permitted")
+            self.assertTrue(link.is_symlink())
+            forbidden = (CANARY, "NQ335_EXTERNAL_CANARY_DIR", str(outside),
+                         str(real), str(link), str(intended))
+            self._assert_linked_input_rejected(str(link), outside, forbidden)
+
+    def test_simulated_ancestor_junction_rejects_before_isdir(self):
+        """os.path.isjunction on an ancestor fails closed before is_dir.
+
+        Real Windows junctions and reparse points are NOT TESTED. This
+        only monkeypatches the predicate.
+        """
+        if not hasattr(os.path, "isjunction"):
+            self.skipTest("os.path.isjunction is not available")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build(tmp)
+            parent_name = Path(tmp).name
+            real_isjunction = os.path.isjunction
+            real_is_dir = Path.is_dir
+            real_resolve = Path.resolve
+            real_scandir = os.scandir
+            real_read = Path.read_text
+            seen = {"is_dir": [], "resolve": [], "scandir": [], "read": []}
+
+            def fake_isjunction(path):
+                if os.path.basename(os.fspath(path)) == parent_name:
+                    return True
+                return real_isjunction(path)
+
+            def is_dir_wrap(pathobj, *args, **kwargs):
+                seen["is_dir"].append(os.fspath(pathobj))
+                return real_is_dir(pathobj, *args, **kwargs)
+
+            def resolve_wrap(pathobj, *args, **kwargs):
+                seen["resolve"].append(os.fspath(pathobj))
+                return real_resolve(pathobj, *args, **kwargs)
+
+            def scandir_wrap(path, *args, **kwargs):
+                seen["scandir"].append(os.fspath(path))
+                return real_scandir(path, *args, **kwargs)
+
+            def read_wrap(pathobj, *args, **kwargs):
+                seen["read"].append(os.fspath(pathobj))
+                return real_read(pathobj, *args, **kwargs)
+
+            lines = []
+            before = snapshot(root.parent)
+            with mock.patch("os.path.isjunction", new=fake_isjunction), \
+                    mock.patch.object(Path, "is_dir", is_dir_wrap), \
+                    mock.patch.object(Path, "resolve", resolve_wrap), \
+                    mock.patch("os.scandir", scandir_wrap), \
+                    mock.patch.object(Path, "read_text", read_wrap):
+                code = CHECKER.run(str(root), out=lines.append)
+            text = "\n".join(lines)
+            self.assertEqual(before, snapshot(root.parent),
+                             "checker mutated tree")
+            self.assertEqual(code, 1, text)
+            self.assertEqual(seen["is_dir"], [], text)
+            self.assertEqual(seen["resolve"], [], text)
+            self.assertEqual(seen["scandir"], [], text)
+            self.assertEqual(seen["read"], [], text)
+            self.assertEqual(lines, [
+                "FAIL: symlink, junction or reparse point in the path to "
+                "Questie-335",
+            ], text)
+            for line in lines:
+                self.assertIsNone(_EMITTED_ABSOLUTE.search(line), line)
+                self.assertNotIn(str(root), line)
+                self.assertNotIn(tmp, line)
 
     def test_simulated_junction_skips_content_reads(self):
         """Real Windows junctions are NOT TESTED. A monkeypatched
@@ -704,6 +897,87 @@ class StageCheckerSelfTest(unittest.TestCase):
                 self.assertIn("Skipped TOC/XML", text)
                 self.assertIn("RESULT: FAIL", text)
                 self.assertIn("NOT TESTED", text)
+
+    def test_uninspectable_entry_is_layout_fail(self):
+        """entry.is_dir(follow_symlinks=False) raising is a layout FAIL.
+
+        It is not classed as a file, and the file is not read.
+        """
+        secret = "NQ335_INSPECT_OTHER_PRIVATE"
+        real_scandir = os.scandir
+
+        class _Entry:
+            def __init__(self, inner):
+                self._inner = inner
+                self.name = inner.name
+                self.path = inner.path
+
+            def is_dir(self, *, follow_symlinks=True):
+                if self.name == "Tracker.lua":
+                    raise OSError(1, secret)
+                return self._inner.is_dir(follow_symlinks=follow_symlinks)
+
+        class _Scan:
+            def __init__(self, inner):
+                self._inner = inner
+
+            def __enter__(self):
+                self._inner.__enter__()
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return self._inner.__exit__(exc_type, exc, tb)
+
+            def __iter__(self):
+                for entry in self._inner:
+                    yield _Entry(entry)
+
+        def scandir_wrap(path, *args, **kwargs):
+            return _Scan(real_scandir(path, *args, **kwargs))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build(tmp)
+            module = CHECKER._load_manifest_module()
+            calls = []
+            original = module.check_manifest
+
+            def wrapped(checked, require_staged_name=True,
+                        _original=original):
+                calls.append(os.fspath(checked))
+                return _original(checked,
+                                 require_staged_name=require_staged_name)
+
+            module.check_manifest = wrapped
+            read_calls = []
+            real_read = Path.read_text
+
+            def read_wrap(pathobj, *args, **kwargs):
+                read_calls.append(os.fspath(pathobj))
+                return real_read(pathobj, *args, **kwargs)
+
+            lines = []
+            before = snapshot(root.parent)
+            with mock.patch("os.scandir", new=scandir_wrap), \
+                    mock.patch.object(Path, "read_text", read_wrap):
+                code = CHECKER.run(str(root), manifest_module=module,
+                                   out=lines.append)
+            text = "\n".join(lines)
+            self.assertEqual(before, snapshot(root.parent),
+                             "checker mutated tree")
+            self.assertEqual(code, 1, text)
+            self.assertIn("Cannot inspect staged entry: Modules/Tracker.lua",
+                          text)
+            self.assertNotIn(secret, text)
+            self.assertNotIn("Unexpected top-level file: Tracker.lua", text)
+            self.assertEqual(calls, [], "check_manifest ran:\n" + text)
+            self.assertEqual(read_calls, [],
+                             "staged bytes were read:\n" + text)
+            self.assertIn("Skipped TOC/XML", text)
+            self.assertIn("RESULT: FAIL", text)
+            for line in lines:
+                self.assertNotIn(str(root), line)
+                self.assertNotIn(tmp, line)
+                self.assertIsNone(_EMITTED_ABSOLUTE.search(line), line)
 
     def test_reparse_attribute_is_noop_when_absent(self):
         """Off Windows st_file_attributes is missing. Real Windows reparse

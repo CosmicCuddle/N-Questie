@@ -4,12 +4,20 @@
 Usage:  python tools/check_nq_335_local_stage.py <path-to>/Questie-335
 
 What it does (reads only, inside the folder you name):
+  * before any is_dir, resolve or content read, walks the lexical input
+    path from the filesystem root downward. A relative path is made
+    absolute with os.path.abspath, which does not resolve links. If any
+    component, including the named folder, is a symlink, a junction or a
+    Windows reparse point, the run fails closed. That stops a linked
+    ancestor from redirecting the scan. Off Windows the reparse-attribute
+    check is a no-op. Real Windows junctions and reparse points are
+    NOT TESTED;
   * pre-walks that folder without following links. A symlink, a junction,
     or a Windows reparse point (`os.lstat` `st_file_attributes` &
     `stat.FILE_ATTRIBUTE_REPARSE_POINT`, where that attribute exists)
-    fails the run before any TOC, XML, Lua or texture read. Off Windows
-    the reparse-attribute check is a no-op. Real Windows reparse points
-    are NOT TESTED;
+    fails the run before any TOC, XML, Lua or texture read. An entry
+    that cannot be inspected with is_dir(follow_symlinks=False) is a
+    layout failure, not a file;
   * any other layout failure (forbidden or unexpected entry, missing
     required top-level entry) also skips those content reads;
   * reuses the reviewed `check_manifest` from
@@ -29,7 +37,8 @@ What it does (reads only, inside the folder you name):
 What it never does: copy, build, zip, install, delete, rename or modify any
 file; write a report or Python bytecode; use the network; read WoW/WTF or
 any default game path; enumerate or read through a symlink or junction;
-read TOC, XML, Lua or texture bytes after a layout failure; print an
+follow a symlink, junction or reparse point in an ancestor of the named
+folder; read TOC, XML, Lua or texture bytes after a layout failure; print an
 absolute path or an arbitrary exception string. Non-OSError results are
 the exception type only. An OSError path is shown only after a lexical
 in-root check, and an outside filename is not resolved just to format
@@ -236,6 +245,67 @@ def _is_link(path):
         return False
 
 
+def _lexical_chain(path):
+    """Absolute lexical components from the filesystem root downward.
+
+    A relative path is absolutized with os.path.abspath, which collapses
+    `.` and `..` and does not resolve symlinks, junctions or reparse
+    points. Returns None when the path cannot be checked. Does not call
+    is_dir, resolve, scandir or read.
+    """
+    try:
+        text = os.fspath(path)
+    except (TypeError, ValueError):
+        return None
+    if isinstance(text, bytes):
+        try:
+            text = os.fsdecode(text)
+        except (UnicodeError, ValueError):
+            return None
+    if not isinstance(text, str) or text == "" or "\x00" in text:
+        return None
+    try:
+        absolute = os.path.abspath(text)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(absolute, str) or absolute == "" or "\x00" in absolute:
+        return None
+    drive, tail = os.path.splitdrive(absolute)
+    pieces = []
+    for piece in tail.replace("\\", "/").split("/"):
+        if piece in ("", "."):
+            continue
+        if piece == "..":
+            return None
+        pieces.append(piece)
+    if drive:
+        chain = [drive + "\\"]
+    else:
+        chain = [os.sep]
+    current = chain[0]
+    for piece in pieces:
+        current = os.path.join(current, piece)
+        chain.append(current)
+    return chain
+
+
+def _chain_has_link(path):
+    """True if any lexical component is a symlink, junction or reparse point.
+
+    Walks from the filesystem root downward and stops at the first hit so
+    a later component is not inspected through the link. Reuses `_is_link`.
+    Returns None when the chain cannot be built; the caller fails closed.
+    Does not call is_dir or resolve.
+    """
+    chain = _lexical_chain(path)
+    if chain is None:
+        return None
+    for component in chain:
+        if _is_link(component):
+            return True
+    return False
+
+
 def _link_message(root, path, rel):
     """FAIL text for a link. Uses readlink + normpath, never lists the target."""
     try:
@@ -287,7 +357,10 @@ def _scan_tree(root):
             try:
                 is_dir = entry.is_dir(follow_symlinks=False)
             except OSError:
-                is_dir = False
+                # Fail closed. Classing an uninspectable entry as a file
+                # would hide a directory the scan could not see.
+                fails.append("Cannot inspect staged entry: " + rel)
+                continue
             if is_dir:
                 dirs.add(rel)
                 if path.name.lower() in FORBIDDEN_DIR_NAMES:
@@ -569,10 +642,26 @@ def _reject_root(out):
     return 1
 
 
+def _reject_linked_input(out):
+    """Nonzero, and no absolute or private path in the message."""
+    out("FAIL: symlink, junction or reparse point in the path to "
+        + STAGED_NAME)
+    return 1
+
+
 def run(path, manifest_module=None, out=print):
     root = Path(path)
-    if root.name != STAGED_NAME or _is_link(root):
+    if root.name != STAGED_NAME:
         return _reject_root(out)
+    # Lexical component chain first. is_dir() and resolve() follow a
+    # symlink, junction or reparse point in an ancestor, so they must
+    # not run until every component has been rejected or cleared.
+    # `_chain_has_link` reuses `_is_link` and does not itself resolve.
+    linked = _chain_has_link(path)
+    if linked is None:
+        return _reject_root(out)
+    if linked:
+        return _reject_linked_input(out)
     try:
         if not root.is_dir():
             return _reject_root(out)
