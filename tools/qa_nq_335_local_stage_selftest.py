@@ -504,6 +504,77 @@ class StageCheckerSelfTest(unittest.TestCase):
                              "checker mutated the outside tree")
 
     @unittest.skipUnless(hasattr(os, "symlink"), "no symlink support")
+    def test_parent_dotdot_cannot_bypass_ancestor_guard(self):
+        """Raw linked-parent/.. must fail before any staged-tree read.
+
+        Normalised spelling points at INTENDED/Questie-335, but filesystem
+        traversal via LinkedParent -> OUTSIDE/NEST reaches OUTSIDE/Questie-335.
+        Both targets are valid invented stages: missing files cannot make
+        this negative test pass accidentally.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            intended = Path(tmp) / "INTENDED"
+            outside = Path(tmp) / "OUTSIDE"
+            intended.mkdir()
+            (outside / "NEST").mkdir(parents=True)
+            normal = build(intended)
+            external = build(outside, {
+                "Modules/Tracker.lua": "-- invented outside canary\n",
+                "Icons/external-canary.blp": CANARY + "\n",
+            })
+            (outside / "NQ335_EXTERNAL_CANARY_DIR").mkdir()
+            (outside / "NQ335_EXTERNAL_CANARY_DIR" / "private.txt").write_text(
+                CANARY + "\n", encoding="utf-8")
+            link = intended / "LinkedParent"
+            try:
+                os.symlink(outside / "NEST", link, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation not permitted")
+
+            lexical = link / ".." / "Questie-335"
+            self.assertEqual(Path(os.path.abspath(str(lexical))), normal)
+            self.assertEqual(lexical.resolve(), external.resolve())
+            self.assertTrue(lexical.is_dir())
+            self.assertTrue(normal.is_dir())
+            self.assertIsNone(CHECKER._lexical_chain(str(lexical)))
+            self.assertIsNone(
+                CHECKER._lexical_chain(r"LinkedParent\..\Questie-335"))
+            before = snapshot(outside)
+
+            def reject_candidate(candidate):
+                lines = []
+                with mock.patch.object(
+                        Path, "is_dir",
+                        side_effect=AssertionError("pre-read is_dir called")
+                ), _OutsideAccessWatch(outside) as watch:
+                    code = CHECKER.run(candidate, out=lines.append)
+                output = "\n".join(lines)
+                self.assertEqual(code, 1, output)
+                self.assertEqual(watch.seen, [],
+                                 "outside access: %r" % watch.seen)
+                self.assertEqual(lines, [
+                    "FAIL: argument must be an existing real directory "
+                    "named Questie-335",
+                ], output)
+                self.assertNotIn(CANARY, output)
+                self.assertNotIn(str(outside), output)
+                for line in lines:
+                    self.assertIsNone(_EMITTED_ABSOLUTE.search(line), line)
+
+            reject_candidate(str(lexical))
+            cwd = os.getcwd()
+            try:
+                os.chdir(intended)
+                reject_candidate(
+                    os.path.join("LinkedParent", "..", "Questie-335"))
+            finally:
+                os.chdir(cwd)
+            self.assertEqual(before, snapshot(outside),
+                             "outside fixture was mutated")
+            code, output = self.check(normal)
+            self.assertEqual(code, 0, output)
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "no symlink support")
     def test_root_symlink_is_not_followed(self):
         """The named Questie-335 itself being a symlink still fails closed."""
         with tempfile.TemporaryDirectory() as tmp:
