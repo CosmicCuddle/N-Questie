@@ -5,7 +5,7 @@ This branch is a **development draft**, not an addon package or approved server 
 ## Scope
 
 - Existing `Compat/NQuestieCustomQuestData.lua` still contains only the previously public custom quest 2001.
-- The loader adds **new quest IDs only**; existing quest field corrections remain separately owned by `Compat/NQuestieExistingQuestCorrections.lua`.
+- The loader adds **new quest IDs only**, with a narrow fingerprint-checked compatibility exception for the already-released public quest **2001**. Other existing-quest field corrections remain separately owned by `Compat/NQuestieExistingQuestCorrections.lua`.
 - No private server quest names, IDs, NPCs, items, coordinates, SQL, or database exports are included.
 - The client, protected `335` branch, and SQL/server are untouched. **Do not merge or release without the owner's separate approval.**
 
@@ -38,6 +38,6 @@ python3 tests/compat/run_nq_custom_loader_safety.py
 
 The script checks a pinned Git blob revision of the draft loader and runs synthetic records, including the **already-public** 2001 baseline. It uses Lua 5.1 when locally available, otherwise 5.4 if present; a successful Lua 5.4 run is **not** a WoW 3.3.5a Lua 5.1 certification.
 
-Local pre-commit evidence: **34/34** proposed behavioural guards passed using isolated Lua 5.4 mocks against the exact draft loader blob. The committed extended test file has further synthetic cases; the separate game-client, Questie compiler round-trip, 2001 in-game, Quest 1203, individual progression, map precision and SavedVariables regression tests remain **NOT TESTED**.
+Local development evidence: **34/34** proposed behavioural guards passed using isolated Lua 5.4 mocks against the exact draft loader blob. Existing repository CI found a tuple-shape regression for quest 2001 on the first draft; a subsequent commit restored its exact NPC/kill-only nested arrays and added dedicated regression assertions. The committed extended test file has further synthetic cases; the separate game-client, Questie compiler round-trip, 2001 in-game, Quest 1203, individual progression, map precision and SavedVariables regression tests remain **NOT TESTED**.
 
 **Review requests for CS02:** inspect callback ordering/collision handling, missing NPC/GO crash prevention, item-objective nil safety, mixed-type objective ordering, reverse-index capacity, negative prerequisite mapping policy, cache revision bump 5→6, and Lua 5.1 compatibility. Do not introduce real server records during this review.
