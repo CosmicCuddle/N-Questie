@@ -930,9 +930,9 @@ function Test-StreamSet([int64]$handle, [bool]$isDir) {
     # GetFileInformationByHandleEx finds no stream records. A directory
     # with no named streams is documented to fail that way. A file is
     # expected to return ::$DATA, so EOF on a file stays unproven.
-    # Compare as uint32. The bit pattern does not fit in a signed Int32 cast.
-    $streamEof = [uint32]3221225510
-    if ($isDir -and ([uint32]$streams.Status) -eq $streamEof) {
+    # Signed form of 0xC0000026. Casting that bit pattern to uint32 throws
+    # in Windows PowerShell, so compare the signed status directly.
+    if ($isDir -and ($streams.Status -eq ([int]-1073741786))) {
         if ($script:AdsCell -ne 'stop-extra') { $script:AdsCell = 'checked' }
         $script:AdsDirEof = 'yes'
         return
@@ -1199,6 +1199,7 @@ try {
         try { $script:ExceptionLine = [string]$_.InvocationInfo.ScriptLineNumber } catch { }
         try {
             $id = [string]$_.FullyQualifiedErrorId
+            $id = [regex]::Replace($id, '[A-Za-z]:\\[^\s]*', 'path')
             if ($id.Length -gt 80) { $id = $id.Substring(0, 80) }
             $script:ExceptionId = $id
         } catch { }
