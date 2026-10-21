@@ -1,0 +1,44 @@
+name: NQ 3.3.5a Windows PS 5.1 NTFS synthetic verifier
+
+# Pull-request only. No push, tag, workflow_dispatch, pull_request_target,
+# or workflow_run. No secrets, caches, artifacts, uploads, or deployments.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-ps51-ntfs-synthetic:
+    name: Windows PS 5.1 NTFS synthetic fixtures
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert Desktop 5.1 host facts and run synthetic fixtures
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSEdition -ne 'Desktop') {
+            Write-Output 'ps_edition_gate: STOP'
+            exit 1
+          }
+          $version = $PSVersionTable.PSVersion
+          if ($version.Major -ne 5 -or $version.Minor -ne 1) {
+            Write-Output 'ps_version_gate: STOP'
+            exit 1
+          }
+          Write-Output ('ps_edition: ' + $PSVersionTable.PSEdition)
+          Write-Output ('ps_version: ' + $version.ToString())
+          $os = [System.Environment]::OSVersion.Version
+          Write-Output ('host_os_version: ' + $os.Major + '.' + $os.Minor + '.' + $os.Build)
+          Write-Output ('host_ptr_bits: ' + ([IntPtr]::Size * 8))
+          $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+          $script = Join-Path $env:GITHUB_WORKSPACE 'tools\Invoke-Nq335NtfsVerifierFixtures.ps1'
+          & $exe -NoProfile -ExecutionPolicy Bypass -File $script
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
