@@ -1,8 +1,8 @@
 -- N-Questie server-specific quest records. Derived from a read-only world export.
 -- Public curated quest metadata only; never include a raw database dump here.
--- Increase revision whenever any record changes to rebuild Questie's compiled DB.
+-- Increase revision whenever a record or loader behaviour changes to rebuild the compiled DB.
 NQuestieCustomQuestData = {
-    revision = 5,
+    revision = 6,
     quests = {
         [2001] = {
             name = "Ravenclaw Cleanup",
