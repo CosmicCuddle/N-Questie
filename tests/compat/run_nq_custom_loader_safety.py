@@ -16,7 +16,7 @@ EXPECTED_LOADER_BLOB_SHA1 = "0824e2c9d3db8221b7b72d47c7eb5b740a139df9"
 
 def assert_source_revision():
     data = LOADER.read_bytes()
-    git_blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\\0" + data).hexdigest()
+    git_blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
     if git_blob != EXPECTED_LOADER_BLOB_SHA1:
         raise SystemExit("FAIL: loader differs from reviewed draft (blob SHA-1 " + git_blob + ")")
     print("Verified reviewed draft Git blob SHA-1:", git_blob, flush=True)
