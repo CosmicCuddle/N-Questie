@@ -204,27 +204,43 @@ local function approvedQuests()
         end
     end
 
-    -- Guard packed reverse NPC/GO quest index widths before emitting either
-    -- questData or the corresponding source index corrections.
-    local function indexRoom(entry, sourceKey, base, keyStarts, keyEnds)
-        local source = QuestieDB[base]
-        for _, pair in ipairs({
-            {entry[sourceKey[1]], keyStarts}, {entry[sourceKey[2]], keyEnds},
-        }) do
-            for _, id in ipairs(pair[1]) do
-                local old = source[id][pair[2]]
-                if old ~= nil and type(old) ~= "table" then return false end
-                if not uniqueAppend(old, {entry.id}) then return false end
+    -- Check the *combined* index additions, not one quest at a time. A full
+    -- source index rejects every proposed addition to that source, never a
+    -- partial set which could leave questData and reverse indexes inconsistent.
+    local function pruneOverfull(kind, keys, starter, finisher)
+        local indexed = {}
+        for questId, entry in pairs(approved) do
+            for _, pair in ipairs({
+                {entry[starter], "starts"}, {entry[finisher], "ends"},
+            }) do
+                for _, sourceId in ipairs(pair[1]) do
+                    indexed[sourceId] = indexed[sourceId] or {starts = {}, ends = {}}
+                    local ids = indexed[sourceId][pair[2]]
+                    ids[#ids + 1] = questId
+                end
             end
         end
-        return true
+        local discarded = false
+        for sourceId, additions in pairs(indexed) do
+            local source = QuestieDB[kind][sourceId]
+            if not uniqueAppend(source[keys.questStarts], additions.starts) or
+                not uniqueAppend(source[keys.questEnds], additions.ends) then
+                for _, id in ipairs(additions.starts) do approved[id] = nil end
+                for _, id in ipairs(additions.ends) do approved[id] = nil end
+                discarded = true
+            end
+        end
+        return discarded
     end
-    for id, entry in pairs(approved) do
-        if not indexRoom(entry, {"startedByNpcs", "finishedByNpcs"},
-                "npcData", QuestieDB.npcKeys.questStarts, QuestieDB.npcKeys.questEnds) or
-            not indexRoom(entry, {"startedByGameObjects", "finishedByGameObjects"},
-                "objectData", QuestieDB.objectKeys.questStarts, QuestieDB.objectKeys.questEnds) then
-            approved[id] = nil
+    changed = true
+    while changed do
+        changed = false
+        if pruneOverfull("npcData", QuestieDB.npcKeys,
+                "startedByNpcs", "finishedByNpcs") then changed = true end
+        if pruneOverfull("objectData", QuestieDB.objectKeys,
+                "startedByGameObjects", "finishedByGameObjects") then changed = true end
+        for id, entry in pairs(approved) do
+            if not resolved(entry) then approved[id] = nil; changed = true end
         end
     end
     return approved
