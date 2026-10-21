@@ -35,6 +35,9 @@ $script:NtStatus = 'none'
 $script:Filesystem = 'unread'
 $script:ExceptionType = ''
 $script:AdsSample = ''
+$script:VolumeRootMode = ''
+$script:VolumeRootFirst = ''
+$script:NoRecall = 'not-requested'
 $script:Handles = New-Object 'System.Collections.Generic.List[int64]'
 $script:Retained = New-Object 'System.Collections.Generic.HashSet[int64]'
 $script:NativeReady = $false
@@ -43,11 +46,15 @@ $script:OwnerPin = '73eccd4498a3a47db4c5d3fca60a83f7c35052174afcbafe350839b34fcb
 $script:AccessRead = [uint32]0x00120089
 $script:ShareRead = [uint32]0x00000001
 $script:FileOpen = [uint32]1
-# Ancestors: directory + synchronous + no-recall. No open-reparse flag.
-$script:OptDir = [uint32]0x00400021
+# FILE_OPEN_NO_RECALL (0x00400000) made NtCreateFile return
+# STATUS_INVALID_PARAMETER (0xC000000D) on an ordinary NTFS directory
+# in the first windows-2025 run. It is not requested. Cloud non-hydration
+# stays NOT TESTED. Reparse flags are unchanged.
+# Ancestors: directory + synchronous. No open-reparse flag.
+$script:OptDir = [uint32]0x00000021
 # Children: those bits plus the open-reparse flag (0x00200000).
-$script:OptChildDir = [uint32]0x00600021
-$script:OptFile = [uint32]0x00600060
+$script:OptChildDir = [uint32]0x00200021
+$script:OptFile = [uint32]0x00200060
 $script:AttrReparse = [uint32]0x400
 $script:AttrDirectory = [uint32]0x10
 $script:AttrOffline = [uint32]0x1000
@@ -263,7 +270,7 @@ public static class Nq335NtfsNative {
         Marshal.FreeHGlobal(structured);
     }
 
-    static OpenResult Create(IntPtr root, string name, uint access, uint share, uint options) {
+    static OpenResult Create(IntPtr root, string name, uint access, uint share, uint options, uint attributes) {
         OpenResult result = new OpenResult();
         result.Handle = 0;
         IntPtr uni = IntPtr.Zero;
@@ -273,7 +280,7 @@ public static class Nq335NtfsNative {
             oa.Length = (uint)Marshal.SizeOf(typeof(OBJECT_ATTRIBUTES));
             oa.RootDirectory = root;
             oa.ObjectName = uni;
-            oa.Attributes = ObjDontReparse;
+            oa.Attributes = attributes;
             oa.SecurityDescriptor = IntPtr.Zero;
             oa.SecurityQualityOfService = IntPtr.Zero;
             IntPtr handle;
@@ -295,8 +302,8 @@ public static class Nq335NtfsNative {
         }
     }
 
-    public static OpenResult OpenNtPath(string ntPath, uint access, uint share, uint options) {
-        return Create(IntPtr.Zero, ntPath, access, share, options);
+    public static OpenResult OpenNtPath(string ntPath, uint access, uint share, uint options, uint attributes) {
+        return Create(IntPtr.Zero, ntPath, access, share, options, attributes);
     }
 
     public static OpenResult OpenRelative(long root, string name, uint access, uint share, uint options) {
@@ -306,7 +313,7 @@ public static class Nq335NtfsNative {
         if (root == 0 || name == null || name.Length == 0 || name.IndexOf('\\') >= 0 || name.IndexOf('/') >= 0) {
             return bad;
         }
-        return Create(new IntPtr(root), name, access, share, options);
+        return Create(new IntPtr(root), name, access, share, options, ObjDontReparse);
     }
 
     static DirEnt ParseBoth(IntPtr buffer, int available) {
@@ -594,6 +601,13 @@ function Complete-Run {
     Write-Output ('diagnostic_rereads: ' + $script:Rereads)
     Write-Output ('filesystem: ' + $script:Filesystem)
     Write-Output ('ntstatus: ' + $script:NtStatus)
+    Write-Output ('no_recall: ' + $script:NoRecall)
+    if ($script:VolumeRootMode.Length -gt 0) {
+        Write-Output ('volume_root_mode: ' + $script:VolumeRootMode)
+    }
+    if ($script:VolumeRootFirst.Length -gt 0) {
+        Write-Output ('volume_root_first: ' + $script:VolumeRootFirst)
+    }
     if ($script:ExceptionType.Length -gt 0) {
         Write-Output ('exception_type: ' + $script:ExceptionType)
     }
@@ -1022,9 +1036,24 @@ function Invoke-Main {
     Import-Native
     $drive = $StagePath.Substring(0, 1)
     $ntRoot = '\??\' + $drive + ':\'
-    $rootOpen = [Nq335NtfsNative]::OpenNtPath($ntRoot, $script:AccessRead, $script:ShareRead, $script:OptDir)
-    if ($rootOpen.Status -ne $script:StatusSuccess -or $rootOpen.Handle -eq 0) {
-        Map-OpenFailure $rootOpen.Status 'ancestor-reparse'
+    $rootOpen = [Nq335NtfsNative]::OpenNtPath($ntRoot, $script:AccessRead, $script:ShareRead, $script:OptDir, [uint32][Nq335NtfsNative]::ObjDontReparse)
+    if ($rootOpen.Status -eq $script:StatusSuccess -and $rootOpen.Handle -ne 0) {
+        $script:VolumeRootMode = 'dont-reparse'
+    } else {
+        $script:VolumeRootFirst = ('0x{0:x8}' -f ($rootOpen.Status -band 0xFFFFFFFF))
+        if ($rootOpen.Status -eq $script:StatusInvalidParameter -or $rootOpen.Status -eq $script:StatusReparsePoint) {
+            # The DOS-device link is not an NTFS reparse point. A failed flag
+            # on this one open does not relax later component opens.
+            $rootOpen = [Nq335NtfsNative]::OpenNtPath($ntRoot, $script:AccessRead, $script:ShareRead, $script:OptDir, [uint32]0)
+            $script:VolumeRootMode = 'dos-device-root'
+        }
+        if ($rootOpen.Status -eq $script:StatusInvalidParameter) {
+            $rootOpen = [Nq335NtfsNative]::OpenNtPath($ntRoot, $script:AccessRead, $script:ShareRead, [uint32]1, [uint32]0)
+            $script:VolumeRootMode = 'directory-file-only'
+        }
+        if ($rootOpen.Status -ne $script:StatusSuccess -or $rootOpen.Handle -eq 0) {
+            Map-OpenFailure $rootOpen.Status 'ancestor-reparse'
+        }
     }
     $parent = [int64]$rootOpen.Handle
     Remember-Handle $parent

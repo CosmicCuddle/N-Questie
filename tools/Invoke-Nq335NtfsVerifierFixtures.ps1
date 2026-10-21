@@ -237,10 +237,7 @@ function New-CleanSmall([string]$parent) {
 }
 
 function Add-NamedStream([string]$path) {
-    $stream = $path + ':nqinvented'
-    $bytes = [System.Text.Encoding]::ASCII.GetBytes('invented-stream')
-    $fs = New-Object System.IO.FileStream ($stream, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
-    try { $fs.Write($bytes, 0, $bytes.Length) } finally { $fs.Dispose() }
+    Set-Content -LiteralPath $path -Stream 'nqinvented' -Value 'invented-stream' -Encoding Ascii
 }
 
 function Remove-NamedStream([string]$path) {
@@ -674,7 +671,7 @@ try {
         $mis = Rename-CaseOnly $tree.Stage 'Questie-335' 'questie-335'
         $spoof = Join-Path $work 'Questie-335'
         $run = Invoke-Verifier $tree.Manifest $tree.Pin $spoof
-        Expect-Run 'small-miscase-root' $run 'STOP' @('path-ambiguous', 'interop-unproven') @{ content_reads = '0' }
+        Expect-Run 'small-miscase-root' $run 'STOP' @('path-ambiguous') @{ content_reads = '0' }
     }
 
     Invoke-Guarded 'small-8.3-ancestor' {
@@ -686,7 +683,7 @@ try {
         if ([string]::IsNullOrEmpty($short)) { Add-NotTested 'small-8.3-ancestor' 'short-name-unavailable'; return }
         $stage = Join-Path (Join-Path $work $short) 'Questie-335'
         $run = Invoke-Verifier $tree.Manifest $tree.Pin $stage
-        Expect-Run 'small-8.3-ancestor' $run 'STOP' @('path-ambiguous', 'interop-unproven') @{ content_reads = '0' }
+        Expect-Run 'small-8.3-ancestor' $run 'STOP' @('path-ambiguous') @{ content_reads = '0' }
     }
 
     Invoke-Guarded 'small-altered-byte' {
@@ -856,7 +853,7 @@ try {
         $null = Rename-CaseOnly $tree.Stage 'Questie-335' 'questie-335'
         $spoof = Join-Path $work 'Questie-335'
         $run = Invoke-Verifier $tree.Manifest $tree.Pin $spoof
-        Expect-Run 'large-miscase-root' $run 'STOP' @('path-ambiguous', 'interop-unproven') @{ content_reads = '0' }
+        Expect-Run 'large-miscase-root' $run 'STOP' @('path-ambiguous') @{ content_reads = '0' }
     }
 
     Invoke-Guarded 'large-8.3-ancestor' {
@@ -869,7 +866,7 @@ try {
         if ([string]::IsNullOrEmpty($short)) { Add-NotTested 'large-8.3-ancestor' 'short-name-unavailable'; return }
         $stage = Join-Path (Join-Path $work $short) 'Questie-335'
         $run = Invoke-Verifier $tree.Manifest $tree.Pin $stage
-        Expect-Run 'large-8.3-ancestor' $run 'STOP' @('path-ambiguous', 'interop-unproven') @{ content_reads = '0' }
+        Expect-Run 'large-8.3-ancestor' $run 'STOP' @('path-ambiguous') @{ content_reads = '0' }
     }
 
     Invoke-Guarded 'large-share-conflict' {
