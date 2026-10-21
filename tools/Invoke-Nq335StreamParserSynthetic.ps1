@@ -79,9 +79,21 @@ Test-Case 'name-length-over-1024' $false -1 { param($b) Put-Record $b 0 '::$DATA
 Test-Case 'missing-leading-colon' $false -1 { param($b) Put-Record $b 0 'ABC' 0 }
 Test-Case 'empty-name' $false -1 { param($b) Put-Record $b 0 '' 0 }
 Test-Case 'name-spans-end' $false -1 { param($b) Put-Record $b 0 '::$DATA' 0 } $false -1 32
-Test-Case 'unterminated-64-records' $false -1 {
+# Both boundary cases use non-overlapping 48-byte records. Each
+# :sN:$DATA name occupies <= 20 bytes plus a 24-byte record header.
+Test-Case 'terminated-64-boundary' $true 1 {
     param($b)
-    for ($i = 0; $i -lt 64; $i++) { Put-Record $b ($i * 40) (':s' + $i + ':$DATA') 40 }
+    for ($i = 0; $i -lt 64; $i++) {
+        $next = $(if ($i -eq 63) { 0 } else { 48 })
+        Put-Record $b ($i * 48) (':s' + $i + ':$DATA') $next
+    }
+} $false 64
+Test-Case 'nonterminal-65-guard' $false -1 {
+    param($b)
+    for ($i = 0; $i -lt 65; $i++) {
+        $next = $(if ($i -eq 64) { 0 } else { 48 })
+        Put-Record $b ($i * 48) (':s' + $i + ':$DATA') $next
+    }
 }
 Test-Case 'directory-success-default-unproven' $true 2 {
     param($b) Put-Record $b 0 '::$DATA' 0
@@ -101,6 +113,32 @@ $nullResult = [Nq335NtfsNative]::ParseStreamBuffer([byte[]]$null)
 if ($nullResult.Status -eq 0) { throw 'PARSER-HARNESS: null buffer accepted' }
 $script:Passed++
 Write-Output 'PARSER_CASE: null-buffer-refused PASS'
+# In-memory mutation proof. Build a separate managed type with the loop
+# guard deliberately raised from 64 to 65; it must erroneously accept the
+# same 65-record invented chain that our unmodified parser rejects.
+# This never edits the verifier source and never uses native filesystem APIs.
+$guardToken = 'while (guard < 64 && offset + 24 <= capacity)'
+if ($definition.IndexOf($guardToken, [StringComparison]::Ordinal) -lt 0) {
+    throw 'PARSER-HARNESS: guard source token missing'
+}
+$mutantDefinition = $definition.Replace(
+    'Nq335NtfsNative', 'Nq335NtfsNativeGuardMutant').Replace(
+    $guardToken, 'while (guard < 65 && offset + 24 <= capacity)')
+Add-Type -TypeDefinition $mutantDefinition -Language CSharp
+$guardBytes = New-Buffer 4096
+for ($i = 0; $i -lt 65; $i++) {
+    $next = $(if ($i -eq 64) { 0 } else { 48 })
+    Put-Record $guardBytes ($i * 48) (':s' + $i + ':$DATA') $next
+}
+$guardOriginal = [Nq335NtfsNative]::ParseStreamBuffer($guardBytes)
+$guardMutant = [Nq335NtfsNativeGuardMutant]::ParseStreamBuffer($guardBytes)
+if ($guardOriginal.Status -eq 0 -or $guardMutant.Status -ne 0 -or
+    $guardMutant.Names.Length -ne 65) {
+    throw 'PARSER-HARNESS: guard mutation not detected'
+}
+$script:Passed++
+Write-Output 'PARSER_MUTATION: raising-record-guard-to-65-would-accept-65-records; detected PASS'
+
 Write-Output ('parser_model_cases_passed: ' + $script:Passed)
 Write-Output 'parser_model_scope: managed-invented-buffers-only'
 Write-Output 'windows_gate: STOP'
