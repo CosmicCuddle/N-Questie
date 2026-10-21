@@ -161,6 +161,14 @@ local function parseQuest(id, q)
         not allResolve(entry.itemObjectives, QuestieDB.itemData) then
         return nil
     end
+    -- Questie matches static objectives to client quest-log objectives by
+    -- position. Until the actual 3.3.5a mixed-type order is verified, hold
+    -- records spanning more than one objective category.
+    local objectiveKinds = 0
+    for _, field in ipairs({"killNpcs", "objectObjectives", "itemObjectives"}) do
+        if #entry[field] > 0 then objectiveKinds = objectiveKinds + 1 end
+    end
+    if objectiveKinds > 1 then return nil end
     if #entry.killNpcs + #entry.objectObjectives + #entry.itemObjectives == 0 and
         q.noDirectObjectives ~= true then return nil end
     if #entry.killNpcs + #entry.objectObjectives + #entry.itemObjectives > 0 and

@@ -27,6 +27,15 @@ local db = {
         [6611]={[1]="Synthetic trade item"}, -- deliberately has no drop coordinates
     },
 }
+-- Boundary fixtures for u8-packed reverse quest-start arrays. They use
+-- invented quest IDs and do not alter or infer any real NPC data.
+local fullStarts, almostFullStarts = {}, {}
+for i = 1, 255 do
+    fullStarts[i] = 300000 + i
+    if i <= 254 then almostFullStarts[i] = 300000 + i end
+end
+db.npcData[7713] = {[1]="Full synthetic starter", [N.questStarts]=fullStarts}
+db.npcData[7714] = {[1]="Nearly full synthetic starter", [N.questStarts]=almostFullStarts}
 local callbacks={}
 QuestieLoader={ImportModule=function(_,name)
     assert(name=="QuestieDB")
@@ -80,6 +89,8 @@ NQuestieCustomQuestData={revision=6,quests={
     [920029]=rec({startedByNpcs={},startedByGameObjects={9999}}),
     [920030]=rec({startedByNpcs={7711},objectObjectives={8811},
         itemObjectives={6611}}),
+    [920031]=rec({startedByNpcs={7713}}), -- full source must reject the quest
+    [920032]=rec({startedByNpcs={7714}}), -- one final slot is allowed
 }}
 assert(loadfile(path))()
 assert(callbacks.questData and callbacks.npcData and callbacks.objectData)
@@ -126,10 +137,16 @@ check("unvalidated event flag rejected",quests[920025]==nil)
 check("prerequisite cycle rejected",quests[920026]==nil and quests[920027]==nil)
 check("dependent of cyclic prerequisite rejected",quests[920028]==nil)
 check("unknown GO starter rejected",quests[920029]==nil)
-check("mixed objective groups retained",quests[920030] and
-    quests[920030][Q.objectives][1][1][1]==7712 and
-    quests[920030][Q.objectives][2][1][1]==8811 and
-    quests[920030][Q.objectives][3][1][1]==6611)
+check("mixed objective categories held pending client-order proof",quests[920030]==nil)
+check("full NPC reverse index rejects quest before emitting questData",
+    quests[920031]==nil and npcUpdates[7713]==nil and
+    #db.npcData[7713][N.questStarts]==255)
+check("254-entry NPC reverse index accepts exactly one more link",
+    quests[920032] and npcUpdates[7714] and
+    #npcUpdates[7714][N.questStarts]==255 and
+    npcUpdates[7714][N.questStarts][255]==920032)
+check("NPC near-limit index preserves its first existing link",
+    npcUpdates[7714] and npcUpdates[7714][N.questStarts][1]==300001)
 check("public 2001 remains present",quests[2001] and quests[2001][Q.name]=="Ravenclaw Cleanup")
 check("public 2001 prereq preserved",quests[2001] and quests[2001][Q.preQuestSingle][1]==437)
 check("public 2001 kill goals preserved",quests[2001] and
