@@ -281,9 +281,15 @@ QuestieCompat.RegisterCorrection("questData", function()
             [keys.zoneOrSort] = q.zoneOrSort,
             [keys.requiredRaces] = q.requiredRaces,
             [keys.questFlags] = q.questFlags,
-            [keys.startedBy] = {entry.startedByNpcs, entry.startedByGameObjects},
-            [keys.finishedBy] = {entry.finishedByNpcs, entry.finishedByGameObjects},
+            [keys.startedBy] = {entry.startedByNpcs},
+            [keys.finishedBy] = {entry.finishedByNpcs},
         }
+        if #entry.startedByGameObjects > 0 then
+            fields[keys.startedBy][2] = entry.startedByGameObjects
+        end
+        if #entry.finishedByGameObjects > 0 then
+            fields[keys.finishedBy][2] = entry.finishedByGameObjects
+        end
         if q.requiredClasses ~= nil then fields[keys.requiredClasses] = q.requiredClasses end
         if q.specialFlags ~= nil then fields[keys.specialFlags] = q.specialFlags end
         for _, field in ipairs({"preQuestSingle", "preQuestGroup", "exclusiveTo"}) do
@@ -292,11 +298,14 @@ QuestieCompat.RegisterCorrection("questData", function()
         if q.parentQuest then fields[keys.parentQuest] = q.parentQuest end
         if q.nextQuestInChain then fields[keys.nextQuestInChain] = q.nextQuestInChain end
         if #entry.killNpcs + #entry.objectObjectives + #entry.itemObjectives > 0 then
-            fields[keys.objectives] = {
-                objectivePairs(entry.killNpcs),
-                objectivePairs(entry.objectObjectives),
-                objectivePairs(entry.itemObjectives),
-            }
+            local objectives = {objectivePairs(entry.killNpcs)}
+            if #entry.objectObjectives > 0 or #entry.itemObjectives > 0 then
+                objectives[2] = objectivePairs(entry.objectObjectives)
+            end
+            if #entry.itemObjectives > 0 then
+                objectives[3] = objectivePairs(entry.itemObjectives)
+            end
+            fields[keys.objectives] = objectives
         end
         updates[id] = fields
     end
