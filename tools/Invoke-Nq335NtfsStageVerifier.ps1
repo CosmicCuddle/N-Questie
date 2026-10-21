@@ -494,6 +494,76 @@ public static class Nq335NtfsNative {
         }
     }
 
+    // Parse invented buffers independently of Win32; a native-success result
+    // must have a complete, bounded, non-overlapping terminal record chain.
+    // The caller must separately reject any disallowed stream shape.
+    public static StreamResult ParseStreamBuffer(byte[] buffer) {
+        StreamResult result = new StreamResult();
+        result.Names = new string[0];
+        if (buffer == null || buffer.Length < 24 || buffer.Length > 65536) {
+            result.Status = StatusInfoLengthMismatch;
+            return result;
+        }
+        int capacity = buffer.Length;
+        List<string> names = new List<string>();
+        HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int offset = 0;
+        int guard = 0;
+        bool terminated = false;
+        while (guard < 64 && offset + 24 <= capacity) {
+            guard++;
+            int next = BitConverter.ToInt32(buffer, offset);
+            int nameLength = BitConverter.ToInt32(buffer, offset + 4);
+            if (nameLength < 0 || nameLength > 1024 ||
+                (nameLength % 2) != 0 || offset + 24 + nameLength > capacity) {
+                result.Status = StatusInfoLengthMismatch;
+                return result;
+            }
+            string name = Encoding.Unicode.GetString(buffer, offset + 24, nameLength);
+            if (name.Length == 0 || name[0] != ':' || !seen.Add(name)) {
+                result.Status = StatusInfoLengthMismatch;
+                return result;
+            }
+            names.Add(name);
+            if (next == 0) {
+                terminated = true;
+                break;
+            }
+            // An offset within the current name body would read fabricated
+            // bytes as the next record. Do not assume any alignment guarantee.
+            if (next < 24 + nameLength) {
+                result.Status = StatusInfoLengthMismatch;
+                return result;
+            }
+            long advanced = (long)offset + (long)next;
+            if (advanced < 0 || advanced + 24 > capacity) {
+                result.Status = StatusInfoLengthMismatch;
+                return result;
+            }
+            offset = (int)advanced;
+        }
+        if (!terminated) {
+            result.Status = StatusInfoLengthMismatch;
+            return result;
+        }
+        result.Status = StatusSuccess;
+        result.Names = names.ToArray();
+        return result;
+    }
+
+    // Pure, fail-closed semantic check. Directory stream success is not a
+    // proven clean directory: only native ERROR_HANDLE_EOF is accepted.
+    // Return 0 = accepted one default file stream, 1 = named stream,
+    // 2 = insufficient/ambiguous evidence.
+    public static int ClassifyStreamSet(string[] names, bool isDirectory) {
+        if (names == null || names.Length == 0) return 2;
+        foreach (string name in names) {
+            if (!StringComparer.Ordinal.Equals(name, "::$DATA")) return 1;
+        }
+        if (isDirectory || names.Length != 1) return 2;
+        return 0;
+    }
+
     public static StreamResult Streams(long handle) {
         StreamResult result = new StreamResult();
         result.Names = new string[0];
@@ -503,7 +573,13 @@ public static class Nq335NtfsNative {
             attempt++;
             IntPtr buffer = Marshal.AllocHGlobal(capacity);
             try {
-                bool ok = GetFileInformationByHandleEx(new IntPtr(handle), FileStreamInfo, buffer, (uint)capacity);
+                // The API does not report the number of initialized bytes.
+                // Zero the allocation before the native call, then require
+                // a complete validated record chain; never infer a snapshot.
+                byte[] raw = new byte[capacity];
+                Marshal.Copy(raw, 0, buffer, capacity);
+                bool ok = GetFileInformationByHandleEx(
+                    new IntPtr(handle), FileStreamInfo, buffer, (uint)capacity);
                 if (!ok) {
                     int win = Marshal.GetLastWin32Error();
                     if (win == 234) {
@@ -513,52 +589,8 @@ public static class Nq335NtfsNative {
                     result.Status = win == 0 ? unchecked((int)0xC0000001) : (int)(0xC0000000 | (uint)win);
                     return result;
                 }
-                List<string> names = new List<string>();
-                int offset = 0;
-                int guard = 0;
-                bool terminated = false;
-                // Success requires a bounds-validated record whose
-                // NextEntryOffset is 0. Hitting the 64-record guard, the
-                // buffer bound, or a malformed offset without that
-                // terminator is incomplete and must not report success.
-                while (guard < 64 && offset + 24 <= capacity) {
-                    guard++;
-                    int next = Marshal.ReadInt32(buffer, offset);
-                    int nameLength = Marshal.ReadInt32(buffer, offset + 4);
-                    if (nameLength < 0 || nameLength > 1024 || (nameLength % 2) != 0 || offset + 24 + nameLength > capacity) {
-                        result.Status = StatusInfoLengthMismatch;
-                        return result;
-                    }
-                    byte[] bytes = new byte[nameLength];
-                    Marshal.Copy(new IntPtr(buffer.ToInt64() + offset + 24), bytes, 0, nameLength);
-                    string streamName = Encoding.Unicode.GetString(bytes);
-                    if (streamName.Length == 0 || streamName[0] != ':') {
-                        result.Status = StatusInfoLengthMismatch;
-                        return result;
-                    }
-                    names.Add(streamName);
-                    if (next == 0) {
-                        terminated = true;
-                        break;
-                    }
-                    if (next < 24) {
-                        result.Status = StatusInfoLengthMismatch;
-                        return result;
-                    }
-                    long advanced = (long)offset + (long)next;
-                    if (advanced < 0 || advanced + 24 > capacity) {
-                        result.Status = StatusInfoLengthMismatch;
-                        return result;
-                    }
-                    offset = (int)advanced;
-                }
-                if (!terminated) {
-                    result.Status = StatusInfoLengthMismatch;
-                    return result;
-                }
-                result.Status = StatusSuccess;
-                result.Names = names.ToArray();
-                return result;
+                Marshal.Copy(buffer, raw, 0, capacity);
+                return ParseStreamBuffer(raw);
             } catch {
                 result.Status = unchecked((int)0xC0000001);
                 return result;
@@ -964,19 +996,16 @@ function Test-StreamSet([int64]$handle, [bool]$isDir) {
         Stop-Run 'interop-unproven' $streams.Status
     }
     $names = @($streams.Names)
-    if ($names.Count -eq 0) {
+    $shape = [Nq335NtfsNative]::ClassifyStreamSet([string[]]$names, $isDir)
+    if ($shape -eq 1) {
+        $script:AdsCell = 'stop-extra'
+        # Fixed presence marker: never copy on-disk stream names into logs.
+        $script:AdsSample = 'ads-present'
+        Stop-Run 'named-stream' 0
+    }
+    if ($shape -ne 0) {
         $script:AdsCell = 'NOT TESTED'
         Stop-Run 'interop-unproven' 0
-    }
-    foreach ($streamName in $names) {
-        $isDefault = [System.StringComparer]::Ordinal.Equals($streamName, '::$DATA')
-        if (-not $isDefault) {
-            $script:AdsCell = 'stop-extra'
-            # Fixed presence marker. The on-disk stream name is not copied.
-            $script:AdsSample = 'ads-present'
-            # named-stream is the implementation extension in the header.
-            Stop-Run 'named-stream' 0
-        }
     }
     $script:AdsCell = 'checked'
 }
