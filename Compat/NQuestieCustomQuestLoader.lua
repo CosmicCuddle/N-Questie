@@ -81,11 +81,26 @@ local listKeys = {
     "itemObjectives", "preQuestSingle", "preQuestGroup", "exclusiveTo",
 }
 
+-- The previously released public record can replace its existing effective
+-- correction. It has a specific, fixed fingerprint; no arbitrary collision is
+-- permitted, including future new records using this reserved ID.
+local function isPublic2001(id, q)
+    return id == 2001 and q.name == "Ravenclaw Cleanup" and
+        q.requiredLevel == 12 and q.questLevel == 16 and
+        q.zoneOrSort == 130 and q.requiredRaces == 690 and q.questFlags == 8 and
+        type(q.startedByNpcs) == "table" and q.startedByNpcs[1] == 2121 and
+        type(q.finishedByNpcs) == "table" and q.finishedByNpcs[1] == 2121 and
+        type(q.killNpcs) == "table" and q.killNpcs[1] == 1868 and
+        q.killNpcs[2] == 1869 and type(q.preQuestSingle) == "table" and
+        q.preQuestSingle[1] == 437
+end
+
 local function parseQuest(id, q)
     if not integerInRange(id, 1, MAX_ID) or type(q) ~= "table" then return nil end
-    -- Only create absent quest IDs. Existing-quest field corrections use a
-    -- different, deliberately reviewed correction file.
-    if QuestieDB.questData and QuestieDB.questData[id] ~= nil then return nil end
+    -- Existing quest field corrections use a distinct reviewed path. Preserve
+    -- only the exact existing public custom record 2001 as a narrow exception.
+    if QuestieDB.questData and QuestieDB.questData[id] ~= nil and
+        not isPublic2001(id, q) then return nil end
     for key in pairs(q) do
         if not allowedKeys[key] then return nil end
     end
@@ -144,7 +159,10 @@ local function approvedQuests()
     local function resolved(entry)
         for _, field in ipairs({"preQuestSingle", "preQuestGroup", "exclusiveTo"}) do
             for _, reference in ipairs(entry[field]) do
-                if reference == entry.id or not exists(reference) then return false end
+                if reference == entry.id or (not exists(reference) and
+                    not (isPublic2001(entry.id, entry.data) and reference == 437)) then
+                    return false
+                end
             end
         end
         for _, field in ipairs({"parentQuest", "nextQuestInChain"}) do
