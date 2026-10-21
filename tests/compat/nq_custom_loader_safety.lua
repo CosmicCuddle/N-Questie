@@ -135,6 +135,10 @@ check("public 2001 prereq preserved",quests[2001] and quests[2001][Q.preQuestSin
 check("public 2001 kill goals preserved",quests[2001] and
     quests[2001][Q.objectives][1][1][1]==1868 and
     quests[2001][Q.objectives][1][2][1]==1869)
+check("public 2001 has no additional starter slot",quests[2001] and quests[2001][Q.startedBy][2]==nil)
+check("public 2001 has no additional finisher slot",quests[2001] and quests[2001][Q.finishedBy][2]==nil)
+check("public 2001 kill-only objective has no extra slots",quests[2001] and
+    quests[2001][Q.objectives][2]==nil and quests[2001][Q.objectives][3]==nil)
 check("vanilla NPC start index retained",npcUpdates[7711] and npcUpdates[7711][N.questStarts][1]==23)
 check("vanilla NPC end index retained",npcUpdates[7711] and npcUpdates[7711][N.questEnds][1]==24)
 check("public NPC starter 2001 indexed",npcUpdates[2121] and npcUpdates[2121][N.questStarts][1]==2001)
