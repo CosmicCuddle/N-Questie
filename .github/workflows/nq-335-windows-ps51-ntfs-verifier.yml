@@ -20,6 +20,20 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - name: Check pure managed stream parser with invented buffers
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSEdition -ne 'Desktop' -or
+              $PSVersionTable.PSVersion.Major -ne 5 -or
+              $PSVersionTable.PSVersion.Minor -ne 1) {
+            throw 'Managed parser fixture requires PowerShell Desktop 5.1'
+          }
+          $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+          $suite = Join-Path $env:GITHUB_WORKSPACE 'tools\Invoke-Nq335StreamParserSynthetic.ps1'
+          & $exe -NoProfile -ExecutionPolicy Bypass -File $suite
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Assert Desktop 5.1 host facts and run synthetic fixtures
         shell: powershell
         run: |
