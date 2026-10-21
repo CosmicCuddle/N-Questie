@@ -35,6 +35,9 @@ $script:Rereads = 0
 $script:NtStatus = 'none'
 $script:Filesystem = 'unread'
 $script:ExceptionType = ''
+$script:ExceptionLine = '0'
+$script:ExceptionId = 'none'
+$script:WalkPhase = 'none'
 $script:AdsSample = ''
 $script:VolumeRootMode = ''
 $script:VolumeRootFirst = ''
@@ -634,7 +637,10 @@ function Complete-Run {
     Write-Output ('normalized_status: ' + $script:NormalizedStatus)
     if ($script:ExceptionType.Length -gt 0) {
         Write-Output ('exception_type: ' + $script:ExceptionType)
+        Write-Output ('exception_line: ' + $script:ExceptionLine)
+        Write-Output ('exception_id: ' + $script:ExceptionId)
     }
+    Write-Output ('walk_phase: ' + $script:WalkPhase)
     if ($script:Result -eq 'PASS') { exit 0 }
     exit 1
 }
@@ -962,18 +968,21 @@ function Walk-Stage([int64]$stageHandle, $manifest) {
     $pending = New-Object System.Collections.Queue
     $pending.Enqueue(@{ Handle = $stageHandle; Rel = '' })
     while ($pending.Count -gt 0) {
+        $script:WalkPhase = 'query'
         $current = $pending.Dequeue()
         $listed = [Nq335NtfsNative]::QueryAll([int64]$current.Handle)
         if ($listed.Status -ne $script:StatusSuccess) { Stop-Run 'interop-unproven' $listed.Status }
         $sawDot = $false
         $sawDotDot = $false
         foreach ($ent in @($listed.Entries)) {
+            $script:WalkPhase = 'name'
             $name = [string]$ent.FileName
             if ([System.StringComparer]::Ordinal.Equals($name, '.')) { $sawDot = $true; continue }
             if ([System.StringComparer]::Ordinal.Equals($name, '..')) { $sawDotDot = $true; continue }
             if ($name.IndexOf('\') -ge 0 -or $name.IndexOf('/') -ge 0 -or $name.IndexOf(':') -ge 0 -or $name.IndexOf([char]0) -ge 0) {
                 Stop-Run 'path-ambiguous' 0
             }
+            $script:WalkPhase = 'attrs'
             $rel = $(if ([string]$current.Rel -eq '') { $name } else { ([string]$current.Rel) + '/' + $name })
             $attrs = [uint32]$ent.Attributes
             $tag = [uint32]$ent.ReparseTag
@@ -992,6 +1001,7 @@ function Walk-Stage([int64]$stageHandle, $manifest) {
                 if ($probe.Status -eq $script:StatusReparsePoint -or $isReparse) { Stop-Run 'child-reparse' $probe.Status }
                 Stop-Run 'child-reparse' $probe.Status
             }
+            $script:WalkPhase = 'open'
             $opt = $(if ($isDir) { $script:OptChildDir } else { $script:OptFile })
             $opened = Open-Component ([int64]$current.Handle) $name $opt
             if ($opened.Status -ne $script:StatusSuccess) { Map-OpenFailure $opened.Status 'child-reparse' }
@@ -1003,7 +1013,9 @@ function Walk-Stage([int64]$stageHandle, $manifest) {
             }
             if ((([uint32]$info2.Attributes) -band $script:AttrReparse) -ne 0) { Stop-Run 'child-reparse' 0 }
             if (Test-Cloud ([uint32]$info2.Attributes) 0) { Stop-Run 'sync-location' 0 }
+            $script:WalkPhase = 'stream'
             Test-StreamSet $handle $isDir
+            $script:WalkPhase = 'store'
             if ($isDir) {
                 if (-not $seenDirs.Add($rel)) { Stop-Run 'path-ambiguous' 0 }
                 $pending.Enqueue(@{ Handle = $handle; Rel = $rel })
@@ -1013,8 +1025,10 @@ function Walk-Stage([int64]$stageHandle, $manifest) {
                 $fileHandles.Add($rel, @{ Handle = $handle; Size = [int64]$info2.Size })
             }
         }
+        $script:WalkPhase = 'dots'
         if (-not $sawDot -or -not $sawDotDot) { Stop-Run 'interop-unproven' 0 }
     }
+    $script:WalkPhase = 'compare'
     $script:FilesSeen = $seenFiles.Count
     $script:DirsSeen = $seenDirs.Count
     if ($seenFiles.Count -ne $manifest.Files.Count -or $seenDirs.Count -ne $manifest.Dirs.Count) {
@@ -1180,6 +1194,14 @@ try {
 } catch {
     if (-not $script:Finished) {
         $script:ExceptionType = $_.Exception.GetType().FullName
+        $script:ExceptionLine = '0'
+        $script:ExceptionId = 'none'
+        try { $script:ExceptionLine = [string]$_.InvocationInfo.ScriptLineNumber } catch { }
+        try {
+            $id = [string]$_.FullyQualifiedErrorId
+            if ($id.Length -gt 80) { $id = $id.Substring(0, 80) }
+            $script:ExceptionId = $id
+        } catch { }
         $script:Result = 'STOP'
         $script:Reason = 'api-failed'
         Complete-Run
