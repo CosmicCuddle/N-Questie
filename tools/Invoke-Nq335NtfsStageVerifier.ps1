@@ -30,6 +30,7 @@ $script:OutsideReads = 0
 $script:PsCell = 'NOT TESTED'
 $script:NtfsCell = 'NOT TESTED'
 $script:AdsCell = 'NOT TESTED'
+$script:AdsDirEof = 'no'
 $script:Rereads = 0
 $script:NtStatus = 'none'
 $script:Filesystem = 'unread'
@@ -612,6 +613,7 @@ function Complete-Run {
     Write-Output 'gameplay: NOT TESTED'
     Write-Output 'windows_gate: STOP'
     Write-Output ('ADS: ' + $script:AdsCell)
+    Write-Output ('ads_dir_eof: ' + $script:AdsDirEof)
     if ($script:AdsSample.Length -gt 0) {
         Write-Output ('ads_sample: ' + $script:AdsSample)
     }
@@ -916,8 +918,18 @@ function Open-Component([int64]$parent, [string]$name, [uint32]$options) {
     return $opened
 }
 
-function Test-StreamSet([int64]$handle) {
+function Test-StreamSet([int64]$handle, [bool]$isDir) {
     $streams = [Nq335NtfsNative]::Streams($handle)
+    # Streams() reports Win32 ERROR_HANDLE_EOF (38) as 0xC0000026 when
+    # GetFileInformationByHandleEx finds no stream records. A directory
+    # with no named streams is documented to fail that way. A file is
+    # expected to return ::$DATA, so EOF on a file stays unproven.
+    $streamEof = [int]([uint32]0xC0000026)
+    if ($isDir -and $streams.Status -eq $streamEof) {
+        if ($script:AdsCell -ne 'stop-extra') { $script:AdsCell = 'checked' }
+        $script:AdsDirEof = 'yes'
+        return
+    }
     if ($streams.Status -ne $script:StatusSuccess) {
         $script:AdsCell = 'NOT TESTED'
         Stop-Run 'interop-unproven' $streams.Status
@@ -990,7 +1002,7 @@ function Walk-Stage([int64]$stageHandle, $manifest) {
             }
             if ((([uint32]$info2.Attributes) -band $script:AttrReparse) -ne 0) { Stop-Run 'child-reparse' 0 }
             if (Test-Cloud ([uint32]$info2.Attributes) 0) { Stop-Run 'sync-location' 0 }
-            Test-StreamSet $handle
+            Test-StreamSet $handle $isDir
             if ($isDir) {
                 if (-not $seenDirs.Add($rel)) { Stop-Run 'path-ambiguous' 0 }
                 $pending.Enqueue(@{ Handle = $handle; Rel = $rel })

@@ -135,31 +135,31 @@ function Expect-Run {
     $gate = Get-Field $Run.Text 'windows_gate'
     $game = Get-Field $Run.Text 'gameplay'
     $extra = ''
-    foreach ($key in @('content_reads', 'files_expected', 'files_seen', 'dirs_expected', 'dirs_seen', 'ADS', 'windows_ps51_ntfs', 'filesystem', 'byte_mismatches', 'hash_mismatches', 'diagnostic_rereads', 'ntstatus', 'exception_type', 'ads_sample', 'powershell_version', 'volume_root_mode', 'volume_root_first', 'no_recall', 'name_query_terminal', 'name_proof', 'name_query_miss', 'ancestor_index', 'ancestor_count', 'ancestor0_length', 'normalized_status')) {
+    foreach ($key in @('content_reads', 'files_expected', 'files_seen', 'dirs_expected', 'dirs_seen', 'ADS', 'windows_ps51_ntfs', 'filesystem', 'byte_mismatches', 'hash_mismatches', 'diagnostic_rereads', 'ntstatus', 'exception_type', 'ads_sample', 'powershell_version', 'volume_root_mode', 'volume_root_first', 'no_recall', 'name_query_terminal', 'name_proof', 'name_query_miss', 'ancestor_index', 'ancestor_count', 'ancestor0_length', 'normalized_status', 'ads_dir_eof')) {
         $value = Get-Field $Run.Text $key
         if ($null -ne $value) { $extra += ($key + '=' + $value + '; ') }
     }
     $ok = $true
     $note = 'matched'
-    if ($got -ne $Result) { $ok = $false; $note = 'result' }
+    if ($got -ne $Result) { $ok = $false; if ($note -eq 'matched') { $note = 'result' } }
     $reasonOk = $false
     foreach ($allowed in $Reasons) {
         if ([System.StringComparer]::Ordinal.Equals([string]$reason, $allowed)) { $reasonOk = $true }
     }
-    if (-not $reasonOk) { $ok = $false; $note = 'reason' }
-    if ($outside -ne '0') { $ok = $false; $note = 'outside_reads' }
-    if ($gate -ne 'STOP' -or $game -ne 'NOT TESTED') { $ok = $false; $note = 'gate' }
+    if (-not $reasonOk) { $ok = $false; if ($note -eq 'matched') { $note = 'reason' } }
+    if ($outside -ne '0') { $ok = $false; if ($note -eq 'matched') { $note = 'outside_reads' } }
+    if ($gate -ne 'STOP' -or $game -ne 'NOT TESTED') { $ok = $false; if ($note -eq 'matched') { $note = 'gate' } }
     if ($null -ne $Equals) {
         foreach ($key in @($Equals.Keys)) {
             $actual = Get-Field $Run.Text ([string]$key)
             if (-not [System.StringComparer]::Ordinal.Equals([string]$actual, [string]$Equals[$key])) {
                 $ok = $false
-                $note = 'field'
+                if ($note -eq 'matched') { $note = 'field' }
             }
         }
     }
     $exitOk = (($Result -eq 'PASS' -and $Run.Exit -eq 0) -or ($Result -eq 'STOP' -and $Run.Exit -eq 1))
-    if (-not $exitOk) { $ok = $false; $note = 'exit' }
+    if (-not $exitOk) { $ok = $false; if ($note -eq 'matched') { $note = 'exit' } }
     if (-not $ok) {
         Write-Row $Name 'HARNESS-FAIL' ([string]$reason) ([string]$outside) $note $extra
         return
