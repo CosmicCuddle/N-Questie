@@ -38,6 +38,13 @@ $script:AdsSample = ''
 $script:VolumeRootMode = ''
 $script:VolumeRootFirst = ''
 $script:NoRecall = 'not-requested'
+$script:NameQueryTerminal = 'none'
+$script:NameProof = 'none'
+$script:NameQueryMiss = 0
+$script:AncestorIndex = -1
+$script:AncestorCount = 0
+$script:Ancestor0Length = -1
+$script:NormalizedStatus = 'none'
 $script:Handles = New-Object 'System.Collections.Generic.List[int64]'
 $script:Retained = New-Object 'System.Collections.Generic.HashSet[int64]'
 $script:NativeReady = $false
@@ -138,6 +145,7 @@ public static class Nq335NtfsNative {
 
     public sealed class DirQuery {
         public int Status;
+        public int Terminal;
         public DirEnt[] Entries;
     }
 
@@ -346,6 +354,7 @@ public static class Nq335NtfsNative {
         DirQuery query = new DirQuery();
         List<DirEnt> found = new List<DirEnt>();
         query.Status = StatusSuccess;
+        query.Terminal = StatusSuccess;
         IntPtr buffer = IntPtr.Zero;
         IntPtr exactUni = IntPtr.Zero;
         try {
@@ -361,10 +370,12 @@ public static class Nq335NtfsNative {
                     buffer, 8192, FileIdBothDirectoryInformation, true, exactUni, restart);
                 restart = false;
                 if (status == StatusNoMoreFiles || status == StatusNoSuchFile || status == StatusObjectNameNotFound) {
+                    query.Terminal = status;
                     break;
                 }
                 if (status != StatusSuccess) {
                     query.Status = status;
+                    query.Terminal = status;
                     break;
                 }
                 DirEnt ent = ParseBoth(buffer, 8192);
@@ -436,6 +447,12 @@ public static class Nq335NtfsNative {
             byte[] bytes = new byte[nameLength];
             Marshal.Copy(new IntPtr(buffer.ToInt64() + 4), bytes, 0, nameLength);
             string full = Encoding.Unicode.GetString(bytes);
+            if (full.Length > 0 && full[full.Length - 1] == '\0') {
+                full = full.Substring(0, full.Length - 1);
+            }
+            if (full.Length > 1 && full[full.Length - 1] == '\\') {
+                full = full.Substring(0, full.Length - 1);
+            }
             int cut = full.LastIndexOf('\\');
             string leaf = cut >= 0 ? full.Substring(cut + 1) : full;
             result.Leaf = leaf;
@@ -602,12 +619,17 @@ function Complete-Run {
     Write-Output ('filesystem: ' + $script:Filesystem)
     Write-Output ('ntstatus: ' + $script:NtStatus)
     Write-Output ('no_recall: ' + $script:NoRecall)
-    if ($script:VolumeRootMode.Length -gt 0) {
-        Write-Output ('volume_root_mode: ' + $script:VolumeRootMode)
-    }
-    if ($script:VolumeRootFirst.Length -gt 0) {
-        Write-Output ('volume_root_first: ' + $script:VolumeRootFirst)
-    }
+    if ($script:VolumeRootMode.Length -eq 0) { $script:VolumeRootMode = 'none' }
+    if ($script:VolumeRootFirst.Length -eq 0) { $script:VolumeRootFirst = 'none' }
+    Write-Output ('volume_root_mode: ' + $script:VolumeRootMode)
+    Write-Output ('volume_root_first: ' + $script:VolumeRootFirst)
+    Write-Output ('name_query_terminal: ' + $script:NameQueryTerminal)
+    Write-Output ('name_proof: ' + $script:NameProof)
+    Write-Output ('name_query_miss: ' + $script:NameQueryMiss)
+    Write-Output ('ancestor_index: ' + $script:AncestorIndex)
+    Write-Output ('ancestor_count: ' + $script:AncestorCount)
+    Write-Output ('ancestor0_length: ' + $script:Ancestor0Length)
+    Write-Output ('normalized_status: ' + $script:NormalizedStatus)
     if ($script:ExceptionType.Length -gt 0) {
         Write-Output ('exception_type: ' + $script:ExceptionType)
     }
@@ -802,14 +824,23 @@ function Test-Cloud([uint32]$attributes, [uint32]$tag) {
     return $false
 }
 
-function Assert-ActualName([int64]$parent, [string]$requested, [bool]$allowSiblingScan) {
+function Note-NameProof([string]$mode) {
+    if ($script:NameProof -eq 'none' -or $script:NameProof -eq $mode) {
+        $script:NameProof = $mode
+    } else {
+        $script:NameProof = 'mixed'
+    }
+}
+
+function Find-ActualEntry([int64]$parent, [string]$requested, [bool]$allowSiblingScan) {
     $query = [Nq335NtfsNative]::QueryOne($parent, $requested)
+    $script:NameQueryTerminal = ('0x{0:x8}' -f ([int]$query.Terminal -band 0xFFFFFFFF))
     if ($query.Status -ne $script:StatusSuccess -and $query.Status -ne $script:StatusNoMoreFiles -and $query.Status -ne $script:StatusNoSuchFile -and $query.Status -ne $script:StatusObjectNameNotFound) {
         Stop-Run 'interop-unproven' $query.Status
     }
     $entries = @($query.Entries)
     if ($entries.Count -gt 1) { Stop-Run 'interop-unproven' 0 }
-    if ($entries.Count -eq 1) {
+    if ($entries.Count -eq 1 -and $null -ne $entries[0]) {
         $name = [string]$entries[0].FileName
         $short = [string]$entries[0].ShortName
         if (-not [System.StringComparer]::Ordinal.Equals($name, $requested)) {
@@ -818,36 +849,56 @@ function Assert-ActualName([int64]$parent, [string]$requested, [bool]$allowSibli
         if ($short.Length -gt 0 -and [System.StringComparer]::Ordinal.Equals($short, $requested) -and -not [System.StringComparer]::Ordinal.Equals($short, $name)) {
             Stop-Run 'path-ambiguous' 0
         }
-        $attrs = [uint32]$entries[0].Attributes
-        $tag = [uint32]$entries[0].ReparseTag
-        return @{ Name = $name; Attributes = $attrs; ReparseTag = $tag }
-    }
-    if (-not $allowSiblingScan) { Stop-Run 'api-failed' $query.Status }
-    $all = [Nq335NtfsNative]::QueryAll($parent)
-    if ($all.Status -ne $script:StatusSuccess) { Stop-Run 'interop-unproven' $all.Status }
-    $ignore = $null
-    foreach ($ent in @($all.Entries)) {
-        $candidate = [string]$ent.FileName
-        if ($candidate -eq '.' -or $candidate -eq '..') { continue }
-        if ([System.StringComparer]::Ordinal.Equals($candidate, $requested)) {
-            return @{ Name = $candidate; Attributes = [uint32]$ent.Attributes; ReparseTag = [uint32]$ent.ReparseTag }
-        }
-        $shortName = [string]$ent.ShortName
-        $caseFold = [System.StringComparer]::OrdinalIgnoreCase.Equals($candidate, $requested)
-        $shortHit = $shortName.Length -gt 0 -and [System.StringComparer]::Ordinal.Equals($shortName, $requested)
-        if ($caseFold -or $shortHit) {
-            if ($null -ne $ignore) { Stop-Run 'path-ambiguous' 0 }
-            $ignore = $ent
+        return @{
+            Found = $true
+            Name = $name
+            Attributes = [uint32]$entries[0].Attributes
+            ReparseTag = [uint32]$entries[0].ReparseTag
         }
     }
-    if ($null -ne $ignore) { Stop-Run 'path-ambiguous' 0 }
-    Stop-Run 'api-failed' 0
+    $script:NameQueryMiss++
+    if ($allowSiblingScan) {
+        $all = [Nq335NtfsNative]::QueryAll($parent)
+        if ($all.Status -ne $script:StatusSuccess) { Stop-Run 'interop-unproven' $all.Status }
+        $sawDot = $false
+        $sawDotDot = $false
+        $ignore = $null
+        foreach ($ent in @($all.Entries)) {
+            if ($null -eq $ent) { continue }
+            $candidate = [string]$ent.FileName
+            if ([System.StringComparer]::Ordinal.Equals($candidate, '.')) { $sawDot = $true; continue }
+            if ([System.StringComparer]::Ordinal.Equals($candidate, '..')) { $sawDotDot = $true; continue }
+            if ([System.StringComparer]::Ordinal.Equals($candidate, $requested)) {
+                return @{
+                    Found = $true
+                    Name = $candidate
+                    Attributes = [uint32]$ent.Attributes
+                    ReparseTag = [uint32]$ent.ReparseTag
+                }
+            }
+            $shortName = [string]$ent.ShortName
+            $caseFold = [System.StringComparer]::OrdinalIgnoreCase.Equals($candidate, $requested)
+            $shortHit = $shortName.Length -gt 0 -and [System.StringComparer]::Ordinal.Equals($shortName, $requested)
+            if ($caseFold -or $shortHit) {
+                if ($null -ne $ignore) { Stop-Run 'path-ambiguous' 0 }
+                $ignore = $ent
+            }
+        }
+        if (-not $sawDot -or -not $sawDotDot) { Stop-Run 'interop-unproven' 0 }
+        if ($null -ne $ignore) { Stop-Run 'path-ambiguous' 0 }
+    }
+    return @{ Found = $false; Name = ''; Attributes = [uint32]0; ReparseTag = [uint32]0 }
 }
 
-function Assert-NormalizedLeaf([int64]$handle, [string]$requested) {
+function Assert-NormalizedLeaf([int64]$handle, [string]$requested, [bool]$required) {
     $leaf = [Nq335NtfsNative]::NormalizedLeaf($handle)
-    if ($leaf.Status -ne $script:StatusSuccess) { Stop-Run 'interop-unproven' $leaf.Status }
+    $script:NormalizedStatus = ('0x{0:x8}' -f ([int]$leaf.Status -band 0xFFFFFFFF))
+    if ($leaf.Status -ne $script:StatusSuccess) {
+        if ($required) { Stop-Run 'interop-unproven' $leaf.Status }
+        return
+    }
     $value = [string]$leaf.Leaf
+    if ($value.IndexOf([char]0) -ge 0) { Stop-Run 'interop-unproven' 0 }
     if ($value.Length -eq 0 -or $value.Length -gt 255 -or $value.IndexOf('\') -ge 0 -or $value.IndexOf('/') -ge 0) {
         Stop-Run 'interop-unproven' 0
     }
@@ -1057,29 +1108,46 @@ function Invoke-Main {
     }
     $parent = [int64]$rootOpen.Handle
     Remember-Handle $parent
-    $components = @(Get-StageComponents $StagePath)
-    for ($i = 0; $i -lt $components.Count; $i++) {
+    $components = $StagePath.Substring(3).Split('\')
+    $script:AncestorCount = $components.Length
+    $script:Ancestor0Length = $components[0].Length
+    for ($i = 0; $i -lt $components.Length; $i++) {
         $requested = [string]$components[$i]
+        $script:AncestorIndex = $i
         $allowScan = $i -gt 0
-        $actual = Assert-ActualName $parent $requested $allowScan
-        if (($actual.Attributes -band $script:AttrReparse) -ne 0 -or (Test-Cloud $actual.Attributes $actual.ReparseTag)) {
-            $probe = Open-Component $parent $actual.Name $script:OptChildDir
-            if ($probe.Handle -ne 0) {
-                # Probe only. Do not enumerate or read through a reparse ancestor.
+        $actual = Find-ActualEntry $parent $requested $allowScan
+        $requiredLeaf = $true
+        if ($actual.Found) {
+            if (($actual.Attributes -band $script:AttrReparse) -ne 0 -or (Test-Cloud $actual.Attributes $actual.ReparseTag)) {
+                $probe = Open-Component $parent ([string]$actual.Name) $script:OptChildDir
+                if ($probe.Handle -ne 0) {
+                    # Probe only. Do not list or read through a reparse ancestor.
+                }
+                if (Test-Cloud $actual.Attributes $actual.ReparseTag) { Stop-Run 'sync-location' 0 }
+                Stop-Run 'ancestor-reparse' $probe.Status
             }
-            if (Test-Cloud $actual.Attributes $actual.ReparseTag) { Stop-Run 'sync-location' 0 }
-            Stop-Run 'ancestor-reparse' $probe.Status
+            Note-NameProof 'directory-entry'
+            $openName = [string]$actual.Name
+            $requiredLeaf = $false
+        } else {
+            # An empty exact query is not proof the component is absent.
+            # The volume root is not listed. Open this one component and
+            # require the retained-handle normalized leaf.
+            Note-NameProof 'normalized-leaf'
+            $openName = $requested
         }
-        $opened = Open-Component $parent $actual.Name $script:OptDir
+        $opened = Open-Component $parent $openName $script:OptDir
         if ($opened.Status -ne $script:StatusSuccess) { Map-OpenFailure $opened.Status 'ancestor-reparse' }
         $handle = [int64]$opened.Handle
         $info = [Nq335NtfsNative]::LinkInfo($handle)
         if ($info.Status -ne $script:StatusSuccess) { Stop-Run 'api-failed' $info.Status }
         if ((([uint32]$info.Attributes) -band $script:AttrDirectory) -eq 0) { Stop-Run 'api-failed' 0 }
         if ((([uint32]$info.Attributes) -band $script:AttrReparse) -ne 0) { Stop-Run 'ancestor-reparse' 0 }
-        Assert-NormalizedLeaf $handle $requested
+        if (Test-Cloud ([uint32]$info.Attributes) 0) { Stop-Run 'sync-location' 0 }
+        Assert-NormalizedLeaf $handle $requested $requiredLeaf
         $parent = $handle
     }
+    $script:AncestorIndex = $components.Length
     $volume = [Nq335NtfsNative]::VolumeName($parent)
     if ($volume.Status -ne $script:StatusSuccess) { Stop-Run 'interop-unproven' $volume.Status }
     if (-not [System.StringComparer]::Ordinal.Equals([string]$volume.Name, 'NTFS')) {

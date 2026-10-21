@@ -135,7 +135,7 @@ function Expect-Run {
     $gate = Get-Field $Run.Text 'windows_gate'
     $game = Get-Field $Run.Text 'gameplay'
     $extra = ''
-    foreach ($key in @('content_reads', 'files_expected', 'files_seen', 'dirs_expected', 'dirs_seen', 'ADS', 'windows_ps51_ntfs', 'filesystem', 'byte_mismatches', 'hash_mismatches', 'diagnostic_rereads', 'ntstatus', 'exception_type', 'ads_sample', 'powershell_version')) {
+    foreach ($key in @('content_reads', 'files_expected', 'files_seen', 'dirs_expected', 'dirs_seen', 'ADS', 'windows_ps51_ntfs', 'filesystem', 'byte_mismatches', 'hash_mismatches', 'diagnostic_rereads', 'ntstatus', 'exception_type', 'ads_sample', 'powershell_version', 'volume_root_mode', 'volume_root_first', 'no_recall', 'name_query_terminal', 'name_proof', 'name_query_miss', 'ancestor_index', 'ancestor_count', 'ancestor0_length', 'normalized_status')) {
         $value = Get-Field $Run.Text $key
         if ($null -ne $value) { $extra += ($key + '=' + $value + '; ') }
     }
