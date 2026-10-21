@@ -84,19 +84,46 @@ local listKeys = {
 -- The previously released public record can replace its existing effective
 -- correction. It has a specific, fixed fingerprint; no arbitrary collision is
 -- permitted, including future new records using this reserved ID.
+-- The deployed public 2001 record is frozen, not just approximately identified.
+-- No unrelated source fields may ride through its grandfathered collision path.
+local public2001Keys = {
+    name = true, requiredLevel = true, questLevel = true,
+    zoneOrSort = true, requiredRaces = true, questFlags = true,
+    preQuestSingle = true, startedByNpcs = true,
+    finishedByNpcs = true, killNpcs = true,
+}
+
+local function sameDenseIds(list, expected)
+    local actual = denseIdList(list)
+    if not actual or #actual ~= #expected then return false end
+    for index = 1, #expected do
+        if actual[index] ~= expected[index] then return false end
+    end
+    return true
+end
+
 local function isPublic2001(id, q)
-    return id == 2001 and q.name == "Ravenclaw Cleanup" and
+    if id ~= 2001 or type(q) ~= "table" then return false end
+    for key in pairs(q) do
+        if not public2001Keys[key] then return false end
+    end
+    for key in pairs(public2001Keys) do
+        if q[key] == nil then return false end
+    end
+    return q.name == "Ravenclaw Cleanup" and
         q.requiredLevel == 12 and q.questLevel == 16 and
         q.zoneOrSort == 130 and q.requiredRaces == 690 and q.questFlags == 8 and
-        type(q.startedByNpcs) == "table" and q.startedByNpcs[1] == 2121 and
-        type(q.finishedByNpcs) == "table" and q.finishedByNpcs[1] == 2121 and
-        type(q.killNpcs) == "table" and q.killNpcs[1] == 1868 and
-        q.killNpcs[2] == 1869 and type(q.preQuestSingle) == "table" and
-        q.preQuestSingle[1] == 437
+        sameDenseIds(q.startedByNpcs, {2121}) and
+        sameDenseIds(q.finishedByNpcs, {2121}) and
+        sameDenseIds(q.killNpcs, {1868, 1869}) and
+        sameDenseIds(q.preQuestSingle, {437})
 end
 
 local function parseQuest(id, q)
     if not integerInRange(id, 1, MAX_ID) or type(q) ~= "table" then return nil end
+    -- Enforce the exact public baseline whether or not another source
+    -- happens to contain the same numeric ID.
+    if id == 2001 and not isPublic2001(id, q) then return nil end
     -- Existing quest field corrections use a distinct reviewed path. Preserve
     -- only the exact existing public custom record 2001 as a narrow exception.
     if QuestieDB.questData and QuestieDB.questData[id] ~= nil and
