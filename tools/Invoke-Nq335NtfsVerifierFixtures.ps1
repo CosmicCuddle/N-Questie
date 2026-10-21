@@ -1,11 +1,23 @@
 # Synthetic fixture runner for the read-only NTFS stage verifier.
 # Invented names and bytes only. Setup is the only write phase.
 # A PASS here is not an owner-stage GO and windows_gate stays STOP.
+# named-stream is an implementation extension for a proven extra stream.
+# Frozen design 151 lists no such token; incomplete enumeration stays
+# interop-unproven. The verifier header records the same extension.
+# outside_reads and outside_reads_max are verifier-reported telemetry,
+# not an OS audit and not proof that canary bytes were unread.
+# A CRLF change STOPs as size-mismatch when the byte length changes and
+# as hash-mismatch when the length stays the same. Either is a safe STOP.
+# Four coverage gaps stay NOT TESTED: sharing drift, real cloud-sync
+# detection, non-NTFS, and the on-disk trailing-dot form.
 #Requires -Version 5.1
 Set-StrictMode -Version 2
 $ErrorActionPreference = 'Stop'
 
 $script:Canary = 'CANARY-OUTSIDE-DO-NOT-READ-7f3a'
+$script:AdsStreamLabel = 'nqinvented'
+$script:AdsGuardPrefix = 'nqsyn'
+$script:VerifierOutside = New-Object System.Collections.Generic.List[string]
 $script:Blob = '0000000000000000000000000000000000000000'
 $script:OwnerPin = '73eccd4498a3a47db4c5d3fca60a83f7c35052174afcbafe350839b34fcb6b52'
 $script:Rows = New-Object System.Collections.Generic.List[object]
@@ -86,6 +98,13 @@ function Test-Leak([string]$text) {
     return $false
 }
 
+function Test-AdsLabel([string]$text) {
+    if ([string]::IsNullOrEmpty($text)) { return $false }
+    if ($text.IndexOf($script:AdsStreamLabel, [System.StringComparison]::Ordinal) -ge 0) { return $true }
+    if ($text.IndexOf($script:AdsGuardPrefix, [System.StringComparison]::Ordinal) -ge 0) { return $true }
+    return $false
+}
+
 function Invoke-Verifier([string]$manifest, [string]$pin, [string]$stage) {
     $id = [guid]::NewGuid().ToString('n')
     $outFile = Join-Path $script:Base ('out-' + $id + '.txt')
@@ -125,22 +144,39 @@ function Expect-Run {
         [string[]]$Reasons,
         [hashtable]$Equals
     )
-    if ($null -eq $Run -or $Run.Leak) {
-        Write-Row $Name 'HARNESS-FAIL' 'redaction' '0' 'output withheld' ''
+    $adsLabel = $false
+    if ($null -ne $Run) {
+        if ((Test-AdsLabel $Run.Text) -or (Test-AdsLabel $Run.Err)) { $adsLabel = $true }
+    }
+    if ($null -eq $Run -or $Run.Leak -or $adsLabel) {
+        [void]$script:VerifierOutside.Add('')
+        $held = 'output withheld'
+        if ($adsLabel) { $held = 'ads-label' }
+        Write-Row $Name 'HARNESS-FAIL' 'redaction' '' $held ''
         return
     }
     $got = Get-Field $Run.Text 'RESULT'
     $reason = Get-Field $Run.Text 'reason'
     $outside = Get-Field $Run.Text 'outside_reads'
+    if ($null -eq $outside) { [void]$script:VerifierOutside.Add('') }
+    else { [void]$script:VerifierOutside.Add([string]$outside) }
     $gate = Get-Field $Run.Text 'windows_gate'
     $game = Get-Field $Run.Text 'gameplay'
     $extra = ''
+    $sampleLeak = $false
     foreach ($key in @('content_reads', 'files_expected', 'files_seen', 'dirs_expected', 'dirs_seen', 'ADS', 'windows_ps51_ntfs', 'filesystem', 'byte_mismatches', 'hash_mismatches', 'diagnostic_rereads', 'ntstatus', 'exception_type', 'ads_sample', 'powershell_version', 'volume_root_mode', 'volume_root_first', 'no_recall', 'name_query_terminal', 'name_proof', 'name_query_miss', 'ancestor_index', 'ancestor_count', 'ancestor0_length', 'normalized_status', 'ads_dir_eof', 'walk_phase', 'exception_line', 'exception_id')) {
         $value = Get-Field $Run.Text $key
-        if ($null -ne $value) { $extra += ($key + '=' + $value + '; ') }
+        if ($null -eq $value) { continue }
+        if ($key -eq 'ads_sample' -and -not [System.StringComparer]::Ordinal.Equals([string]$value, 'ads-present')) {
+            $sampleLeak = $true
+            $extra += 'ads_sample=withheld; '
+            continue
+        }
+        $extra += ($key + '=' + $value + '; ')
     }
     $ok = $true
     $note = 'matched'
+    if ($sampleLeak) { $ok = $false; $note = 'ads-label' }
     if ($got -ne $Result) { $ok = $false; if ($note -eq 'matched') { $note = 'result' } }
     $reasonOk = $false
     foreach ($allowed in $Reasons) {
@@ -164,7 +200,7 @@ function Expect-Run {
         Write-Row $Name 'HARNESS-FAIL' ([string]$reason) ([string]$outside) $note $extra
         return
     }
-    Write-Row $Name $Result ([string]$reason) '0' 'matched' $extra
+    Write-Row $Name $Result ([string]$reason) ([string]$outside) 'matched' $extra
 }
 
 function New-WorkRoot {
@@ -237,11 +273,18 @@ function New-CleanSmall([string]$parent) {
 }
 
 function Add-NamedStream([string]$path) {
-    Set-Content -LiteralPath $path -Stream 'nqinvented' -Value 'invented-stream' -Encoding Ascii
+    Set-Content -LiteralPath $path -Stream $script:AdsStreamLabel -Value 'invented-stream' -Encoding Ascii -ErrorAction Stop -WarningAction SilentlyContinue
+}
+
+function Add-GuardStreams([string]$path, [int]$count) {
+    for ($i = 0; $i -lt $count; $i++) {
+        $label = $script:AdsGuardPrefix + ('{0:d2}' -f $i)
+        Set-Content -LiteralPath $path -Stream $label -Value 'x' -Encoding Ascii -ErrorAction Stop -WarningAction SilentlyContinue
+    }
 }
 
 function Remove-NamedStream([string]$path) {
-    $stream = $path + ':nqinvented'
+    $stream = $path + ':' + $script:AdsStreamLabel
     try { [System.IO.File]::Delete($stream) } catch { }
 }
 
@@ -701,6 +744,14 @@ try {
         $tree = New-CleanSmall $work
         $crlf = [System.Text.Encoding]::ASCII.GetBytes("invented-alpha`r`n")
         [System.IO.File]::WriteAllBytes($tree.Alpha, $crlf)
+        # Length change: size is checked before SHA-256, so this STOP is
+        # size-mismatch. A same-length body change is hash-mismatch.
+        # Either token is a valid safe STOP. This fixture changes length.
+        if ($crlf.Length -eq $tree.AlphaBytes.Length) {
+            Write-Row 'small-crlf' 'HARNESS-FAIL' 'crlf-length' '0' 'expected-length-change' ''
+            return
+        }
+        Write-Output 'crlf_rule: length-change-is-size-mismatch; same-length-is-hash-mismatch; both-safe-stop'
         $run = Invoke-Verifier $tree.Manifest $tree.Pin $tree.Stage
         Expect-Run 'small-crlf' $run 'STOP' @('size-mismatch') @{ content_reads = '0'; byte_mismatches = '1' }
     }
@@ -727,7 +778,9 @@ try {
         $tree = New-CleanSmall $work
         try { Add-NamedStream $tree.Alpha } catch { Add-NotTested 'small-file-ads' 'stream-create'; return }
         $run = Invoke-Verifier $tree.Manifest $tree.Pin $tree.Stage
-        Expect-Run 'small-file-ads' $run 'STOP' @('named-stream') @{ content_reads = '0'; ADS = 'stop-extra' }
+        Expect-Run 'small-file-ads' $run 'STOP' @('named-stream') @{
+            content_reads = '0'; ADS = 'stop-extra'; ads_sample = 'ads-present'; windows_gate = 'STOP'
+        }
     }
 
     Invoke-Guarded 'small-dir-ads' {
@@ -735,8 +788,37 @@ try {
         $tree = New-CleanSmall $work
         try { Add-NamedStream $tree.Folder } catch { Add-NotTested 'small-dir-ads' 'dir-stream-create'; return }
         $run = Invoke-Verifier $tree.Manifest $tree.Pin $tree.Stage
-        Expect-Run 'small-dir-ads' $run 'STOP' @('named-stream') @{ content_reads = '0'; ADS = 'stop-extra' }
+        Expect-Run 'small-dir-ads' $run 'STOP' @('named-stream') @{
+            content_reads = '0'; ADS = 'stop-extra'; ads_sample = 'ads-present'; windows_gate = 'STOP'
+        }
     }
+
+    Invoke-Guarded 'small-root-ads' {
+        param($work)
+        $tree = New-CleanSmall $work
+        try { Add-NamedStream $tree.Stage } catch { Add-NotTested 'small-root-ads' 'root-stream-create'; return }
+        $run = Invoke-Verifier $tree.Manifest $tree.Pin $tree.Stage
+        Expect-Run 'small-root-ads' $run 'STOP' @('named-stream') @{
+            content_reads = '0'; ADS = 'stop-extra'; ads_sample = 'ads-present'
+            windows_gate = 'STOP'; walk_phase = 'root-stream'
+        }
+    }
+
+    Invoke-Guarded 'small-stream-terminator' {
+        param($work)
+        $tree = New-CleanSmall $work
+        try { Add-GuardStreams $tree.Alpha 65 } catch { Add-NotTested 'small-stream-terminator' 'stream-guard-create'; return }
+        $run = Invoke-Verifier $tree.Manifest $tree.Pin $tree.Stage
+        if ($null -ne (Get-Field $run.Text 'ads_sample')) {
+            Write-Row 'small-stream-terminator' 'HARNESS-FAIL' 'ads-label' '' 'marker-on-incomplete-chain' ''
+            return
+        }
+        Expect-Run 'small-stream-terminator' $run 'STOP' @('interop-unproven') @{
+            content_reads = '0'; windows_gate = 'STOP'; ADS = 'NOT TESTED'; ntstatus = '0xc0000004'
+        }
+    }
+
+    Add-NotTested 'stream-parser-bounds' 'forged-next-offset-and-short-buffer-not-injectable'
 
     Invoke-Guarded 'small-share-conflict' {
         param($work)
@@ -807,6 +889,7 @@ try {
         Add-NotTested 'large-safe' 'blocked-by-small-safe'
         Add-NotTested 'large-file-ads' 'blocked-by-small-safe'
         Add-NotTested 'large-dir-ads' 'blocked-by-small-safe'
+        Add-NotTested 'large-root-ads' 'blocked-by-small-safe'
         Add-NotTested 'large-miscase-root' 'blocked-by-small-safe'
         Add-NotTested 'large-8.3-ancestor' 'blocked-by-small-safe'
         Add-NotTested 'large-share-conflict' 'blocked-by-small-safe'
@@ -834,7 +917,9 @@ try {
         if ($null -eq $tree) { Write-Row 'large-file-ads' 'HARNESS-FAIL' 'shape' '0' 'count' ''; return }
         try { Add-NamedStream $tree.RootFile } catch { Add-NotTested 'large-file-ads' 'stream-create'; return }
         $run = Invoke-Verifier $tree.Manifest $tree.Pin $tree.Stage
-        Expect-Run 'large-file-ads' $run 'STOP' @('named-stream') @{ content_reads = '0'; ADS = 'stop-extra' }
+        Expect-Run 'large-file-ads' $run 'STOP' @('named-stream') @{
+            content_reads = '0'; ADS = 'stop-extra'; ads_sample = 'ads-present'; windows_gate = 'STOP'
+        }
     }
 
     Invoke-Guarded 'large-dir-ads' {
@@ -843,7 +928,21 @@ try {
         if ($null -eq $tree) { Write-Row 'large-dir-ads' 'HARNESS-FAIL' 'shape' '0' 'count' ''; return }
         try { Add-NamedStream $tree.Area } catch { Add-NotTested 'large-dir-ads' 'dir-stream-create'; return }
         $run = Invoke-Verifier $tree.Manifest $tree.Pin $tree.Stage
-        Expect-Run 'large-dir-ads' $run 'STOP' @('named-stream') @{ content_reads = '0'; ADS = 'stop-extra' }
+        Expect-Run 'large-dir-ads' $run 'STOP' @('named-stream') @{
+            content_reads = '0'; ADS = 'stop-extra'; ads_sample = 'ads-present'; windows_gate = 'STOP'
+        }
+    }
+
+    Invoke-Guarded 'large-root-ads' {
+        param($work)
+        $tree = New-LargeStage $work
+        if ($null -eq $tree) { Write-Row 'large-root-ads' 'HARNESS-FAIL' 'shape' '0' 'count' ''; return }
+        try { Add-NamedStream $tree.Stage } catch { Add-NotTested 'large-root-ads' 'root-stream-create'; return }
+        $run = Invoke-Verifier $tree.Manifest $tree.Pin $tree.Stage
+        Expect-Run 'large-root-ads' $run 'STOP' @('named-stream') @{
+            content_reads = '0'; ADS = 'stop-extra'; ads_sample = 'ads-present'
+            windows_gate = 'STOP'; walk_phase = 'root-stream'
+        }
     }
 
     Invoke-Guarded 'large-miscase-root' {
@@ -910,7 +1009,35 @@ Write-Output ('summary_pass: ' + $pass)
 Write-Output ('summary_stop: ' + $stop)
 Write-Output ('summary_not_tested: ' + $untested)
 Write-Output ('summary_harness_fail: ' + $bad)
-Write-Output 'outside_reads_max: 0'
+foreach ($required in @('small-drift', 'small-sync-location', 'small-hardlink-unproven-non-ntfs', 'small-trailing-dot-ondisk')) {
+    $foundGap = $false
+    foreach ($row in $script:Rows) {
+        if ($row.Name -eq $required -and $row.Result -eq 'NOT TESTED') { $foundGap = $true }
+    }
+    if (-not $foundGap) {
+        $script:Failed = $true
+        Write-Output ('coverage_gap_missing: ' + $required)
+    }
+}
+$outsideMax = -1
+$telemetryFail = $false
+if ($script:VerifierOutside.Count -eq 0) { $telemetryFail = $true }
+foreach ($rawOutside in $script:VerifierOutside) {
+    if ($rawOutside -match '^[0-9]+$') {
+        $parsedOutside = [int]$rawOutside
+        if ($parsedOutside -gt $outsideMax) { $outsideMax = $parsedOutside }
+        if ($parsedOutside -ne 0) { $telemetryFail = $true }
+    } else {
+        $telemetryFail = $true
+    }
+}
+if ($telemetryFail) { $script:Failed = $true }
+Write-Output ('outside_reads_max: ' + $outsideMax)
+Write-Output ('outside_reads_rows: ' + $script:VerifierOutside.Count)
+Write-Output 'outside_reads_source: verifier-reported-telemetry'
+Write-Output 'outside_reads_limit: not-independent-proof'
+if ($telemetryFail) { Write-Output 'outside_reads_telemetry: FAIL' }
+else { Write-Output 'outside_reads_telemetry: checked' }
 Write-Output 'windows_gate: STOP'
 Write-Output 'owner_stage: NOT TESTED'
 if ($script:Failed -or $bad -gt 0) {

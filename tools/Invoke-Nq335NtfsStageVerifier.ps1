@@ -3,6 +3,11 @@
 # This file does not create, delete, rename, or write. Fixture setup is a
 # different program. A matching invented fixture still prints windows_gate: STOP.
 # Owner-stage, gameplay, and peer review stay out of scope.
+# Implementation extension (this draft only; frozen PR 151 is not edited):
+# a proven extra named stream on a retained handle STOPs with reason
+# named-stream and ADS: stop-extra. Design 151 says "Extra stream: STOP"
+# and lists no reason token for that case. An incomplete stream chain,
+# with no bounds-validated NextEntryOffset of 0, stays interop-unproven.
 #Requires -Version 5.1
 param(
     [Parameter(Mandatory = $true)][string]$ManifestPath,
@@ -511,6 +516,11 @@ public static class Nq335NtfsNative {
                 List<string> names = new List<string>();
                 int offset = 0;
                 int guard = 0;
+                bool terminated = false;
+                // Success requires a bounds-validated record whose
+                // NextEntryOffset is 0. Hitting the 64-record guard, the
+                // buffer bound, or a malformed offset without that
+                // terminator is incomplete and must not report success.
                 while (guard < 64 && offset + 24 <= capacity) {
                     guard++;
                     int next = Marshal.ReadInt32(buffer, offset);
@@ -527,12 +537,24 @@ public static class Nq335NtfsNative {
                         return result;
                     }
                     names.Add(streamName);
-                    if (next == 0) break;
+                    if (next == 0) {
+                        terminated = true;
+                        break;
+                    }
                     if (next < 24) {
                         result.Status = StatusInfoLengthMismatch;
                         return result;
                     }
-                    offset += next;
+                    long advanced = (long)offset + (long)next;
+                    if (advanced < 0 || advanced + 24 > capacity) {
+                        result.Status = StatusInfoLengthMismatch;
+                        return result;
+                    }
+                    offset = (int)advanced;
+                }
+                if (!terminated) {
+                    result.Status = StatusInfoLengthMismatch;
+                    return result;
                 }
                 result.Status = StatusSuccess;
                 result.Names = names.ToArray();
@@ -950,11 +972,9 @@ function Test-StreamSet([int64]$handle, [bool]$isDir) {
         $isDefault = [System.StringComparer]::Ordinal.Equals($streamName, '::$DATA')
         if (-not $isDefault) {
             $script:AdsCell = 'stop-extra'
-            if ($streamName.Length -le 80 -and $streamName -match '^:[A-Za-z0-9_.$:-]+$') {
-                $script:AdsSample = $streamName
-            } else {
-                $script:AdsSample = 'opaque'
-            }
+            # Fixed presence marker. The on-disk stream name is not copied.
+            $script:AdsSample = 'ads-present'
+            # named-stream is the implementation extension in the header.
             Stop-Run 'named-stream' 0
         }
     }
@@ -1046,6 +1066,10 @@ function Walk-Stage([int64]$stageHandle, $manifest) {
     foreach ($seenDir in $seenDirs) {
         if (-not $manifest.Dirs.Contains($seenDir)) { Stop-Run 'set-mismatch' 0 }
     }
+    # Byte length is checked before SHA-256. A longer or shorter body,
+    # including a CRLF rewrite that changes length, STOPs size-mismatch
+    # and is not hashed. A same-length body change STOPs hash-mismatch.
+    # Either token is a valid safe STOP. Bodies are not normalized.
     foreach ($expected in $manifest.Files) {
         $item = $fileHandles[$expected]
         $want = $manifest.Meta[$expected]
@@ -1183,6 +1207,11 @@ function Invoke-Main {
     }
     $script:Filesystem = 'NTFS'
     $script:NtfsCell = 'synthetic-executed'
+    # Stage-root directory handle retained above. Named streams on
+    # Questie-335 itself are checked before Walk-Stage and before any
+    # file byte read. No path-based stream fallback.
+    $script:WalkPhase = 'root-stream'
+    Test-StreamSet $parent $true
     Walk-Stage $parent $manifest
     $script:Result = 'PASS'
     $script:Reason = 'none'
