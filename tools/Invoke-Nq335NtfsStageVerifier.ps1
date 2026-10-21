@@ -924,8 +924,9 @@ function Test-StreamSet([int64]$handle, [bool]$isDir) {
     # GetFileInformationByHandleEx finds no stream records. A directory
     # with no named streams is documented to fail that way. A file is
     # expected to return ::$DATA, so EOF on a file stays unproven.
-    $streamEof = [int]([uint32]0xC0000026)
-    if ($isDir -and $streams.Status -eq $streamEof) {
+    # Compare as uint32. The bit pattern does not fit in a signed Int32 cast.
+    $streamEof = [uint32]3221225510
+    if ($isDir -and ([uint32]$streams.Status) -eq $streamEof) {
         if ($script:AdsCell -ne 'stop-extra') { $script:AdsCell = 'checked' }
         $script:AdsDirEof = 'yes'
         return
