@@ -143,4 +143,40 @@ check("vanilla NPC start index retained",npcUpdates[7711] and npcUpdates[7711][N
 check("vanilla NPC end index retained",npcUpdates[7711] and npcUpdates[7711][N.questEnds][1]==24)
 check("public NPC starter 2001 indexed",npcUpdates[2121] and npcUpdates[2121][N.questStarts][1]==2001)
 check("client item-source coordinates never invented",quests[920003] and db.itemData[6611][2]==nil)
+-- A previously released public custom record must never be modified via
+-- its narrow collision exception, even when the raw DB does not contain it.
+local function public2001MutationRejected(modify)
+    local changed = {}
+    for key, value in pairs(public2001) do
+        if type(value) == "table" then
+            local copied = {}
+            for index, id in pairs(value) do copied[index] = id end
+            changed[key] = copied
+        else
+            changed[key] = value
+        end
+    end
+    modify(changed)
+    NQuestieCustomQuestData.quests[2001] = changed
+    callbacks = {}
+    assert(loadfile(path))()
+    local result = callbacks.questData()
+    NQuestieCustomQuestData.quests[2001] = public2001
+    return result[2001] == nil
+end
+check("2001 class override rejected",public2001MutationRejected(function(q)
+    q.requiredClasses = 2
+end))
+check("2001 exclusion override rejected",public2001MutationRejected(function(q)
+    q.exclusiveTo = {437}
+end))
+check("2001 extra starter rejected",public2001MutationRejected(function(q)
+    q.startedByNpcs = {2121,7711}
+end))
+check("2001 repeatability override rejected",public2001MutationRejected(function(q)
+    q.specialFlags = 1
+end))
+check("2001 extra kill objective rejected",public2001MutationRejected(function(q)
+    q.killNpcs = {1868,1869,7712}
+end))
 print("ALL "..count.." SYNTHETIC CONTRACT CHECKS PASS; Lua client/packer tests pending.")
