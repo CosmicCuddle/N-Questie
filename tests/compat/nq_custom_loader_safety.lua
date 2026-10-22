@@ -36,6 +36,12 @@ for i = 1, 255 do
 end
 db.npcData[7713] = {[1]="Full synthetic starter", [N.questStarts]=fullStarts}
 db.npcData[7714] = {[1]="Nearly full synthetic starter", [N.questStarts]=almostFullStarts}
+-- GameObject quest-start and quest-end arrays have the same u8 capacity.
+-- These synthetic sources exercise both limits independently of NPC indexes.
+db.objectData[8812] = {[1]="Full GO starter", [G.questStarts]=fullStarts}
+db.objectData[8813] = {[1]="Nearly full GO starter", [G.questStarts]=almostFullStarts}
+db.objectData[8814] = {[1]="Full GO finisher", [G.questEnds]=fullStarts}
+db.objectData[8815] = {[1]="Nearly full GO finisher", [G.questEnds]=almostFullStarts}
 local callbacks={}
 QuestieLoader={ImportModule=function(_,name)
     assert(name=="QuestieDB")
@@ -91,6 +97,10 @@ NQuestieCustomQuestData={revision=6,quests={
         itemObjectives={6611}}),
     [920031]=rec({startedByNpcs={7713}}), -- full source must reject the quest
     [920032]=rec({startedByNpcs={7714}}), -- one final slot is allowed
+    [920033]=rec({startedByNpcs={},startedByGameObjects={8812}}), -- full GO start must reject
+    [920034]=rec({startedByNpcs={},startedByGameObjects={8813}}), -- final GO start slot
+    [920035]=rec({finishedByNpcs={},finishedByGameObjects={8814}}), -- full GO end must reject
+    [920036]=rec({finishedByNpcs={},finishedByGameObjects={8815}}), -- final GO end slot
 }}
 assert(loadfile(path))()
 assert(callbacks.questData and callbacks.npcData and callbacks.objectData)
@@ -147,6 +157,33 @@ check("254-entry NPC reverse index accepts exactly one more link",
     npcUpdates[7714][N.questStarts][255]==920032)
 check("NPC near-limit index preserves its first existing link",
     npcUpdates[7714] and npcUpdates[7714][N.questStarts][1]==300001)
+check("full GO start index rejects entire quest and preserves 255 links",
+    quests[920033]==nil and goUpdates[8812]==nil and
+    #db.objectData[8812][G.questStarts]==255)
+check("254-entry GO start index accepts exactly one new link",
+    quests[920034] and goUpdates[8813] and
+    #goUpdates[8813][G.questStarts]==255 and
+    goUpdates[8813][G.questStarts][255]==920034 and
+    goUpdates[8813][G.questStarts][1]==300001)
+check("full GO end index rejects entire quest and preserves 255 links",
+    quests[920035]==nil and goUpdates[8814]==nil and
+    #db.objectData[8814][G.questEnds]==255)
+check("254-entry GO end index accepts exactly one new link",
+    quests[920036] and goUpdates[8815] and
+    #goUpdates[8815][G.questEnds]==255 and
+    goUpdates[8815][G.questEnds][255]==920036 and
+    goUpdates[8815][G.questEnds][1]==300001)
+check("GO rejection does not create unrelated NPC reverse links",
+    npcUpdates[7711] and
+    not (function()
+        for _, v in ipairs(npcUpdates[7711][N.questStarts]) do
+            if v == 920035 then return true end
+        end
+        for _, v in ipairs(npcUpdates[7711][N.questEnds]) do
+            if v == 920033 then return true end
+        end
+        return false
+    end)())
 check("public 2001 remains present",quests[2001] and quests[2001][Q.name]=="Ravenclaw Cleanup")
 check("public 2001 prereq preserved",quests[2001] and quests[2001][Q.preQuestSingle][1]==437)
 check("public 2001 kill goals preserved",quests[2001] and
