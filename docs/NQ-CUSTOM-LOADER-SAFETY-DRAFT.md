@@ -34,6 +34,8 @@ python3 tests/compat/run_nq_custom_loader_safety.py
 
 The runner verifies the exact reviewed loader Git blob before invoking installed Lua interpreters. It prefers Lua 5.1 and can also run Lua 5.4. The existing `.github/workflows/nquestie-overlay.yml` now runs this suite under **Lua 5.1** on PRs, rather than relying on a local-only result.
 
+The separate **synthetic compiler codec probe** runs with `lua5.1 tests/compat/nq_custom_compiler_codec.lua`. It loads the repository's **actual** `Database/compiler.lua` writer/reader functions, uses invented one-kind GO and item objectives emitted by the guarded loader, and checks serialization of objective slots, questgiver NPC/GO slots and `questLevel=-1`. It deliberately substitutes a small **test-only byte stream** for `QuestieStreamLib`: **11 assertions passed** in the overlay CI run for head `6ba584ee` (run 39769056348). This is **not** a full production stream/compiled DB round trip, live-client proof, or independent peer review.
+
 - Initial implementation caught and fixed a nested-array regression for quest 2001; the current test suite preserves its exact NPC-only and kill-only tuple structure and rejects attempted record mutations.
 - Peer review found a missing saturation test for NPC reverse indexes. Both **255+1 rejection** and **254+1 acceptance** tests are now included.
 - A later peer review found the same gap for GameObjects. Both **GO starter** and **GO finisher** reverse-index limits now have 255+1 rejection and 254+1 acceptance fixtures, plus preservation checks. These synthetic-only additions passed the six PR-triggered workflows at head `f5d6b120`, and CS02 independently ran **56/56** Lua 5.1/5.4 checks and killed the disabled GO-pruner mutation. This is not real-client verification.
@@ -41,11 +43,11 @@ The runner verifies the exact reviewed loader Git blob before invoking installed
 - The GitHub Actions synthetic-loader test command now uses a **120-second CI timeout** (`timeout` / `--kill-after`) so a non-terminating test mutation fails CI rather than waiting for the default job timeout. No loader, quest record or revision change is implied.
 - CI `Assemble PR-only` and `Upload temporary PR test build` steps are skipped **only when** `github.head_ref == 'dev/nq-custom-loader-safety-20261021'`. **Do not rename this draft branch** without updating that guard. Older PR-only workflow artifacts predate this restriction and were not installed or released.
 - The Part 119 head `f5d6b120` passed **six PR-triggered workflows**, including the integrated Lua 5.1 suite. CS02's reciprocal review of that exact head is a **draft PASS**. Workflow success must be checked again whenever the branch head changes; the Part 119 result does not certify subsequent commits.
-- Lua 5.1 synthetic unit PASS is **not** a live WoW 3.3.5a client PASS, complete Questie compiled-loader round trip or proof that private candidate quests are safe to import.
+- Lua 5.1 synthetic loader and codec PASS is **not** a live WoW 3.3.5a client PASS, a complete QuestieStreamLib/whole-DB compiled-loader round trip or proof that private candidate quests are safe to import.
 
 ## Unresolved before any merge or release
 
-- Recheck latest-head CI after subsequent edits; CS02 has already independently passed the GO-capacity and pruner checks on the Part 119 head. Reviews of future functional loader changes remain necessary.
+- Recheck latest-head CI after subsequent edits; CS02 has already independently passed the GO-capacity and pruner checks on the Part 119 head. The new compiler codec probe and bounded test timeout still await CS02 reciprocal review; an actual QuestieStreamLib/full-DB integration test remains open. Reviews of future functional loader changes remain necessary.
 - Exact in-game marker/level handling, especially for scaling quests and item-only objectives.
 - Server-side condition/IP phase availability and real source locations. Event/phase-gated quests must remain excluded.
 - Owner's **separate explicit approval** for any merge, client install, private quest-data addition, live server/SQL change or release.
