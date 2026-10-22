@@ -101,6 +101,12 @@ NQuestieCustomQuestData={revision=6,quests={
     [920034]=rec({startedByNpcs={},startedByGameObjects={8813}}), -- final GO start slot
     [920035]=rec({finishedByNpcs={},finishedByGameObjects={8814}}), -- full GO end must reject
     [920036]=rec({finishedByNpcs={},finishedByGameObjects={8815}}), -- final GO end slot
+    [920037]=rec({zoneOrSort=-32768}), -- invalid s16 offset: WriteShort(-1)
+    [920038]=rec({zoneOrSort=-32767}), -- lowest encodable negative sort
+    [920039]=rec({zoneOrSort=32767}), -- retained accepted upper bound
+    [920040]=rec({name="nil"}), -- u8string read sentinel; must fail closed
+    [920041]=rec({name="Nil"}), -- distinct ordinary name must survive
+    [920042]=rec({zoneOrSort=32768}), -- still rejected by loader upper bound
 }}
 assert(loadfile(path))()
 assert(callbacks.questData and callbacks.npcData and callbacks.objectData)
@@ -173,6 +179,15 @@ check("254-entry GO end index accepts exactly one new link",
     #goUpdates[8815][G.questEnds]==255 and
     goUpdates[8815][G.questEnds][255]==920036 and
     goUpdates[8815][G.questEnds][1]==300001)
+check("s16 zoneOrSort -32768 underflow input rejected",quests[920037]==nil)
+check("s16 zoneOrSort -32767 boundary retained",
+    quests[920038] and quests[920038][Q.zoneOrSort]==-32767)
+check("s16 zoneOrSort upper accepted boundary retained",
+    quests[920039] and quests[920039][Q.zoneOrSort]==32767)
+check("literal nil u8string quest-name sentinel rejected",quests[920040]==nil)
+check("case-distinct Nil quest name stays valid",
+    quests[920041] and quests[920041][Q.name]=="Nil")
+check("zoneOrSort above existing upper bound still rejected",quests[920042]==nil)
 check("GO rejection does not create unrelated NPC reverse links",
     npcUpdates[7711] and
     not (function()
