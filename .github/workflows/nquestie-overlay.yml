@@ -37,6 +37,10 @@ jobs:
         run: |
           luac5.1 -p tests/compat/nq_custom_compiler_codec.lua
           timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_custom_compiler_codec.lua
+      - name: Test available quest starter marker source contract (Lua 5.1)
+        run: |
+          luac5.1 -p tests/compat/nq_available_starter_marker_contract.lua
+          timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_available_starter_marker_contract.lua
       - name: Test reviewed existing quest 1203 correction (no server data)
         run: lua5.1 tests/test_nquestie_existing_quest_1203.lua
       - name: Test verified Dustwallow quest-level changes (no private source)
