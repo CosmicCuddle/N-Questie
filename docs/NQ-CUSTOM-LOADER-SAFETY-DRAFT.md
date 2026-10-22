@@ -1,47 +1,52 @@
-# Guarded custom quest loader — draft development contract
+# Guarded custom quest loader — development contract (DRAFT)
 
-This branch is a **development draft**, not an addon package or approved server quest import.
+This branch is a **review-only development draft**, not a ready-to-install addon, a release, or authorisation to import quests. Protected `335`, the owner's installed addon and the live server/SQL are not changed by this branch.
 
-## Scope
+## Scope and safety
 
-- Existing `Compat/NQuestieCustomQuestData.lua` still contains only the previously public custom quest 2001.
-- The loader adds **new quest IDs only**, with an exact-field-and-list-checked compatibility exception for the already-released public quest **2001**. Other existing-quest field corrections remain separately owned by `Compat/NQuestieExistingQuestCorrections.lua`.
-- No private server quest names, IDs, NPCs, items, coordinates, SQL, or database exports are included.
-- The client, protected `335` branch, and SQL/server are untouched. **Do not merge or release without the owner's separate approval.**
+- `Compat/NQuestieCustomQuestData.lua` contains **only the already-public quest 2001**; its approved data fields and nested output remain unchanged.
+- The loader adds **new quest IDs only**, with a tightly checked, exact approved-field exception for public quest 2001. Existing-quest corrections use a separate reviewed path.
+- No owner-private server quest records, IDs, NPC/item keys, locations, conditions, databases or SQL have been committed.
+- All new records fail closed on unsupported gameplay fields, known-source references that do not resolve, and unresolved or cyclic dependencies. No addon logic claims to infer a player's server progression stage or event/phase eligibility.
+- Mixed objective **categories** are **rejected for now** because Questie associates static objective data with ordered client quest-log objectives by index. A single objective category (NPC kills, GameObjects or items) is supported as a guarded input shape, not an in-game QA PASS.
+- Source NPC/GO reverse indexes retain existing links; proposed quest additions are rejected before emission if the combined packed `u8` relation index would exceed **255** IDs. Do not invent missing coordinates for craftable/trade items.
+- The overlay's `NQuestieCustomQuestData.revision` is **8**; it was deliberately advanced after loader changes so installed compiled DBs will rebuild when a future release is separately authorised. No actual installation is approved.
 
-## Public input schema
+## Reviewed synthetic input contract
 
-Required: `name`, `requiredLevel`, `questLevel`, `zoneOrSort`, `requiredRaces`, `questFlags`.
+Required scalar fields: `name`, `requiredLevel`, `questLevel`, `zoneOrSort`, `requiredRaces`, `questFlags`.
 
-Optional source arrays (IDs only): `startedByNpcs`, `finishedByNpcs`, `startedByGameObjects`, `finishedByGameObjects`. At least one supported starter and finisher must resolve in the existing Questie NPC/object database.
+Optional source lists: `startedByNpcs`, `finishedByNpcs`, `startedByGameObjects`, `finishedByGameObjects`. At least one source and one finisher must resolve in the existing public Questie NPC/object DB.
 
-Optional objective arrays (IDs only): `killNpcs`, `objectObjectives`, `itemObjectives`. They must resolve in the existing public NPC/object/item DB. Unknown drop sources **do not** create invented coordinates. An objective-less quest requires explicit `noDirectObjectives = true`.
+Optional objective lists: `killNpcs`, `objectObjectives`, `itemObjectives`. Every specified ID must exist in the corresponding public DB. Item data without reliable acquisition coordinates can retain objective metadata; **no fake drop pins** are created. `noDirectObjectives = true` must explicitly mark a quest with no direct objective lists.
 
-Optional restrictions: `requiredClasses`, `preQuestSingle`, `preQuestGroup`, `exclusiveTo`, `parentQuest`, `nextQuestInChain`, `specialFlags`.
+Optional supported restrictions: `requiredClasses`, `preQuestSingle`, `preQuestGroup`, `exclusiveTo`, `parentQuest`, `nextQuestInChain`, `specialFlags`. `specialFlags` accepts **0 or 1** only (Questie repeatable); never copy raw AzerothCore flag masks. Chain and exclusive-group meanings must be reviewed, not transferred mechanically.
 
-- **No server condition or IP-stage expression is supported.** Event/phase-gated data are explicitly out of scope.
-- `specialFlags` accepts only 0 or 1 (the verified Questie repeatable bit), not a raw AzerothCore mask.
-- Lists must be dense, unique, integer-indexed, max 255 elements, with IDs from 1 through 16,777,215. Numbers use their `questDB.lua` compiler field ranges.
-- `questLevel = -1` is preserved as a supported scaling sentinel.
-- Unknown fields, collisions, unresolved sources, impossible prerequisite cycles, and dangling references are rejected instead of silently omitted.
-- Existing reverse NPC/GO quest relations are retained and checked for combined packed-array capacity before additions.
+Lists must be dense, unique, integer-indexed and contain at most 255 positive IDs no greater than 16,777,215. Scalars obey the compiler's signed/unsigned field limits. `questLevel=-1` is an allowed scaling sentinel; actual client display remains untested.
 
-**Do not interpret chain relations as raw AzerothCore ExclusiveGroup or PrevQuestID automatically.** Any eventual custom quest needs deliberate conversion and review.
+## Testing and peer review
 
-## Verification
-
-Offline runner (where a Lua runtime is installed):
+Run the public, **synthetic-only** contract suite:
 
 ```bash
 python3 tests/compat/run_nq_custom_loader_safety.py
 ```
 
-The script checks a pinned Git blob revision of the draft loader and runs synthetic records, including the **already-public** 2001 baseline. It uses Lua 5.1 when locally available, otherwise 5.4 if present; a successful Lua 5.4 run is **not** a WoW 3.3.5a Lua 5.1 certification.
+The runner verifies the exact reviewed loader Git blob before invoking installed Lua interpreters. It prefers Lua 5.1 and can also run Lua 5.4. The existing `.github/workflows/nquestie-overlay.yml` now runs this suite under **Lua 5.1** on PRs, rather than relying on a local-only result.
 
-Local development evidence: **37/37** proposed behavioural guards passed using isolated Lua 5.4 mocks against the exact draft loader blob. Existing repository CI found a tuple-shape regression for quest 2001 on the first draft; a subsequent commit restored its exact NPC/kill-only nested arrays and added dedicated regression assertions. The committed extended test file has further synthetic cases; the separate game-client, Questie compiler round-trip, 2001 in-game, Quest 1203, individual progression, map precision and SavedVariables regression tests remain **NOT TESTED**.
+- Initial implementation caught and fixed a nested-array regression for quest 2001; the current test suite preserves its exact NPC-only and kill-only tuple structure and rejects attempted record mutations.
+- Peer review found a missing saturation test for NPC reverse indexes. Both **255+1 rejection** and **254+1 acceptance** tests are now included.
+- A later peer review found the same gap for GameObjects. Both **GO starter** and **GO finisher** reverse-index limits now have 255+1 rejection and 254+1 acceptance fixtures, plus preservation checks. These additions are synthetic-only and require CI evidence at their new commit before claiming PASS.
+- Unsupported mixed objective kinds are explicitly held back pending real client objective order verification.
+- CI `Assemble PR-only` and `Upload temporary PR test build` steps are skipped **only when** `github.head_ref == 'dev/nq-custom-loader-safety-20261021'`. **Do not rename this draft branch** without updating that guard. Older PR-only workflow artifacts predate this restriction and were not installed or released.
+- The last previous reviewed head passed six workflows; the **latest test-only/documentation commits require fresh CI confirmation**. Green checks on an older commit must not be presented as results of the new head.
+- Lua 5.1 synthetic unit PASS is **not** a live WoW 3.3.5a client PASS, complete Questie compiled-loader round trip or proof that private candidate quests are safe to import.
 
-**Review requests for CS02:** inspect callback ordering/collision handling, missing NPC/GO crash prevention, item-objective nil safety, mixed-type objective ordering, reverse-index capacity, negative prerequisite mapping policy, cache revision bump 5→6, and Lua 5.1 compatibility. Do not introduce real server records during this review.
+## Unresolved before any merge or release
 
-## Part 117 safety-review addendum
+- Independent reciprocal source review of the latest draft head and the GO capacity cases.
+- Exact in-game marker/level handling, especially for scaling quests and item-only objectives.
+- Server-side condition/IP phase availability and real source locations. Event/phase-gated quests must remain excluded.
+- Owner's **separate explicit approval** for any merge, client install, private quest-data addition, live server/SQL change or release.
 
-The public 2001 collision compatibility path now requires the original exact key set and the exact pre-existing NPC/kills/prerequisite lists. Synthetic negative tests explicitly reject extra class masks, exclusions, starters, repeatability and kill objectives, while preserving the original public record. The cache revision is 7 because loader logic changed. This remains an unmerged development draft; new tests require independent Lua 5.1 and compiler review.
+This document describes current proposed code and guarded offline validation only; it is not a rollout instruction.
