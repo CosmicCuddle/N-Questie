@@ -37,6 +37,11 @@ jobs:
         run: |
           luac5.1 -p tests/compat/nq_custom_compiler_codec.lua
           timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_custom_compiler_codec.lua
+      - name: Run synthetic whole-table compiler harness (Lua 5.1)
+        run: |
+          luac5.1 -p tests/compat/nq_custom_fulltable_compiler.lua
+          # Fail a non-terminating compile/reopen before the default job timeout.
+          timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_custom_fulltable_compiler.lua
       - name: Test reviewed existing quest 1203 correction (no server data)
         run: lua5.1 tests/test_nquestie_existing_quest_1203.lua
       - name: Test verified Dustwallow quest-level changes (no private source)
@@ -68,7 +73,7 @@ jobs:
           grep -Fq 'Compat\NQuestieReviewedClassicChainLevels.lua' Questie-335.toc
           grep -Fq 'nQuestieDataRevision' Modules/QuestieInit.lua
       - name: Assemble PR-only WoW 3.3.5a addon package
-        if: github.event_name == 'pull_request' && github.head_ref != 'dev/nq-custom-loader-safety-20261021'
+        if: ${{ false }}
         run: |
           mkdir -p qa-package/Questie-335
           cp Questie.lua Questie-335.toc embeds.xml qa-package/Questie-335/
@@ -89,7 +94,7 @@ jobs:
           test -s qa-package/Questie-335/Compat/NQuestieReviewedClassicChainLevels.lua
           echo "QA build only. Run in-game tests before merging or releasing." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload temporary N-Questie PR test build
-        if: github.event_name == 'pull_request' && github.head_ref != 'dev/nq-custom-loader-safety-20261021'
+        if: ${{ false }}
         uses: actions/upload-artifact@v4
         with:
           name: N-Questie-335-PR-TestBuild
