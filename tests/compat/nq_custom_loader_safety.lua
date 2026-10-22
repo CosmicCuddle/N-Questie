@@ -24,6 +24,8 @@ local db = {
     },
     objectData={
         [8811]={[1]="Known game object",[G.questStarts]={34}},
+        [8816]={[1]="Invented independent GO starter"},
+        [8817]={[1]="Invented independent GO finisher"},
     },
     itemData={
         [6611]={[1]="Synthetic trade item"}, -- deliberately has no drop coordinates
@@ -104,6 +106,8 @@ NQuestieCustomQuestData={revision=6,quests={
     [920035]=rec({finishedByNpcs={},finishedByGameObjects={8814}}), -- full GO end must reject
     [920036]=rec({finishedByNpcs={},finishedByGameObjects={8815}}), -- final GO end slot
     [920043]=rec({startedByNpcs={7715},finishedByNpcs={7716}}),
+    [920044]=rec({startedByNpcs={},finishedByNpcs={},
+        startedByGameObjects={8816},finishedByGameObjects={8817}}),
 }}
 assert(loadfile(path))()
 assert(callbacks.questData and callbacks.npcData and callbacks.objectData)
@@ -209,6 +213,19 @@ check("independent NPC finisher updates only questEnds",
     npcUpdates[7716] and npcUpdates[7716][N.questEnds] and
     npcUpdates[7716][N.questEnds][1]==920043 and
     (not npcUpdates[7716][N.questStarts] or #npcUpdates[7716][N.questStarts]==0))
+-- GameObject direction is independently testable: the earlier public and
+-- synthetic same-GameObject cases cannot reveal swapped reverse roles.
+check("different GO starter and finisher preserved in quest row",
+    quests[920044] and quests[920044][Q.startedBy][2][1]==8816 and
+    quests[920044][Q.finishedBy][2][1]==8817)
+check("independent GO starter updates only questStarts",
+    goUpdates[8816] and goUpdates[8816][G.questStarts] and
+    goUpdates[8816][G.questStarts][1]==920044 and
+    (not goUpdates[8816][G.questEnds] or #goUpdates[8816][G.questEnds]==0))
+check("independent GO finisher updates only questEnds",
+    goUpdates[8817] and goUpdates[8817][G.questEnds] and
+    goUpdates[8817][G.questEnds][1]==920044 and
+    (not goUpdates[8817][G.questStarts] or #goUpdates[8817][G.questStarts]==0))
 check("vanilla NPC start index retained",npcUpdates[7711] and npcUpdates[7711][N.questStarts][1]==23)
 check("vanilla NPC end index retained",npcUpdates[7711] and npcUpdates[7711][N.questEnds][1]==24)
 check("public NPC starter 2001 indexed",npcUpdates[2121] and npcUpdates[2121][N.questStarts][1]==2001)
