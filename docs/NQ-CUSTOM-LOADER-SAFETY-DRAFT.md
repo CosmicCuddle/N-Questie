@@ -10,7 +10,7 @@ This branch is a **review-only development draft**, not a ready-to-install addon
 - All new records fail closed on unsupported gameplay fields, known-source references that do not resolve, and unresolved or cyclic dependencies. No addon logic claims to infer a player's server progression stage or event/phase eligibility.
 - Mixed objective **categories** are **rejected for now** because Questie associates static objective data with ordered client quest-log objectives by index. A single objective category (NPC kills, GameObjects or items) is supported as a guarded input shape, not an in-game QA PASS.
 - Source NPC/GO reverse indexes retain existing links; proposed quest additions are rejected before emission if the combined packed `u8` relation index would exceed **255** IDs. Do not invent missing coordinates for craftable/trade items.
-- The overlay's `NQuestieCustomQuestData.revision` is **8**; it was deliberately advanced after loader changes so installed compiled DBs will rebuild when a future release is separately authorised. No actual installation is approved.
+- The proposed overlay's `NQuestieCustomQuestData.revision` is **9** (was 8); this isolated development-only change invalidates compiled caches after the two fail-closed loader boundary fixes if a future release is separately authorised. Public quest 2001's fields remain byte-for-byte unchanged. No actual installation is approved.
 
 ## Reviewed synthetic input contract
 
@@ -22,7 +22,7 @@ Optional objective lists: `killNpcs`, `objectObjectives`, `itemObjectives`. Ever
 
 Optional supported restrictions: `requiredClasses`, `preQuestSingle`, `preQuestGroup`, `exclusiveTo`, `parentQuest`, `nextQuestInChain`, `specialFlags`. `specialFlags` accepts **0 or 1** only (Questie repeatable); never copy raw AzerothCore flag masks. Chain and exclusive-group meanings must be reviewed, not transferred mechanically.
 
-Lists must be dense, unique, integer-indexed and contain at most 255 positive IDs no greater than 16,777,215. Scalars obey the compiler's signed/unsigned field limits. `questLevel=-1` is an allowed scaling sentinel; actual client display remains untested.
+Lists must be dense, unique, integer-indexed and contain at most 255 positive IDs no greater than 16,777,215. Scalars obey the compiler's signed/unsigned field limits. `zoneOrSort` is restricted to **-32767..32767**: the actual `s16` writer uses `value + 32767`, so -32768 produces an unsigned-short underflow or silent sign change. The literal quest name `"nil"` is rejected because Questie's `u8string` reader treats it as Lua nil; other nonempty names including `"Nil"` remain valid. `questLevel=-1` is an allowed scaling sentinel; actual client display remains untested.
 
 ## Testing and peer review
 
@@ -41,13 +41,14 @@ The separate **synthetic compiler codec probe** runs with `lua5.1 tests/compat/n
 - A later peer review found the same gap for GameObjects. Both **GO starter** and **GO finisher** reverse-index limits now have 255+1 rejection and 254+1 acceptance fixtures, plus preservation checks. These synthetic-only additions passed the six PR-triggered workflows at head `f5d6b120`, and CS02 independently ran **56/56** Lua 5.1/5.4 checks and killed the disabled GO-pruner mutation. This is not real-client verification.
 - Unsupported mixed objective kinds are explicitly held back pending real client objective order verification.
 - The GitHub Actions synthetic-loader test command now uses a **120-second CI timeout** (`timeout` / `--kill-after`) so a non-terminating test mutation fails CI rather than waiting for the default job timeout. No loader, quest record or revision change is implied.
-- CI `Assemble PR-only` and `Upload temporary PR test build` steps are skipped **only when** `github.head_ref == 'dev/nq-custom-loader-safety-20261021'`. **Do not rename this draft branch** without updating that guard. Older PR-only workflow artifacts predate this restriction and were not installed or released.
+- CI `Assemble PR-only` and `Upload temporary PR test build` steps are skipped when **either** the PR's source (`github.head_ref`) **or** target (`github.base_ref`) equals `dev/nq-custom-loader-safety-20261021`. This prevents draft child PRs from generating addon packages. The PR branch names and both guards must stay aligned; older unrelated PR-only artifacts predate the restriction and were not installed or released.
 - The Part 119 head `f5d6b120` passed **six PR-triggered workflows**, including the integrated Lua 5.1 suite. CS02's reciprocal review of that exact head is a **draft PASS**. Workflow success must be checked again whenever the branch head changes; the Part 119 result does not certify subsequent commits.
 - Lua 5.1 synthetic loader and real-stream codec PASS is **not** a live WoW 3.3.5a client PASS, a complete whole-DB compiled-loader rebuild or proof that private candidate quests are safe to import.
 
 ## Unresolved before any merge or release
 
-- Recheck latest-head CI after subsequent edits; CS02 has already independently passed the GO-capacity and pruner checks on the Part 119 head. The new compiler/real-stream probe and bounded test timeout still await CS02 reciprocal review; complete compiled-database integration remains open. Reviews of future functional loader changes remain necessary.
+- This separate CS01 compiler-boundary draft adds six synthetic checks to the prior 56-check loader suite (target **62/62**): invalid `zoneOrSort=-32768` rejection, valid `-32767`/`32767` acceptance, literal `"nil"` name rejection, case-distinct `"Nil"` acceptance, and continued `32768` rejection. Results are **pending latest-head CI**; the earlier 56-check PASS must not be inherited. Production compiler bytes were independently reproduced by CS02 on earlier reviewed code, and the new guards are not live-client validated.
+- Recheck latest-head CI after subsequent edits; CS02 independently passed the GO-capacity/pruner checks, the bounded timeout, and the Part 121 real-stream compiler probe. A separate synthetic whole-table `CompileTable` / `CompileTableCoroutine` / `GetDBHandle` draft exists in PR #156 (independently reviewed with two integration corrections requested), but whole-client validation remains open. **This new loader boundary patch and its revision 9/pin changes still require full latest-head CI and independent CS02 review before any integration.**
 - Exact in-game marker/level handling, especially for scaling quests and item-only objectives.
 - Server-side condition/IP phase availability and real source locations. Event/phase-gated quests must remain excluded.
 - Owner's **separate explicit approval** for any merge, client install, private quest-data addition, live server/SQL change or release.
