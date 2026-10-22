@@ -31,7 +31,8 @@ jobs:
       - name: Run guarded custom-loader synthetic contracts (Lua 5.1)
         run: |
           luac5.1 -p tests/compat/nq_custom_loader_safety.lua
-          python3 tests/compat/run_nq_custom_loader_safety.py
+          # Fail a non-terminating synthetic mutation before the default job timeout.
+          timeout --signal=TERM --kill-after=5s 120s python3 tests/compat/run_nq_custom_loader_safety.py
       - name: Test reviewed existing quest 1203 correction (no server data)
         run: lua5.1 tests/test_nquestie_existing_quest_1203.lua
       - name: Test verified Dustwallow quest-level changes (no private source)
