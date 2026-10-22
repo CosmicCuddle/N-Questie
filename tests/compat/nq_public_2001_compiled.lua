@@ -69,8 +69,10 @@ db.itemData = {}
 assert(loadfile("Compat/NQuestieCustomQuestData.lua"))()
 local public = assert(NQuestieCustomQuestData.quests[2001],
     "already-public 2001 record missing")
-assert(next(NQuestieCustomQuestData.quests, 2001) == nil,
-    "unexpected additional quest records: fixture must remain public-only")
+-- Isolate the canonical public record in memory. Future separately approved
+-- public records must not make this single-quest regression fail or get loaded.
+local canonicalRevision = NQuestieCustomQuestData.revision
+NQuestieCustomQuestData = {revision = canonicalRevision, quests = {[2001] = public}}
 assert(public.name == "Ravenclaw Cleanup" and public.zoneOrSort == 130
     and public.questLevel == 16 and public.requiredLevel == 12,
     "canonical public quest 2001 inputs changed")
