@@ -36,15 +36,16 @@ The runner verifies the exact reviewed loader Git blob before invoking installed
 
 - Initial implementation caught and fixed a nested-array regression for quest 2001; the current test suite preserves its exact NPC-only and kill-only tuple structure and rejects attempted record mutations.
 - Peer review found a missing saturation test for NPC reverse indexes. Both **255+1 rejection** and **254+1 acceptance** tests are now included.
-- A later peer review found the same gap for GameObjects. Both **GO starter** and **GO finisher** reverse-index limits now have 255+1 rejection and 254+1 acceptance fixtures, plus preservation checks. These additions are synthetic-only and require CI evidence at their new commit before claiming PASS.
+- A later peer review found the same gap for GameObjects. Both **GO starter** and **GO finisher** reverse-index limits now have 255+1 rejection and 254+1 acceptance fixtures, plus preservation checks. These synthetic-only additions passed the six PR-triggered workflows at head `f5d6b120`, and CS02 independently ran **56/56** Lua 5.1/5.4 checks and killed the disabled GO-pruner mutation. This is not real-client verification.
 - Unsupported mixed objective kinds are explicitly held back pending real client objective order verification.
+- The GitHub Actions synthetic-loader test command now uses a **120-second CI timeout** (`timeout` / `--kill-after`) so a non-terminating test mutation fails CI rather than waiting for the default job timeout. No loader, quest record or revision change is implied.
 - CI `Assemble PR-only` and `Upload temporary PR test build` steps are skipped **only when** `github.head_ref == 'dev/nq-custom-loader-safety-20261021'`. **Do not rename this draft branch** without updating that guard. Older PR-only workflow artifacts predate this restriction and were not installed or released.
-- The last previous reviewed head passed six workflows; the **latest test-only/documentation commits require fresh CI confirmation**. Green checks on an older commit must not be presented as results of the new head.
+- The Part 119 head `f5d6b120` passed **six PR-triggered workflows**, including the integrated Lua 5.1 suite. CS02's reciprocal review of that exact head is a **draft PASS**. Workflow success must be checked again whenever the branch head changes; the Part 119 result does not certify subsequent commits.
 - Lua 5.1 synthetic unit PASS is **not** a live WoW 3.3.5a client PASS, complete Questie compiled-loader round trip or proof that private candidate quests are safe to import.
 
 ## Unresolved before any merge or release
 
-- Independent reciprocal source review of the latest draft head and the GO capacity cases.
+- Recheck latest-head CI after subsequent edits; CS02 has already independently passed the GO-capacity and pruner checks on the Part 119 head. Reviews of future functional loader changes remain necessary.
 - Exact in-game marker/level handling, especially for scaling quests and item-only objectives.
 - Server-side condition/IP phase availability and real source locations. Event/phase-gated quests must remain excluded.
 - Owner's **separate explicit approval** for any merge, client install, private quest-data addition, live server/SQL change or release.
