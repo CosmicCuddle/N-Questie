@@ -55,7 +55,7 @@ Separate work, not done here: a fail-closed loader rejection `q.name ~= "nil"`, 
 - Quest 2001's compiled form. The record is absent from this table. The loader suite still checks the public 2001 input shape.
 - Loader acceptance of a quest named `"nil"`.
 - Exact numeric reopen of the order-probe trigger coordinates. `QueryValidator` walked that field; the decoded coordinates are not compared.
-- Packaging, assembly, upload, release and tags. The workflow steps that assemble and upload a PR package are `if: ${{ false }}`.
+- Packaging, assembly, upload, release and tags. Assemble and Upload run only when a pull request is neither headed by nor targeted at `dev/nq-custom-loader-safety-20261021`. On this nested draft both steps are skipped.
 
 ## Counts from this working tree
 

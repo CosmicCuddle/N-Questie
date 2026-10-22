@@ -73,7 +73,7 @@ jobs:
           grep -Fq 'Compat\NQuestieReviewedClassicChainLevels.lua' Questie-335.toc
           grep -Fq 'nQuestieDataRevision' Modules/QuestieInit.lua
       - name: Assemble PR-only WoW 3.3.5a addon package
-        if: ${{ false }}
+        if: github.event_name == 'pull_request' && github.head_ref != 'dev/nq-custom-loader-safety-20261021' && github.base_ref != 'dev/nq-custom-loader-safety-20261021'
         run: |
           mkdir -p qa-package/Questie-335
           cp Questie.lua Questie-335.toc embeds.xml qa-package/Questie-335/
@@ -94,7 +94,7 @@ jobs:
           test -s qa-package/Questie-335/Compat/NQuestieReviewedClassicChainLevels.lua
           echo "QA build only. Run in-game tests before merging or releasing." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload temporary N-Questie PR test build
-        if: ${{ false }}
+        if: github.event_name == 'pull_request' && github.head_ref != 'dev/nq-custom-loader-safety-20261021' && github.base_ref != 'dev/nq-custom-loader-safety-20261021'
         uses: actions/upload-artifact@v4
         with:
           name: N-Questie-335-PR-TestBuild
