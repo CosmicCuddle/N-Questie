@@ -140,7 +140,7 @@ check("resolvable GameObject with no spawns yields no invented pin",
 
 sourcesNPC[920364] = {
     id = 920364, name = "Invented waypoint-only NPC",
-    waypoints = {[203] = {{{19, 28}, {20, 29}}},
+    waypoints = {[203] = {{{19, 28}, {20, 29}}}},
 }
 icons, tips, paths = draw({NPC = {920364}})
 check("real available-quest renderer creates a waypoint-derived starter pin",
