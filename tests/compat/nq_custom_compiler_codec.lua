@@ -44,8 +44,23 @@ QuestieCompat = {
     Is335=true, WOW_PROJECT_ID=2,
     RegisterCorrection=function(kind, fn) callbacks[kind]=fn end,
 }
--- The compiler only caches bit.lshift at file load for this isolated probe.
-bit = {lshift=function(v, n) return v * 2 ^ n end}
+-- WoW exposes bit operations globally; emulate the small positive-number
+-- subset needed by the real QuestieStream in standalone Lua 5.1.
+local function positiveBand(a, b)
+    local answer, place = 0, 1
+    while a > 0 and b > 0 do
+        if a % 2 == 1 and b % 2 == 1 then answer = answer + place end
+        a, b, place = math.floor(a / 2), math.floor(b / 2), place * 2
+    end
+    return answer
+end
+bit = {
+    band = positiveBand,
+    lshift = function(v, n) return v * 2 ^ n end,
+    rshift = function(v, n) return math.floor(v / (2 ^ n)) end,
+}
+tremove = table.remove -- exported as a WoW Lua utility in the production client
+assert(loadfile("Modules/QuestieStream.lua"))()
 NQuestieCustomQuestData = {revision=8, quests={
     [920101]={
         name="Synthetic GO objective", requiredLevel=10, questLevel=15,
@@ -158,4 +173,43 @@ check("objective descriptions/counts not fabricated",
     objItem[3][1][2]==nil and objGo[2][1][2]==nil)
 check("item fixture has no invented acquisition locations",
     db.itemData[6611][2]==nil)
-print("ALL "..checks.." SYNTHETIC COMPILER CODEC CHECKS PASS; real stream/full compile/client NOT TESTED.")
+-- The second pass uses the real production QuestieStreamLib raw_assert
+-- implementation, not our byteStream adapter. No SavedVariables or client.
+local realStreams = modules.QuestieStreamLib
+assert(realStreams and realStreams.GetStream)
+local function actualStreamRoundtrip(kind, payload)
+    local writer=realStreams:GetStream("raw_assert")
+    compiler.writers[kind](writer, payload)
+    local bytes=writer:Save()
+    local reader=realStreams:GetStream("raw_assert")
+    reader:Load(bytes)
+    local decoded=compiler.readers[kind](reader)
+    assert(reader._pointer==#bytes+1,
+        "production stream did not consume entire "..kind.." payload")
+    return decoded, bytes
+end
+local goActual=actualStreamRoundtrip("objectives",go[Q.objectives])
+check("actual QuestieStream GO objective slot",
+    goActual[1]==nil and goActual[2] and
+    goActual[2][1][1]==8811 and goActual[3]==nil)
+local itemActual=actualStreamRoundtrip("objectives",item[Q.objectives])
+check("actual QuestieStream item objective slot",
+    itemActual[1]==nil and itemActual[2]==nil and
+    itemActual[3] and itemActual[3][1][1]==6611)
+local sourceActual=actualStreamRoundtrip("questgivers",item[Q.startedBy])
+check("actual QuestieStream GO starter slot",
+    sourceActual[1]==nil and sourceActual[2] and sourceActual[2][1]==8812)
+local starterActual=actualStreamRoundtrip("questgivers",go[Q.startedBy])
+check("actual QuestieStream NPC starter slot",
+    starterActual[1] and starterActual[1][1]==7711 and starterActual[2]==nil)
+local finishActual=actualStreamRoundtrip("questgivers",item[Q.finishedBy])
+check("actual QuestieStream NPC finisher",
+    finishActual[1] and finishActual[1][1]==7712)
+local levelActual, levelBytes=actualStreamRoundtrip("s16",item[Q.questLevel])
+check("actual QuestieStream scaling level -1",levelActual==-1)
+check("real stream emits big-endian signed-level bytes",
+    #levelBytes==2 and string.byte(levelBytes,1)==127 and
+    string.byte(levelBytes,2)==254)
+check("actual QuestieStream still supplies no fabricated text",
+    itemActual[3][1][2]==nil and goActual[2][1][2]==nil)
+print("ALL "..checks.." SYNTHETIC COMPILER+STREAM CHECKS PASS; whole-DB compile/client NOT TESTED.")
