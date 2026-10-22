@@ -131,10 +131,10 @@ local function parseQuest(id, q)
     for key in pairs(q) do
         if not allowedKeys[key] then return nil end
     end
-    if type(q.name) ~= "string" or #q.name == 0 or #q.name > 255 then return nil end
+    if type(q.name) ~= "string" or #q.name == 0 or #q.name > 255 or q.name == "nil" then return nil end
     if not integerInRange(q.requiredLevel, 0, 255) or
         not (q.questLevel == -1 or integerInRange(q.questLevel, 1, 32767)) or
-        not integerInRange(q.zoneOrSort, -32768, 32767) or
+        not integerInRange(q.zoneOrSort, -32767, 32767) or
         not integerInRange(q.requiredRaces, 0, 65535) or
         not integerInRange(q.questFlags, 0, MAX_ID) or
         (q.requiredClasses ~= nil and not integerInRange(q.requiredClasses, 0, 65535)) or

@@ -16,12 +16,16 @@ local db = {
     npcData={
         [7711]={[1]="Known starter",[N.questStarts]={23},[N.questEnds]={24}},
         [7712]={[1]="Synthetic target"},
+        [7715]={[1]="Invented independent quest starter"},
+        [7716]={[1]="Invented independent quest finisher"},
         [2121]={[1]="Public baseline NPC"},
         [1868]={[1]="Public baseline target"},
         [1869]={[1]="Public baseline target"},
     },
     objectData={
         [8811]={[1]="Known game object",[G.questStarts]={34}},
+        [8816]={[1]="Invented independent GO starter"},
+        [8817]={[1]="Invented independent GO finisher"},
     },
     itemData={
         [6611]={[1]="Synthetic trade item"}, -- deliberately has no drop coordinates
@@ -101,6 +105,15 @@ NQuestieCustomQuestData={revision=6,quests={
     [920034]=rec({startedByNpcs={},startedByGameObjects={8813}}), -- final GO start slot
     [920035]=rec({finishedByNpcs={},finishedByGameObjects={8814}}), -- full GO end must reject
     [920036]=rec({finishedByNpcs={},finishedByGameObjects={8815}}), -- final GO end slot
+    [920037]=rec({zoneOrSort=-32768}), -- invalid s16 offset: WriteShort(-1)
+    [920038]=rec({zoneOrSort=-32767}), -- lowest encodable negative sort
+    [920039]=rec({zoneOrSort=32767}), -- retained accepted upper bound
+    [920040]=rec({name="nil"}), -- u8string read sentinel; must fail closed
+    [920041]=rec({name="Nil"}), -- distinct ordinary name must survive
+    [920042]=rec({zoneOrSort=32768}), -- still rejected by loader upper bound
+    [920043]=rec({startedByNpcs={7715},finishedByNpcs={7716}}),
+    [920044]=rec({startedByNpcs={},finishedByNpcs={},
+        startedByGameObjects={8816},finishedByGameObjects={8817}}),
 }}
 assert(loadfile(path))()
 assert(callbacks.questData and callbacks.npcData and callbacks.objectData)
@@ -173,6 +186,15 @@ check("254-entry GO end index accepts exactly one new link",
     #goUpdates[8815][G.questEnds]==255 and
     goUpdates[8815][G.questEnds][255]==920036 and
     goUpdates[8815][G.questEnds][1]==300001)
+check("s16 zoneOrSort -32768 underflow input rejected",quests[920037]==nil)
+check("s16 zoneOrSort -32767 boundary retained",
+    quests[920038] and quests[920038][Q.zoneOrSort]==-32767)
+check("s16 zoneOrSort upper accepted boundary retained",
+    quests[920039] and quests[920039][Q.zoneOrSort]==32767)
+check("literal nil u8string quest-name sentinel rejected",quests[920040]==nil)
+check("case-distinct Nil quest name stays valid",
+    quests[920041] and quests[920041][Q.name]=="Nil")
+check("zoneOrSort above existing upper bound still rejected",quests[920042]==nil)
 check("GO rejection does not create unrelated NPC reverse links",
     npcUpdates[7711] and
     not (function()
@@ -193,6 +215,32 @@ check("public 2001 has no additional starter slot",quests[2001] and quests[2001]
 check("public 2001 has no additional finisher slot",quests[2001] and quests[2001][Q.finishedBy][2]==nil)
 check("public 2001 kill-only objective has no extra slots",quests[2001] and
     quests[2001][Q.objectives][2]==nil and quests[2001][Q.objectives][3]==nil)
+-- Distinct invented NPC IDs catch reverse-index start/end swaps that public
+-- quest 2001 cannot reveal (it starts and ends at the same NPC).
+check("different NPC starter and finisher preserved in quest row",
+    quests[920043] and quests[920043][Q.startedBy][1][1]==7715 and
+    quests[920043][Q.finishedBy][1][1]==7716)
+check("independent NPC starter updates only questStarts",
+    npcUpdates[7715] and npcUpdates[7715][N.questStarts] and
+    npcUpdates[7715][N.questStarts][1]==920043 and
+    (not npcUpdates[7715][N.questEnds] or #npcUpdates[7715][N.questEnds]==0))
+check("independent NPC finisher updates only questEnds",
+    npcUpdates[7716] and npcUpdates[7716][N.questEnds] and
+    npcUpdates[7716][N.questEnds][1]==920043 and
+    (not npcUpdates[7716][N.questStarts] or #npcUpdates[7716][N.questStarts]==0))
+-- GameObject direction is independently testable: the earlier public and
+-- synthetic same-GameObject cases cannot reveal swapped reverse roles.
+check("different GO starter and finisher preserved in quest row",
+    quests[920044] and quests[920044][Q.startedBy][2][1]==8816 and
+    quests[920044][Q.finishedBy][2][1]==8817)
+check("independent GO starter updates only questStarts",
+    goUpdates[8816] and goUpdates[8816][G.questStarts] and
+    goUpdates[8816][G.questStarts][1]==920044 and
+    (not goUpdates[8816][G.questEnds] or #goUpdates[8816][G.questEnds]==0))
+check("independent GO finisher updates only questEnds",
+    goUpdates[8817] and goUpdates[8817][G.questEnds] and
+    goUpdates[8817][G.questEnds][1]==920044 and
+    (not goUpdates[8817][G.questStarts] or #goUpdates[8817][G.questStarts]==0))
 check("vanilla NPC start index retained",npcUpdates[7711] and npcUpdates[7711][N.questStarts][1]==23)
 check("vanilla NPC end index retained",npcUpdates[7711] and npcUpdates[7711][N.questEnds][1]==24)
 check("public NPC starter 2001 indexed",npcUpdates[2121] and npcUpdates[2121][N.questStarts][1]==2001)
