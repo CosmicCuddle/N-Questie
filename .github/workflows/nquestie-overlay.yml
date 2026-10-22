@@ -15,8 +15,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Install Lua 5.1
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y lua5.1
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y lua5.1
       - name: Parse overlay scripts with Lua 5.1
         run: |
           luac5.1 -p Compat/NQuestieCustomQuestData.lua
@@ -37,6 +37,23 @@ jobs:
         run: |
           luac5.1 -p tests/compat/nq_custom_compiler_codec.lua
           timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_custom_compiler_codec.lua
+      - name: Run synthetic whole-table compiler harness (Lua 5.1)
+        run: |
+          luac5.1 -p tests/compat/nq_custom_fulltable_compiler.lua
+          # Fail a non-terminating compile/reopen before the default job timeout.
+          timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_custom_fulltable_compiler.lua
+      - name: Run public quest 2001 loader-to-compiler regression (Lua 5.1)
+        run: |
+          luac5.1 -p tests/compat/nq_public_2001_compiled.lua
+          timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_public_2001_compiled.lua
+      - name: Test available quest starter marker source contract (Lua 5.1)
+        run: |
+          luac5.1 -p tests/compat/nq_available_starter_marker_contract.lua
+          timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_available_starter_marker_contract.lua
+      - name: Test unresolved available quest starter safety (Lua 5.1)
+        run: |
+          luac5.1 -p tests/compat/nq_available_unresolved_starters.lua
+          timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_available_unresolved_starters.lua
       - name: Test reviewed existing quest 1203 correction (no server data)
         run: lua5.1 tests/test_nquestie_existing_quest_1203.lua
       - name: Test verified Dustwallow quest-level changes (no private source)
