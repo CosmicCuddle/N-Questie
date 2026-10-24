@@ -6,6 +6,10 @@
 -- QuestieDB:IsPreQuestSingleFulfilled classifier. WoW client APIs are stubbed.
 -- Quest IDs are invented (990001+). No server data and no in-game claim.
 --
+-- The extracted classifier is the production function. A nil preQuestSingle list
+-- is fulfilled (no prerequisite). A list is fulfilled when any one entry is
+-- complete, including when the first entry is not. Both are asserted below.
+--
 -- Whether the real 3.3.5a native GetQuestsCompleted(t) clears t is UNKNOWN.
 -- Every case runs two stub modes and does not pick a winner:
 --   CLEAR    native wipes t, then adds the reply keys
@@ -67,6 +71,8 @@ local Q_DAILY = 990040
 local Q_WEEKLY = 990041
 local Q_REPEAT_DAILY = 990042
 local Q_LIVE = 990050
+local Q_SINGLE_MISS = 990070
+local Q_SINGLE_HIT = 990071
 
 local function assertSynthetic(questId)
     if type(questId) ~= "number" or questId < 990001 then
@@ -864,6 +870,53 @@ local function runT1(mode)
     })
 end
 
+local function runPreQuestSingleEdges(mode)
+    -- Calls the extracted production function. fillMode does not change the
+    -- classifier; both stubs are still executed, matching the other cases.
+    fillMode = mode
+    resetState()
+    assertSynthetic(Q_SINGLE_MISS)
+    assertSynthetic(Q_SINGLE_HIT)
+
+    -- Database/QuestieDB.lua: `if (not preQuestSingle) then return true end`.
+    -- A nil list is not a failed prerequisite. No prerequisite means fulfilled.
+    local nilResult = QuestieDB:IsPreQuestSingleFulfilled(nil)
+    check(
+        "P9-" .. mode .. "-nil-list-fulfilled",
+        mode .. " nil preQuestSingle is fulfilled (no prerequisite) result=" .. tostring(nilResult),
+        nilResult == true
+    )
+    remember(mode, "P9", {nilFulfilled = nilResult == true})
+
+    -- preQuestSingle means any one of these. The loop returns true at the first
+    -- complete entry, so index 2 fulfills the list when index 1 is incomplete.
+    Questie.db.char.complete[Q_SINGLE_HIT] = true
+    local secondResult = QuestieDB:IsPreQuestSingleFulfilled({Q_SINGLE_MISS, Q_SINGLE_HIT})
+    check(
+        "P10-" .. mode .. "-second-complete-fulfills",
+        mode .. " preQuestSingle any-of first=" .. tostring(Q_SINGLE_MISS)
+            .. " incomplete second=" .. tostring(Q_SINGLE_HIT)
+            .. " complete result=" .. tostring(secondResult),
+        secondResult == true
+            and Questie.db.char.complete[Q_SINGLE_MISS] == nil
+            and Questie.db.char.complete[Q_SINGLE_HIT] == true
+    )
+
+    Questie.db.char.complete[Q_SINGLE_HIT] = nil
+    local noneResult = QuestieDB:IsPreQuestSingleFulfilled({Q_SINGLE_MISS, Q_SINGLE_HIT})
+    check(
+        "P10-" .. mode .. "-both-incomplete-unfulfilled",
+        mode .. " preQuestSingle both incomplete result=" .. tostring(noneResult),
+        noneResult == false
+            and Questie.db.char.complete[Q_SINGLE_MISS] == nil
+            and Questie.db.char.complete[Q_SINGLE_HIT] == nil
+    )
+    remember(mode, "P10", {
+        secondCompleteFulfilled = secondResult == true,
+        bothIncompleteFulfilled = noneResult == true,
+    })
+end
+
 local function runT2(mode)
     fillMode = mode
     resetState()
@@ -1064,11 +1117,18 @@ local function runDaily(mode)
     Questie.started = true
     serverReply = {[Q_ANCHOR] = true}
     fireQueryComplete()
+    -- End state after the daily-reset path and the daily merge: one redraw
+    -- request, tracked daily absent from char.daily and char.complete, reply
+    -- key present. Reset-versus-merge order is NOT observed. Swapping
+    -- ResetDailyQuests() and the daily Merge leaves this same end state, so
+    -- this check does not claim that order.
     check(
-        "D1-" .. mode .. "-redraws",
-        mode .. " daily-reset redraws=" .. tostring(#redrawLog)
+        "D1-" .. mode .. "-end-state-order-not-observed",
+        mode .. " end state after reset+merge redraws=" .. tostring(#redrawLog)
             .. " dailyLeft=" .. tostring(Questie.db.char.daily[Q_DAILY])
-            .. " completeLeft=" .. tostring(Questie.db.char.complete[Q_DAILY]),
+            .. " completeLeft=" .. tostring(Questie.db.char.complete[Q_DAILY])
+            .. " anchor=" .. tostring(Questie.db.char.complete[Q_ANCHOR] == true)
+            .. " reset-vs-merge order NOT observed",
         #redrawLog == 1
             and Questie.db.char.daily[Q_DAILY] == nil
             and Questie.db.char.complete[Q_DAILY] == nil
@@ -1098,6 +1158,7 @@ local function runDaily(mode)
 end
 
 eachMode(runT1)
+eachMode(runPreQuestSingleEdges)
 eachMode(runT2)
 eachMode(runT3)
 eachMode(runT4)
@@ -1125,7 +1186,7 @@ print("OBSERVED BEGIN")
 local modeName
 for _, modeName in ipairs({"CLEAR", "ADD-ONLY"}) do
     local caseId
-    for _, caseId in ipairs({"T1", "T2", "T2R", "T3", "T4", "T4L77", "T5", "T6", "D1", "D2"}) do
+    for _, caseId in ipairs({"T1", "P9", "P10", "T2", "T2R", "T3", "T4", "T4L77", "T5", "T6", "D1", "D2"}) do
         local fields = observed[modeName] and observed[modeName][caseId]
         if fields then
             print("OBSERVED " .. caseId .. " " .. modeName .. " " .. fieldString(fields))
@@ -1137,13 +1198,15 @@ print("OBSERVED END")
 print("FINDING load VERIFIED real Compat.lua functions and the extracted IsPreQuestSingleFulfilled ran under the stubs.")
 print("FINDING client-fill UNKNOWN the 3.3.5a client may clear or only add; this test records both and claims neither.")
 print("FINDING T1 VERIFIED a pure preQuestSingle classifier is false on the before-reply snapshot and true after the reply contains only-synthetic 990011, in both stub modes.")
+print("FINDING P9 VERIFIED IsPreQuestSingleFulfilled(nil) is true. A nil preQuestSingle list means no prerequisite, so the requirement is fulfilled. The production function returns true before it reads char.complete. Both stub modes.")
+print("FINDING P10 VERIFIED preQuestSingle means any one of the list. First quest 990070 incomplete and second quest 990071 complete is fulfilled (true). Both incomplete is unfulfilled (false). Both stub modes.")
 print("FINDING T2 VERIFIED CLEAR drops stale 990020; ADD-ONLY retains it. POTENTIAL ISSUE only if a real client were add-only: a server-side un-completion would stay cached. That client mode is UNKNOWN.")
 print("FINDING T2R VERIFIED a stale repeatable is removed in both modes because stripping walks the whole table after fill.")
 print("FINDING T3 VERIFIED a repeatable present in the native reply is visible mid-fill and absent after the handler, in both modes.")
 print("FINDING T4 VERIFIED Questie-tracked daily and weekly keys are merged after fill. Weekly merge also requires IsWotlk and level >= 78. The handler did not call IsDailyQuest or IsWeeklyQuest. A repeatable that is also tracked in char.daily is stripped and then merged back.")
 print("FINDING T5 VERIFIED the shim returns one table object, the native reply mutates that object, and a deep-copied classifier snapshot is not written.")
 print("FINDING T6 VERIFIED pinned current behaviour: outside the daily-reset branch, QUEST_QUERY_COMPLETE requests no CalculateAndDrawAll even when Questie.started is true. GAP: the cache can change with no redraw from this handler. NOT an explanation of any marker-after-reload report.")
-print("FINDING D1 VERIFIED when daily reset time has passed and Questie.started is true, the handler's ResetDailyQuests path requests exactly one CalculateAndDrawAll and clears tracked dailies before the merge.")
+print("FINDING D1 VERIFIED end state when daily reset time has passed and Questie.started is true, in both stub modes: exactly one CalculateAndDrawAll request, tracked daily 990040 absent from char.daily and from char.complete, and reply key 990001 present. The order of ResetDailyQuests versus the daily Merge is NOT observed by this test.")
 print("FINDING D2 VERIFIED the same reset clears tracked dailies but requests no redraw when Questie.started is false.")
 print("FINDING in-game NOT TESTED. Map drawing, SmoothReset ticks, QuestieInit stage 3, and the real 3.3.5a client were not executed.")
 
