@@ -1,5 +1,8 @@
 # N-Questie — Development Roadmap
 
+> **Current whole-project progress checklist (18 October 2026):** [N-Questie living master checklist](NQ-LIVING-PROJECT-MASTER-CHECKLIST.md). This older roadmap preserves the **14 October historical phase/quest research**, including uncompleted in-game QA and proposed features. For current Part 3 blockers/CI and future development stages, start at the living checklist. For CosmicScript02-specific review tasks use the [single rolling GitHub queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348). Do not mark historical unchecked items complete solely because newer synthetic tests passed.
+
+
 ## Combined M1 integration milestone — 14 October 2026
 
 - [x] Review Grok's M1 safety fixes and their completed local QA evidence ([draft #18](https://github.com/CosmicCuddle/N-Questie/pull/18)); require explicit complete creature KillCredit and no false one-to-one pairing.
