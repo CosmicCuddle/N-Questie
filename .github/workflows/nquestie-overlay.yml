@@ -31,16 +31,16 @@ jobs:
           luac5.1 -p Modules/QuestieInit.lua
       - name: Run custom-quest overlay regression
         run: lua5.1 tests/test_nquestie_overlay.lua
-      - name: Require 100 loader checks each on Lua 5.1 and Lua 5.4
+      - name: Require 101 loader checks each on Lua 5.1 and Lua 5.4
         run: |
           set -euo pipefail
           luac5.1 -p tests/compat/nq_custom_loader_safety.lua
           luac5.4 -p tests/compat/nq_custom_loader_safety.lua
-          timeout --signal=TERM --kill-after=5s 120s python3 tests/compat/run_nq_custom_loader_safety.py | tee "$RUNNER_TEMP/nq-loader-100.txt"
-          test "$(grep -c '^ALL 100 SYNTHETIC CONTRACT CHECKS PASS;' "$RUNNER_TEMP/nq-loader-100.txt")" -eq 2
-          test "$(grep -c '^PASS: Lua interpreter ' "$RUNNER_TEMP/nq-loader-100.txt")" -eq 2
-          grep -Eq '^PASS: Lua interpreter .*/lua5\.1$' "$RUNNER_TEMP/nq-loader-100.txt"
-          grep -Eq '^PASS: Lua interpreter .*/lua5\.4$' "$RUNNER_TEMP/nq-loader-100.txt"
+          timeout --signal=TERM --kill-after=5s 120s python3 tests/compat/run_nq_custom_loader_safety.py | tee "$RUNNER_TEMP/nq-loader-101.txt"
+          test "$(grep -c '^ALL 101 SYNTHETIC CONTRACT CHECKS PASS;' "$RUNNER_TEMP/nq-loader-101.txt")" -eq 2
+          test "$(grep -c '^PASS: Lua interpreter ' "$RUNNER_TEMP/nq-loader-101.txt")" -eq 2
+          grep -Eq '^PASS: Lua interpreter .*/lua5\.1$' "$RUNNER_TEMP/nq-loader-101.txt"
+          grep -Eq '^PASS: Lua interpreter .*/lua5\.4$' "$RUNNER_TEMP/nq-loader-101.txt"
       - name: Run actual Questie compiler codec on synthetic GO/item objectives (Lua 5.1)
         run: |
           luac5.1 -p tests/compat/nq_custom_compiler_codec.lua
