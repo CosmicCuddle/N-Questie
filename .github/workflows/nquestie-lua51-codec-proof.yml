@@ -1,0 +1,74 @@
+name: N-Questie Lua 5.1 codec proof (isolated)
+
+on:
+  push:
+    branches:
+      - test/part31-lua51-codec-proof-cs01
+    paths:
+      - tests/compat/nq_codec_lua51_source_check.lua
+      - tests/compat/nq_compiler_fourkind_lua51_source_check.lua
+      - tests/compat/nq_compiler_staged_contract_lua51.lua
+      - .github/workflows/nquestie-lua51-codec-proof.yml
+  pull_request:
+    paths:
+      - tests/compat/nq_codec_lua51_source_check.lua
+      - tests/compat/nq_compiler_fourkind_lua51_source_check.lua
+      - tests/compat/nq_compiler_staged_contract_lua51.lua
+      - .github/workflows/nquestie-lua51-codec-proof.yml
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-codec-fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install standalone Lua 5.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends lua5.1
+          lua5.1 -v 2>&1 | grep -E '^Lua 5\.1'
+      - name: Obtain exact pinned 335 source in separate worktree
+        shell: bash
+        env:
+          PINNED_335: 8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/nq335" "$PINNED_335"
+          test "$(git -C "$RUNNER_TEMP/nq335" rev-parse HEAD)" = "$PINNED_335"
+          test "$(git -C "$RUNNER_TEMP/nq335" hash-object Modules/QuestieStream.lua)" = 1819aeea11148eae0742810dbd2338410edda238
+          test "$(git -C "$RUNNER_TEMP/nq335" hash-object Database/compiler.lua)" = abba0249f44d14711dbdd46bbde969ccffbc2963
+          test -z "$(git -C "$RUNNER_TEMP/nq335" status --porcelain --untracked-files=no)"
+      - name: Exercise actual codec implementations (26 fictional fixtures)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/nq335"
+          lua5.1 "$GITHUB_WORKSPACE/tests/compat/nq_codec_lua51_source_check.lua" | tee "$RUNNER_TEMP/nq-result.txt"
+          test "$(grep -c '^PASS ' "$RUNNER_TEMP/nq-result.txt")" -eq 26
+          grep -Fx 'SOURCE HARNESS RESULT: 26/26 PASS' "$RUNNER_TEMP/nq-result.txt"
+      - name: Compile all four categories with real pinned Questie code
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/nq335"
+          lua5.1 "$GITHUB_WORKSPACE/tests/compat/nq_compiler_fourkind_lua51_source_check.lua" | tee "$RUNNER_TEMP/nq-fourkind.txt"
+          test "$(grep -c '^PASS FOURKIND ' "$RUNNER_TEMP/nq-fourkind.txt")" -eq 12
+          grep -Fx 'FOURKIND SOURCE RESULT: 12/12 PASS' "$RUNNER_TEMP/nq-fourkind.txt"
+
+
+      - name: Verify fail-closed staged four-kind proposal with actual Lua 5.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/nq335"
+          lua5.1 "$GITHUB_WORKSPACE/tests/compat/nq_compiler_staged_contract_lua51.lua" | tee "$RUNNER_TEMP/nq-staged.txt"
+          test "$(grep -c '^PASS STAGED ' "$RUNNER_TEMP/nq-staged.txt")" -eq 67
+          grep -Fx 'STAGED PROPOSAL RESULT: 67/67 PASS' "$RUNNER_TEMP/nq-staged.txt"
