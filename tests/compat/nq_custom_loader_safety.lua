@@ -343,6 +343,40 @@ check("missing approved item source aborts callback",not missingOk and
     type(missingErr)=="string" and
     missingErr:find("item starter source changed after approval",1,true)~=nil)
 db.itemData[6612]=savedItem6612
+-- Simulate QuestieCompat.LoadCorrections applying the approved quest/item
+-- update pairs; all IDs below are invented fixture-only references.
+for _,questId in ipairs({920045,920052}) do
+    db.questData[questId]=quests[questId]
+end
+db.itemData[6611][itemStartField]=itemUpdates[6611][itemStartField]
+db.itemData[6612][itemStartField]=itemUpdates[6612][itemStartField]
+local function postflightFail(expected)
+    local ok,why=pcall(QuestieCompat.VerifyNQuestieCustomItemSources)
+    return not ok and type(why)=="string" and why:find(expected,1,true)~=nil
+end
+check("postflight accepts linked synthetic quest/item sources",
+    QuestieCompat.VerifyNQuestieCustomItemSources()==true)
+db.itemData[6612][itemStartField]=920010
+check("postflight rejects overwritten item owner after callback",
+    postflightFail("postflight item owner mismatch"))
+db.itemData[6612][itemStartField]=920052
+local started=db.questData[920045][Q.startedBy]
+local oldStarter=started[3]
+started[3]={6612}
+check("postflight rejects mismatched quest startedBy item",
+    postflightFail("postflight quest source mismatch"))
+started[3]=oldStarter
+db.itemData[6611]=nil
+check("postflight rejects missing item source after callback",
+    postflightFail("postflight item owner mismatch"))
+db.itemData[6611]={[1]="Synthetic trade item",[itemStartField]=920045}
+local oldQuest=db.questData[920052]
+db.questData[920052]=nil
+check("postflight rejects missing quest entry after callback",
+    postflightFail("postflight quest source mismatch"))
+db.questData[920052]=oldQuest
+check("postflight accepts clean sources again",
+    QuestieCompat.VerifyNQuestieCustomItemSources()==true)
 -- A previously released public custom record must never be modified via
 -- its narrow collision exception, even when the raw DB does not contain it.
 local function public2001MutationRejected(modify)
