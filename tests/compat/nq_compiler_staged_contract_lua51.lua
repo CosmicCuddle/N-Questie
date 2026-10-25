@@ -604,20 +604,29 @@ end)
 -- Cleanup oracle for a readback failure occurring AFTER handle acquisition.
 reset()
 local normalGetHandle=compiler.GetDBHandle
-local observedCleanup=0
+local readerAcquired,readerReturned=0,0
 compiler.GetDBHandle=function(self,...)
+  -- This call yields under Lua 5.1; the outer coroutine drives it.
+  -- Count only handles successfully acquired from the real decoder.
   local handle=normalGetHandle(self,...)
+  readerAcquired=readerAcquired+1
   local originalFinish=handle.stream.finished
-  handle.stream.finished=function(stream)
-    observedCleanup=observedCleanup+1
-    return originalFinish(stream)
+  local released=false
+  handle.stream.finished=function(stream,...)
+    assert(not released,"reader handle returned twice in one lease")
+    released=true
+    readerReturned=readerReturned+1
+    stream.finished=originalFinish
+    return originalFinish(stream,...)
   end
   return handle
 end
 local afterHandle,afterHandleReason=run({corrupt="quest_requiredLevel"})
 compiler.GetDBHandle=normalGetHandle
 check("failed_decoded_field_releases_reader_streams",function()
-  assert(not afterHandle and observedCleanup>=3)
+  assert(not afterHandle and readerAcquired==3)
+  assert(readerReturned==readerAcquired,
+    "post-acquisition readback failure leaked a reader handle")
   assert(type(afterHandleReason)=="string" and
     afterHandleReason:find("field drift at quest",1,true),
     "unexpected readback failure: "..tostring(afterHandleReason))
@@ -631,6 +640,9 @@ local function runWithWriterStreamCounting(mutate)
   reset()
   mutate()
   local acquired,returned=0,0
+  -- Instrument writer leases acquired through streamMod:GetStream.
+  -- Real GetDBHandle uses its own imported stream instance and is counted
+  -- separately by the reader-handle oracle above.
   -- Count each acquired stream lease, not a reused pool object's historic
   -- wrapper chain. Restore its original finished() on the first return so
   -- later leases cannot inflate this attempt's release count.
@@ -658,7 +670,7 @@ end)
 check("invalid_root_writer_releases_its_stream",function()
   assert(not rootAccepted and rootStats.acquired>=3)
   assert(rootStats.acquired==rootStats.returned,
-    "writer/reader stream lease imbalance on root error")
+    "writer stream lease imbalance on root error")
   assert(type(rootReason)=="string" and
     rootReason:find("preflight type mismatch",1,true))
 end)
@@ -671,7 +683,7 @@ end)
 check("nested_codec_failure_releases_writer_stream",function()
   assert(not nestedAccepted and nestedStats.acquired>=3)
   assert(nestedStats.acquired==nestedStats.returned,
-    "writer/reader stream lease imbalance on nested writer error")
+    "writer stream lease imbalance on nested writer error")
   assert(type(nestedReason)=="string" and
     not nestedReason:find("preflight type mismatch",1,true))
 end)
