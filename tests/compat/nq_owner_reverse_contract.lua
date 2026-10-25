@@ -32,6 +32,17 @@ local function field(rec,overrides,id,key)
   if patch and patch[key]~=nil then return patch[key] end
   return rec and rec[key]
 end
+-- Unrelated legacy owners are not our custom source contracts. Do not
+-- make the new check reject a duplicate/sparse legacy quest list unless it
+-- contains a reference to an approved custom quest. If it does, validate
+-- the WHOLE field strictly (including unrelated values alongside it).
+local function referencesApproved(t,plan)
+  if type(t)~="table" then return false end
+  for _,quest in pairs(t) do
+    if plan[quest] then return true end
+  end
+  return false
+end
 local function tuple(kind,owner,q,role)
   return kind..":"..tostring(owner)..":"..tostring(q)..":"..role
 end
@@ -80,11 +91,14 @@ local function verify(plan,db)
           local fieldKey=keys[name][role=="start" and "start" or "finish"]
           local raw=field(record,patch,id,fieldKey)
           if raw~=nil then
-            local links=asSet(raw,255,name..":"..role)
-            for quest in pairs(links) do
-              if plan[quest] then
-                if not integer(id,16777215) then refuse("BAD_OWNER_ID") end
-                rev[tuple(name,id,quest,role)]=true
+            if type(raw)~="table" then refuse("BAD_LIST "..name..":"..role) end
+            if referencesApproved(raw,plan) then
+              local links=asSet(raw,255,name..":"..role)
+              for quest in pairs(links) do
+                if plan[quest] then
+                  if not integer(id,16777215) then refuse("BAD_OWNER_ID") end
+                  rev[tuple(name,id,quest,role)]=true
+                end
               end
             end
           end
@@ -176,6 +190,21 @@ end,false,"FOREIGN_REVERSE")
 probe("override-only unrelated NPC owner",function(s)
   s.db.npcOverrides[991104]={[10]={990999}}
 end,true)
-if tests~=29 or passed~=29 then error("wrong synthetic test count") end
-print("OWNER REVERSE PROPOSAL RESULT: 29/29 PASS")
+probe("unrelated duplicate legacy NPC owner tolerated",function(s)
+  s.db.npc[NC][11]={990999,990999}
+end,true)
+probe("unrelated sparse legacy GO owner tolerated",function(s)
+  s.db.go[GC][2]={[2]=990999}
+end,true)
+probe("custom relation mixed with unrelated duplicate still refused",function(s)
+  s.db.npc[NC][10]={QA,990999,990999}
+end,false,"DUPLICATE")
+probe("override-only unrelated duplicate legacy owner tolerated",function(s)
+  s.db.npcOverrides[991104]={[10]={990999,990999}}
+end,true)
+probe("override-only mixed custom duplicate still refused",function(s)
+  s.db.npcOverrides[991104]={[10]={QA,990999,990999}}
+end,false,"DUPLICATE")
+if tests~=34 or passed~=34 then error("wrong synthetic test count") end
+print("OWNER REVERSE PROPOSAL RESULT: 34/34 PASS")
 print("TEST ONLY: excludes compiler-yield freeze, live client and item source proof")
