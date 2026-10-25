@@ -211,7 +211,14 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     if (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID) or (Questie.db.global.nQuestieDataRevision ~= nQuestieRevision) then
         print("\124cFFAAEEFF" .. l10n("Questie DB has updated!") .. "\124r\124cFFFF6F22 " .. l10n("Data is being processed, this may take a few moments and cause some lag..."))
         loadFullDatabase()
-        if QuestieCompat.Is335 and type(QuestieCompat.VerifyNQuestieCustomItemSources) == "function" then
+        -- On 3.3.5a, configured custom quests require their source postflight.
+        -- Silently skipping a missing loader hook could compile base-only data
+        -- and then advance the custom revision as though those quests loaded.
+        if QuestieCompat.Is335 and type(nQuestieData) == "table" and
+                type(nQuestieData.quests) == "table" and next(nQuestieData.quests) ~= nil then
+            if type(QuestieCompat.VerifyNQuestieCustomItemSources) ~= "function" then
+                error("N-Questie source postflight unavailable; refusing compilation")
+            end
             QuestieCompat.VerifyNQuestieCustomItemSources()
         end
         QuestieDBCompiler:Compile()
