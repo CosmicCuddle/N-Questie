@@ -1,6 +1,6 @@
 # N-Questie — living project master checklist
 
-**Snapshot:** 25 October 2026 (Part 33, Europe/London). **Status:** tracking/documentation only, not approval to implement or merge.  
+**Snapshot:** 25 October 2026 (Part 34, Europe/London). **Status:** tracking/documentation only, not approval to implement or merge.  
 **Protected branch:** `335`, pinned/verified GitHub HEAD `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`.  
 **Owner:** N-Questie maintainer. **Lead developer:** CosmicScript01. **Independent reviewer:** CosmicScript02 (Grok, active since owner-confirmed return 25 October).  
 **Purpose:** a single **whole-project** place to see what was completed, what is in progress or blocked, and what is planned. This is **not** just Grok's review queue.
@@ -11,9 +11,34 @@
 - [Single living CosmicScript02 rolling task queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348) — individual independent review tasks, verdicts and exact-SHA evidence. **Do not copy its task details into this overview**.
 - [Part 3 eight-decision sheet — draft PR #87](https://github.com/CosmicCuddle/N-Questie/pull/87) — proposed maintainer choices, not approvals.
 
-## PART 33 CURRENT TWELVE-GATE STATUS — 25 October 2026
+## PART 34 CURRENT TWELVE-GATE STATUS — 25 October 2026
 
-> **Current authoritative snapshot for the LOW / loader / source-owner / compiler workstream.** Historical Part 32 entries below are retained for traceability only and must not be interpreted as the latest CI evidence. DRAFT PRs are not merge/release permission. No private SQL, item/NPC/GO/loot source relationships or IP-client mappings belong in this PUBLIC repository.
+> **Current authoritative public-safe status.** This milestone tracker describes completed evidence, not the amount of code finished and not approval to merge or release. Individual quest-source, NPC/GO/item/loot or Individual Progression private mappings must not be published here.
+
+| # | Milestone | State | Remaining technical acceptance |
+|---|---|---|---|
+| 01 | 439 missing-quest research inventory | **COMPLETE** | Preserve 12 inclusion-review + 9 deferred + 418 exploratory, exclude 30000–30004 |
+| 02 | Owner-confirmed offers for quests 1207–1209 | **COMPLETE** | Offers do not establish source/loot/IP eligibility |
+| 03 | Pinned Questie source/registration audit | **COMPLETE** | Re-audit when implementation changes |
+| 04 | OPT-A staged loader, source manifest, R5 | **UNDERWAY** | Provenance, full source manifest and safe closure |
+| 05 | Single ownership, late writer, all source kinds | **UNDERWAY** | NPC/GO/item reverse owner, effective overrides and writer freeze across yields |
+| 06 | Completion-cache research and isolated CI | **UNDERWAY** | #166 local 57-case work; CS01 opened isolated direct-335 draft #170 with preserved reviewed fixture and PR-only Lua5.1/5.4 baseline + 3 mutation-kill gates. CI and independent CS02 review pending |
+| 07 | Lua5.1 loader and item-starter integration | **UNDERWAY** | #168 exact `775bb0ce` has 6/6 PR workflows success and 95 loader tests on Lua5.1 and Lua5.4 + 12 real-source item codec tests; actual client/IP and full source closure pending |
+| 08 | Four-kind compiler transaction and recovery | **UNDERWAY** | #167 exact `1ab7006d` has 7/7 PR workflows success and 105/105 Lua5.1 source-backed research; production compiler not repaired; status, stream cleanup, freeze, staging and revision coupling needed |
+| 09 | Confidential source/loot/IP verification | **UNDERWAY** | Owner-private per-quest verification, no public relationships |
+| 10 | Implement quests 1207–1209 | **OWNER APPROVED; TECHNICALLY PENDING** | **0/3**; individual Gate09 proof and safe insertions |
+| 11 | Actual WoW 3.3.5a and IP gameplay QA | **OWNER APPROVED; TECHNICALLY PENDING** | Backups/rollback, markers, relog, memory/frame, eligibility |
+| 12 | Final CI, peer review, integration and release | **OWNER APPROVED; TECHNICALLY PENDING** | Full safety, rights, live QA and release review; no premature merges |
+
+**Milestone tally:** **3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED, TECHNICALLY PENDING**.
+
+**Part 34 verified checkpoint:** protected `335` remains `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`. #167 `1ab7006d` all seven workflows success, #168 `775bb0ce` all six success; both are drafts and neither is full client proof. Grok independently reviewed their latest heads (see [#167](https://github.com/CosmicCuddle/N-Questie/pull/167#issuecomment-6401937687) and [#168](https://github.com/CosmicCuddle/N-Questie/pull/168#issuecomment-6401942210)). Because CS02's coding agent hit a usage limit, CS01 created separate [draft #170](https://github.com/CosmicCuddle/N-Questie/pull/170) at `32a84a073c1686fad8ca2d2b23f6566641c0a71c` with exactly three public-safe changed files, copied #166 fixture unchanged and explicitly disabled overlay package/upload. Its new CI was **in progress at this documentation checkpoint**; do not claim an unverified 57-case CI pass. Follow [#42 Part34 coordination](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6402170598). Original #166 is unchanged. Existing historical QA artifacts are not affected by new guards and require separate audit. No protected branch, client, server, or SavedVariables changes, merges or releases.
+
+---
+
+## PART 33 HISTORICAL TWELVE-GATE STATUS — 25 October 2026
+
+> **Historical Part 33 snapshot for the LOW / loader / source-owner / compiler workstream (superseded by Part 34 above).** Historical Part 32 entries below are retained for traceability only and must not be interpreted as the latest CI evidence. DRAFT PRs are not merge/release permission. No private SQL, item/NPC/GO/loot source relationships or IP-client mappings belong in this PUBLIC repository.
 
 | # | Milestone | State | Current factual acceptance boundary |
 |---|---|---|---|
