@@ -7,6 +7,7 @@ on:
     paths:
       - tests/compat/nq_codec_lua51_source_check.lua
       - tests/compat/nq_compiler_fourkind_lua51_source_check.lua
+      - tests/compat/nq_compiler_staged_contract_lua51.lua
       - .github/workflows/nquestie-lua51-codec-proof.yml
   pull_request:
     paths:
@@ -60,3 +61,12 @@ jobs:
           test "$(grep -c '^PASS FOURKIND ' "$RUNNER_TEMP/nq-fourkind.txt")" -eq 8
           grep -Fx 'FOURKIND SOURCE RESULT: 8/8 PASS' "$RUNNER_TEMP/nq-fourkind.txt"
 
+
+      - name: Verify fail-closed staged four-kind proposal with actual Lua 5.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/nq335"
+          lua5.1 "$GITHUB_WORKSPACE/tests/compat/nq_compiler_staged_contract_lua51.lua" | tee "$RUNNER_TEMP/nq-staged.txt"
+          test "$(grep -c '^PASS STAGED ' "$RUNNER_TEMP/nq-staged.txt")" -eq 23
+          grep -Fx 'STAGED PROPOSAL RESULT: 23/23 PASS' "$RUNNER_TEMP/nq-staged.txt"
