@@ -23,7 +23,7 @@ jobs:
           timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
           lua5.1 -v 2>&1 | grep -E '^Lua 5\.1'
           lua5.4 -v 2>&1 | grep -E '^Lua 5\.4'
-      - name: Run exact 34 fictional ownership cases on both Luas
+      - name: Run exact 37 fictional ownership cases on both Luas
         shell: bash
         run: |
           set -euo pipefail
@@ -32,8 +32,8 @@ jobs:
           for lua in lua5.1 lua5.4; do
             log="$RUNNER_TEMP/nq-owner-$lua.log"
             timeout --signal=TERM --kill-after=5s 60s "$lua" tests/compat/nq_owner_reverse_contract.lua | tee "$log"
-            test "$(grep -c '^PASS OWNER ' "$log")" -eq 34
-            test "$(grep -Fxc 'OWNER REVERSE PROPOSAL RESULT: 34/34 PASS' "$log")" -eq 1
+            test "$(grep -c '^PASS OWNER ' "$log")" -eq 37
+            test "$(grep -Fxc 'OWNER REVERSE PROPOSAL RESULT: 37/37 PASS' "$log")" -eq 1
             grep -Fx 'TEST ONLY: excludes compiler-yield freeze, live client and item source proof' "$log"
             if grep -Eq '^(FAIL OWNER|OWNER CONTRACT)' "$log"; then
               echo "FAIL: $lua has unexpected test error" >&2
