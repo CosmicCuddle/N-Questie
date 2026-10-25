@@ -443,3 +443,43 @@ QuestieCompat.RegisterCorrection("itemData", function()
     end
     return updates
 end)
+
+
+-- Final targeted source check: run AFTER all corrections, gathering changes and
+-- PreCompile, but BEFORE the existing binary compiler begins publication.
+-- This checks only approved custom quest item-starter pairs: it is NOT a
+-- comprehensive four-category source freeze or a coroutine-yielding safeguard.
+-- Its failure is deliberately uncaught by Stage1 so the custom cache revision
+-- cannot be advanced through a known-bad item-starter relationship.
+function QuestieCompat.VerifyNQuestieCustomItemSources()
+    local questKey = QuestieDB.questKeys and QuestieDB.questKeys.startedBy
+    local itemKey = QuestieDB.itemKeys and QuestieDB.itemKeys.startQuest
+    if not questKey or not itemKey then
+        error("N-Questie item starter postflight missing source keys")
+    end
+    for questId, entry in pairs(approvedQuests()) do
+        local expected = entry.startedByItems
+        if #expected > 0 then
+            local quest = QuestieDB.questData and QuestieDB.questData[questId]
+            local starters = type(quest) == "table" and quest[questKey]
+            local actual = type(starters) == "table" and denseIdList(starters[3])
+            if not actual or #actual ~= #expected then
+                error("N-Questie item starter postflight quest source mismatch")
+            end
+            -- The existing compiler can reorder arrays through pairs().
+            -- Compare sets rather than assuming a stable Lua hash order.
+            local seen = {}
+            for _, itemId in ipairs(actual) do seen[itemId] = true end
+            for _, itemId in ipairs(expected) do
+                if not seen[itemId] then
+                    error("N-Questie item starter postflight quest source mismatch")
+                end
+                local item = QuestieDB.itemData and QuestieDB.itemData[itemId]
+                if type(item) ~= "table" or item[itemKey] ~= questId then
+                    error("N-Questie item starter postflight item owner mismatch")
+                end
+            end
+        end
+    end
+    return true
+end
