@@ -73,7 +73,7 @@ local function drive(fn)
   for i=1,256 do
     local ok,returned=coroutine.resume(thread)
     assert(ok,returned)
-    if coroutine.status(thread)=="dead" then return returned end
+    if coroutine.status(thread)=="dead" then return returned, i end
   end
   error("coroutine exceeded 256 resume steps")
 end
@@ -105,10 +105,16 @@ end)
 check("successful_compile_lock_blocks_second_attempt",function()
   local g=Questie.db.global
   assert(compiler._isCompiling==true,"expected original persistent lock")
-  local beforeBin,beforeCount=g.npcBin,g.dbCompiledCount
-  local result=drive(function()return compiler:Compile()end)
-  assert(result==nil and g.npcBin==beforeBin and g.dbCompiledCount==beforeCount,
-    "original compiler unexpectedly retried while lock held")
+  -- Exact binary equality is a weak oracle for deterministic recompilation.
+  -- Use a deliberate sentinel, then restore the genuine compiled bytes for
+  -- subsequent real decoder tests. Busy must return BEFORE its first yield.
+  local originalBin,beforeCount=g.npcBin,g.dbCompiledCount
+  g.npcBin="LOCKED_SENTINEL"
+  local result,steps=drive(function()return compiler:Compile()end)
+  assert(steps==1,"locked compilation unexpectedly yielded")
+  assert(result==nil and g.npcBin=="LOCKED_SENTINEL" and
+    g.dbCompiledCount==beforeCount,"locked compilation changed saved outputs")
+  g.npcBin=originalBin
 end)
 for _,kind in ipairs(kinds) do
   local k,data,keys,types,order,id=unpack(kind)
@@ -171,15 +177,16 @@ check("failed_compile_lock_blocks_valid_retry",function()
   assert(compiler._isCompiling==true,"expected original failed-run lock")
   db.questData[301][db.questKeys.questLevel]=13
   local oldBin,oldCount=g.questBin,g.dbCompiledCount
-  local result=drive(function()return compiler:Compile()end)
+  local result,steps=drive(function()return compiler:Compile()end)
+  assert(steps==1,"failed-run lock unexpectedly yielded on retry")
   assert(result==nil and g.questBin==oldBin and g.dbCompiledCount==oldCount,
     "original compiler unexpectedly retried repaired data")
 end)
 check("busy_guard_returns_without_compiling",function()
   local before=Questie.db.global.npcBin
   compiler._isCompiling=true
-  local result=drive(function()return compiler:Compile()end)
-  assert(result==nil and Questie.db.global.npcBin==before)
+  local result,steps=drive(function()return compiler:Compile()end)
+  assert(steps==1 and result==nil and Questie.db.global.npcBin==before)
 end)
 assert(passes==10,"expected exactly 10 checks, got "..passes)
 print("FOURKIND SOURCE RESULT: 10/10 PASS")
