@@ -145,6 +145,16 @@ local function check(message,condition)
     assert(condition,"FAIL: "..message)
     print("PASS "..string.format("%02d",count).." "..message)
 end
+-- The approved plan is visited with pairs(). Multiple legitimate invented
+-- quests can use one NPC; reverse lists therefore have no stable first ID.
+-- Assert membership, not an incidental order chosen by Lua table hashing.
+local function hasId(ids,want)
+    if type(ids)~="table" then return false end
+    for _,id in ipairs(ids) do
+        if id==want then return true end
+    end
+    return false
+end
 check("baseline NPC quest accepted",quests[920001]~=nil)
 check("scaling quest level preserved",quests[920002] and quests[920002][Q.questLevel]==-1)
 check("item objective retained",quests[920003] and
@@ -240,12 +250,16 @@ check("different NPC starter and finisher preserved in quest row",
     quests[920043] and quests[920043][Q.startedBy][1][1]==7715 and
     quests[920043][Q.finishedBy][1][1]==7716)
 check("independent NPC starter updates only questStarts",
-    npcUpdates[7715] and npcUpdates[7715][N.questStarts] and
-    npcUpdates[7715][N.questStarts][1]==920043 and
+    npcUpdates[7715] and
+    hasId(npcUpdates[7715][N.questStarts],920043) and
+    hasId(npcUpdates[7715][N.questStarts],920052) and
+    not hasId(npcUpdates[7715][N.questStarts],920046) and
     (not npcUpdates[7715][N.questEnds] or #npcUpdates[7715][N.questEnds]==0))
 check("independent NPC finisher updates only questEnds",
-    npcUpdates[7716] and npcUpdates[7716][N.questEnds] and
-    npcUpdates[7716][N.questEnds][1]==920043 and
+    npcUpdates[7716] and
+    hasId(npcUpdates[7716][N.questEnds],920043) and
+    hasId(npcUpdates[7716][N.questEnds],920045) and
+    hasId(npcUpdates[7716][N.questEnds],920052) and
     (not npcUpdates[7716][N.questStarts] or #npcUpdates[7716][N.questStarts]==0))
 -- GameObject direction is independently testable: the earlier public and
 -- synthetic same-GameObject cases cannot reveal swapped reverse roles.
