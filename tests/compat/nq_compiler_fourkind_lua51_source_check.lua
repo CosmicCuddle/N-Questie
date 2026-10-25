@@ -150,6 +150,10 @@ for _,kind in ipairs(kinds) do
 end
 -- Characterization ONLY: current pinned source publishes some pairs and then
 -- advances metadata even after an invalid quest datatype normal return.
+-- Writer-stream leases are tracked per GetStream acquisition, restoring each
+-- successful stream's original finished() method before pool reuse. This
+-- instrumentation is confined to the fictional failed compilation.
+local failedRunWriterLeases
 check("invalid_quest_characterizes_nonfatal_partial_publication",function()
   errors={}
   Questie.db.global={}
@@ -161,7 +165,33 @@ check("invalid_quest_characterizes_nonfatal_partial_publication",function()
   fixture()
   db.questData[301][db.questKeys.questLevel]="BAD_TYPE"
   compiler._isCompiling=false -- reset isolated fixture's one-shot guard only
-  drive(function()compiler:Compile()end)
+  local streamOwner
+  for i=1,32 do
+    local name, value=debug.getupvalue(compiler.CompileTableCoroutine,i)
+    if name==nil then break end
+    if name=="QuestieStream" then streamOwner=value; break end
+  end
+  assert(type(streamOwner)=="table" and type(streamOwner.GetStream)=="function",
+    "pinned compiler writer stream upvalue unavailable")
+  local originalGetStream=streamOwner.GetStream
+  local leases={}
+  streamOwner.GetStream=function(self,mode)
+    local stream=originalGetStream(self,mode)
+    local originalFinished=stream.finished
+    local lease={mode=mode,returned=false}
+    leases[#leases+1]=lease
+    stream.finished=function(current,...)
+      assert(current==stream and not lease.returned,"duplicate or wrong writer stream release")
+      lease.returned=true
+      current.finished=originalFinished -- do not stack wrappers on pooled streams
+      return originalFinished(current,...)
+    end
+    return stream
+  end
+  local ok, err=pcall(function()drive(function()compiler:Compile()end)end)
+  streamOwner.GetStream=originalGetStream
+  assert(ok,tostring(err))
+  failedRunWriterLeases=leases
   local g=Questie.db.global
   assert(#errors>0,"expected original nonfatal invalid-datatype signal")
   assert(g.questBin=="BEFORE_quest" and g.questPtrs=="OLDPTR_quest",
@@ -170,6 +200,18 @@ check("invalid_quest_characterizes_nonfatal_partial_publication",function()
     "characterization missing partial cross-kind publication")
   assert(g.dbIsCompiled==true and g.dbCompiledCount==1,
     "characterization missing current false success metadata")
+end)
+check("invalid_quest_writer_stream_is_not_returned_to_pool",function()
+  local leases=assert(failedRunWriterLeases,"missing instrumented writer leases")
+  -- Original compiler order is NPC, object, quest, item. Quest has BAD_TYPE.
+  -- All other category streams are returned; the early quest return leaks
+  -- its pool lease and still allows later kinds + false success metadata.
+  assert(#leases==4,"expected four category writer stream leases")
+  for i,lease in ipairs(leases) do
+    assert(lease.mode=="raw","unexpected writer stream mode")
+    assert(lease.returned==(i~=3),
+      "unexpected stream release for category lease "..i)
+  end
 end)
 -- Even after invalid quest data is repaired, the original compiler lock persists.
 check("failed_compile_lock_blocks_valid_retry",function()
@@ -188,5 +230,5 @@ check("busy_guard_returns_without_compiling",function()
   local result,steps=drive(function()return compiler:Compile()end)
   assert(steps==1 and result==nil and Questie.db.global.npcBin==before)
 end)
-assert(passes==10,"expected exactly 10 checks, got "..passes)
-print("FOURKIND SOURCE RESULT: 10/10 PASS")
+assert(passes==11,"expected exactly 11 checks, got "..passes)
+print("FOURKIND SOURCE RESULT: 11/11 PASS")
