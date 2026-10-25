@@ -6,6 +6,7 @@ on:
       - test/part31-lua51-codec-proof-cs01
     paths:
       - tests/compat/nq_codec_lua51_source_check.lua
+      - tests/compat/nq_compiler_fourkind_lua51_source_check.lua
       - .github/workflows/nquestie-lua51-codec-proof.yml
   pull_request:
     paths:
@@ -50,3 +51,12 @@ jobs:
           lua5.1 "$GITHUB_WORKSPACE/tests/compat/nq_codec_lua51_source_check.lua" | tee "$RUNNER_TEMP/nq-result.txt"
           test "$(grep -c '^PASS ' "$RUNNER_TEMP/nq-result.txt")" -eq 26
           grep -Fx 'SOURCE HARNESS RESULT: 26/26 PASS' "$RUNNER_TEMP/nq-result.txt"
+      - name: Compile all four categories with real pinned Questie code
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/nq335"
+          lua5.1 "$GITHUB_WORKSPACE/tests/compat/nq_compiler_fourkind_lua51_source_check.lua" | tee "$RUNNER_TEMP/nq-fourkind.txt"
+          test "$(grep -c '^PASS FOURKIND ' "$RUNNER_TEMP/nq-fourkind.txt")" -eq 8
+          grep -Fx 'FOURKIND SOURCE RESULT: 8/8 PASS' "$RUNNER_TEMP/nq-fourkind.txt"
+
