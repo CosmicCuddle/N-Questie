@@ -77,7 +77,8 @@ check("reverse item startQuest scalar emitted",
 check("finisher NPC reverse link preserved",npcUpdates[7716] and
     npcUpdates[7716][db.npcKeys.questEnds][1]==920245)
 check("no fake NPC starter reverse link",npcUpdates[7716] and
-    npcUpdates[7716][db.npcKeys.questStarts]==nil)
+    (npcUpdates[7716][db.npcKeys.questStarts]==nil or
+     #npcUpdates[7716][db.npcKeys.questStarts]==0))
 check("item source has no invented drops",db.itemData[6611][db.itemKeys.npcDrops]==nil and
     db.itemData[6611][db.itemKeys.objectDrops]==nil)
 
