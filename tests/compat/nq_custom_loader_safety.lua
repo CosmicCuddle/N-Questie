@@ -9,6 +9,7 @@ local N = {questStarts=10,questEnds=11}
 local G = {questStarts=2,questEnds=3}
 local db = {
     questKeys=Q,npcKeys=N,objectKeys=G,
+    itemKeys={startQuest=5},
     questData={
         [437]={[Q.name]="Pre-existing prerequisite"},
         [920010]={[Q.name]="An existing quest"},
@@ -29,6 +30,9 @@ local db = {
     },
     itemData={
         [6611]={[1]="Synthetic trade item"}, -- deliberately has no drop coordinates
+        [6612]={[1]="Synthetic dual-mode starter item"},
+        [6613]={[1]="Synthetic already-assigned starter item",[5]=920010},
+        [6614]={[1]="Synthetic contested item source"},
     },
 }
 -- Boundary fixtures for u8-packed reverse quest-start arrays. They use
@@ -114,10 +118,24 @@ NQuestieCustomQuestData={revision=6,quests={
     [920043]=rec({startedByNpcs={7715},finishedByNpcs={7716}}),
     [920044]=rec({startedByNpcs={},finishedByNpcs={},
         startedByGameObjects={8816},finishedByGameObjects={8817}}),
+    [920045]=rec({startedByNpcs={},startedByItems={6611},
+        finishedByNpcs={7716}}), -- item-only starter, NPC finisher
+    [920046]=rec({startedByNpcs={},startedByItems={6613}}),
+    [920047]=rec({startedByNpcs={},startedByItems={6614}}),
+    [920048]=rec({startedByNpcs={},startedByItems={6614}}),
+    [920049]=rec({startedByNpcs={},startedByItems={9999}}),
+    [920050]=rec({startedByNpcs={},startedByItems={6611,6611}}),
+    [920051]=rec({startedByNpcs={},startedByItems={[1]=6611,[3]=6612}}),
+    [920052]=rec({startedByNpcs={7715},startedByItems={6612},
+        finishedByNpcs={7716}}), -- mixed NPC + item starters
+    [920053]=rec({startedByNpcs={},startedByItems={16777216}}),
 }}
 assert(loadfile(path))()
-assert(callbacks.questData and callbacks.npcData and callbacks.objectData)
--- Reverse callback first: must give consistent outputs independent of registry order.
+assert(callbacks.questData and callbacks.npcData and callbacks.objectData
+    and callbacks.itemData)
+-- Reverse callbacks first: prove callback-order independence without changing
+-- the source tables or adding any real server/world references.
+local itemUpdates = callbacks.itemData()
 local npcUpdates = callbacks.npcData()
 local goUpdates = callbacks.objectData()
 local quests = callbacks.questData()
@@ -211,7 +229,8 @@ check("public 2001 prereq preserved",quests[2001] and quests[2001][Q.preQuestSin
 check("public 2001 kill goals preserved",quests[2001] and
     quests[2001][Q.objectives][1][1][1]==1868 and
     quests[2001][Q.objectives][1][2][1]==1869)
-check("public 2001 has no additional starter slot",quests[2001] and quests[2001][Q.startedBy][2]==nil)
+check("public 2001 has no additional starter slot",quests[2001] and quests[2001][Q.startedBy][2]==nil
+    and quests[2001][Q.startedBy][3]==nil)
 check("public 2001 has no additional finisher slot",quests[2001] and quests[2001][Q.finishedBy][2]==nil)
 check("public 2001 kill-only objective has no extra slots",quests[2001] and
     quests[2001][Q.objectives][2]==nil and quests[2001][Q.objectives][3]==nil)
@@ -245,6 +264,45 @@ check("vanilla NPC start index retained",npcUpdates[7711] and npcUpdates[7711][N
 check("vanilla NPC end index retained",npcUpdates[7711] and npcUpdates[7711][N.questEnds][1]==24)
 check("public NPC starter 2001 indexed",npcUpdates[2121] and npcUpdates[2121][N.questStarts][1]==2001)
 check("client item-source coordinates never invented",quests[920003] and db.itemData[6611][2]==nil)
+-- The item starter codec uses quest.startedBy[3] and item.startQuest;
+-- itemObjectives uses quest.objectives[3] and is a SEPARATE relationship.
+check("item-only starter quest admitted",quests[920045] and
+    quests[920045][Q.startedBy][3][1]==6611 and
+    #quests[920045][Q.startedBy][1]==0)
+check("item-start updates one-to-one scalar source",itemUpdates[6611] and
+    itemUpdates[6611][db.itemKeys.startQuest]==920045)
+check("item-only starter retains NPC finisher",quests[920045] and
+    quests[920045][Q.finishedBy][1][1]==7716)
+check("item objective is independent of item starter",quests[920003] and
+    quests[920003][Q.objectives][3][1][1]==6611 and
+    quests[920003][Q.startedBy][3]==nil)
+check("preclaimed item start is not overwritten",quests[920046]==nil and
+    itemUpdates[6613]==nil and db.itemData[6613][db.itemKeys.startQuest]==920010)
+check("contested item rejects both proposed quests",quests[920047]==nil and
+    quests[920048]==nil and itemUpdates[6614]==nil)
+check("unknown item starter rejected",quests[920049]==nil)
+check("duplicate item source ID rejected",quests[920050]==nil)
+check("sparse item-source list rejected",quests[920051]==nil)
+check("joint NPC+item starter preserved",quests[920052] and
+    quests[920052][Q.startedBy][1][1]==7715 and
+    quests[920052][Q.startedBy][3][1]==6612 and
+    itemUpdates[6612][db.itemKeys.startQuest]==920052)
+check("item-starter u24 overflow rejected",quests[920053]==nil)
+check("previous public quest has no item source assignment",itemUpdates[2121]==nil and
+    itemUpdates[1868]==nil)
+check("rejected item-source quests do not leak NPC reverse links",
+    not (function()
+        for _, list in pairs(npcUpdates) do
+            for _, field in ipairs({N.questStarts,N.questEnds}) do
+                for _, questId in ipairs(list[field] or {}) do
+                    if questId==920046 or questId==920047 or questId==920048 then
+                        return true
+                    end
+                end
+            end
+        end
+        return false
+    end)())
 -- A previously released public custom record must never be modified via
 -- its narrow collision exception, even when the raw DB does not contain it.
 local function public2001MutationRejected(modify)
