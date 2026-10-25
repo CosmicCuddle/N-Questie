@@ -380,6 +380,23 @@ db.questData[920052]=nil
 check("postflight rejects missing quest entry after callback",
     postflightFail("postflight quest source mismatch"))
 db.questData[920052]=oldQuest
+-- A foreign item writer can create an item.startQuest -> custom quest
+-- back-reference without updating that quest's planned startedBy[3].
+-- This must fail even if every original planned item link is intact.
+db.itemData[6614][itemStartField]=920045
+check("postflight rejects unexpected reverse custom item owner",
+    postflightFail("postflight unplanned reverse item owner"))
+db.itemData[6614][itemStartField]=nil
+-- The public 2001 fixture is approved without any item starter; an invented
+-- item reverse link to it must also be refused (not treated as a new source).
+db.itemData[6614][itemStartField]=2001
+check("postflight refuses unplanned item owner for public 2001",
+    postflightFail("postflight unplanned reverse item owner"))
+db.itemData[6614][itemStartField]=nil
+-- Existing unrelated source owners must remain permitted and untouched.
+check("postflight permits unrelated original item owner",
+    db.itemData[6613][itemStartField]==920010 and
+    QuestieCompat.VerifyNQuestieCustomItemSources()==true)
 check("postflight accepts clean sources again",
     QuestieCompat.VerifyNQuestieCustomItemSources()==true)
 -- A previously released public custom record must never be modified via
