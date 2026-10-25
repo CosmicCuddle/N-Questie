@@ -428,10 +428,17 @@ QuestieCompat.RegisterCorrection("itemData", function()
     for questId, entry in pairs(approvedQuests()) do
         for _, itemId in ipairs(entry.startedByItems) do
             local record = QuestieDB.itemData[itemId]
-            if key and record and
-                (record[key] == nil or record[key] == questId) then
-                updates[itemId] = {[key] = questId}
+            -- An approval computed by an earlier correction callback can
+            -- become stale before the itemData callback executes. Failing
+            -- explicitly is safer than silently leaving an orphaned
+            -- quest.startedBy[3] → item.startQuest reverse relationship.
+            -- This is only a callback-time guard: a later writer still
+            -- requires an independent postflight before compilation.
+            if not key or not record or
+                (record[key] ~= nil and record[key] ~= questId) then
+                error("N-Questie item starter source changed after approval; aborting corrections")
             end
+            updates[itemId] = {[key] = questId}
         end
     end
     return updates
