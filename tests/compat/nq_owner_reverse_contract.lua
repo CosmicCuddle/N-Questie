@@ -67,8 +67,15 @@ local function verify(plan,db)
     local owners=db[name]
     if type(owners)~="table" then refuse("MISSING_CATEGORY "..name) end
     local patch=db[name.."Overrides"]
-    for id,record in pairs(owners) do
-      if type(record)=="table" then
+    -- Questie query overrides can supply a field for an ID absent from
+    -- the compiled pointer map. The effective owner universe is the UNION
+    -- of raw and override-only owner keys, not just raw owner records.
+    local allOwners={}
+    for id in pairs(owners) do allOwners[id]=true end
+    for id in pairs(patch or {}) do allOwners[id]=true end
+    for id in pairs(allOwners) do
+      local record=owners[id]
+      if type(record)=="table" or type(patch and patch[id])=="table" then
         for _,role in ipairs({"start","end"}) do
           local fieldKey=keys[name][role=="start" and "start" or "finish"]
           local raw=field(record,patch,id,fieldKey)
@@ -163,6 +170,12 @@ probe("missing approved quest",function(s) s.db.quests[QA]=nil end,false,"MISSIN
 probe("sparse forward NPC list",function(s) s.db.quests[QA][2][1]={[2]=NA} end,false,"SPARSE")
 probe("unrelated existing NPC owner",function(s) s.db.npc[NC][11]={990999} end,true)
 probe("missing GO owner record",function(s) s.db.go[GA]=nil end,false,"MISSING_REVERSE")
-if tests~=27 or passed~=27 then error("wrong synthetic test count") end
-print("OWNER REVERSE PROPOSAL RESULT: 27/27 PASS")
+probe("override-only NPC foreign owner",function(s)
+  s.db.npcOverrides[991104]={[10]={QA}}
+end,false,"FOREIGN_REVERSE")
+probe("override-only unrelated NPC owner",function(s)
+  s.db.npcOverrides[991104]={[10]={990999}}
+end,true)
+if tests~=29 or passed~=29 then error("wrong synthetic test count") end
+print("OWNER REVERSE PROPOSAL RESULT: 29/29 PASS")
 print("TEST ONLY: excludes compiler-yield freeze, live client and item source proof")
