@@ -12,7 +12,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 LOADER = ROOT / "Compat/NQuestieCustomQuestLoader.lua"
 TESTS = ROOT / "tests/compat/nq_custom_loader_safety.lua"
-EXPECTED_LOADER_BLOB_SHA1 = "e79d8bc832723127fbfc045b07176fc986fc623e"
+STAGE1 = ROOT / "Modules/QuestieInit.lua"
+EXPECTED_LOADER_BLOB_SHA1 = "19845bb519de3b0fd66a5ea69a2c913757cd097e"
 
 def assert_source_revision():
     data = LOADER.read_bytes()
@@ -20,6 +21,23 @@ def assert_source_revision():
     if git_blob != EXPECTED_LOADER_BLOB_SHA1:
         raise SystemExit("FAIL: loader differs from reviewed draft (blob SHA-1 " + git_blob + ")")
     print("Verified reviewed draft Git blob SHA-1:", git_blob, flush=True)
+
+def assert_stage1_guard_order():
+    code = STAGE1.read_text(encoding="utf-8")
+    stage_start = code.index("QuestieInit.Stages[1] =")
+    stage_end = code.index("QuestieInit.Stages[2] =", stage_start)
+    stage = code[stage_start:stage_end]
+    locations = [stage.index(fragment) for fragment in (
+        "loadFullDatabase()",
+        "QuestieCompat.VerifyNQuestieCustomItemSources()",
+        "QuestieDBCompiler:Compile()",
+        "Questie.db.global.nQuestieDataRevision = nQuestieRevision",
+    )]
+    if locations != sorted(locations):
+        raise SystemExit("FAIL: item source verification is not before Stage1 compile/revision")
+    if "coYield()" in stage[locations[1]:locations[2]]:
+        raise SystemExit("FAIL: unexpected yield between item source postflight and compilation")
+    print("PASS: item source postflight runs after full DB load and before compilation", flush=True)
 
 def run_executable(executable):
     env = dict(os.environ, NQ_LOADER_PATH=str(LOADER))
@@ -61,6 +79,7 @@ def run_lua54_shared():
 
 if __name__ == "__main__":
     assert_source_revision()
+    assert_stage1_guard_order()
     os.environ["NQ_LOADER_PATH"] = str(LOADER)
     lua51 = shutil.which("lua5.1")
     lua54 = shutil.which("lua5.4") or shutil.which("lua")
