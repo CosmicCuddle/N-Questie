@@ -11,6 +11,33 @@
 - [Single living CosmicScript02 rolling task queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348) — individual independent review tasks, verdicts and exact-SHA evidence. **Do not copy its task details into this overview**.
 - [Part 3 eight-decision sheet — draft PR #87](https://github.com/CosmicCuddle/N-Questie/pull/87) — proposed maintainer choices, not approvals.
 
+## PART 32 LIVE TWELVE-GATE STATUS — 25 October 2026
+
+> **Authoritative CURRENT status for the N-Questie LOW/loader/compiler workstream.** This section supersedes dated gate/permission wording below where applicable, without rewriting historical findings or resolving unrelated eight-decision Part 3 contracts. Research identities and private server-source relationships must never be posted here.
+
+| # | Milestone | Current state | Acceptance still needed |
+|---|---|---|---|
+| 01 | 439 raw missing IDs (21 conventionally linked = 12 review + 9 deferred; 418 exploratory) | COMPLETE | Preserve nine deferred and excluded 30000–30004 |
+| 02 | Confirm quest offers for 1207–1209 | COMPLETE | Do not infer wider eligibility |
+| 03 | Pinned registration/source audit | COMPLETE | Recheck after implementation changes |
+| 04 | OPT-A staged loader, source manifest and R5 | UNDERWAY | Full verified source closure |
+| 05 | Load graph / single owner / late-writer safeguards | UNDERWAY | Safe freeze/postflight and real CI |
+| 06 | Grok completion-cache draft #166 | UNDERWAY | Not CI-wired; independent review only when reviewer returns |
+| 07 | Actual Lua5.1 whole-loader safe integration | UNDERWAY | Production hook design/implementation |
+| 08 | Four-category compiler staging and safety | UNDERWAY | **57/57 pinned real Lua5.1 CI on previous #167 head**; new 36-case staged test revision awaiting exact-head CI, full schema/memory/crash proof, production patch not yet made |
+| 09 | Private LOW quest source, loot, client and IP proof | UNDERWAY | Effective source and client validation (no private mapping here) |
+| 10 | Implement 1207,1208,1209 | OWNER APPROVED / TECHNICALLY PENDING | 0/3 added; require Gate09 accurate evidence |
+| 11 | WoW 3.3.5a + IP in-game regression | OWNER APPROVED / TECHNICALLY PENDING | Suitable build and actual client QA; do not infer pass from synthetic tests |
+| 12 | CI, review, integration, package and release | OWNER APPROVED / TECHNICALLY PENDING | All engineering/QA/rights constraints must pass first |
+
+**Status tally: 3 COMPLETE, 6 UNDERWAY, 3 OWNER-APPROVED TECHNICALLY PENDING; 0 outstanding owner approvals for these gates.**
+
+**Safety / coordination:** Protected `335` stays on `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`; Grok's draft #166 `89a844947e33908a267deb95d222f8c91861a426` stays untouched during his break. CS01 research stays isolated in draft [#167](https://github.com/CosmicCuddle/N-Questie/pull/167), latest test-only head `ae977daa58d7b4a741e9654eef59b15ac9b02005` (CI pending when this entry was authored). Never merge merely because fictional fixtures pass; no production compiler fix has been made.
+
+**Evidence classification:** 57/57 = actual Lua5.1 invoking pinned real-source compiler/stream on the earlier `720c12b9` branch head (26 codec, 8 four-kind current compiler, 23 staged test-only). The revised staged suite proposes **36 checks**, **not yet a verified pass** until exact-head GitHub Actions confirms. The older 332/332 Python fictional-model tests and Grok's author-reported 57 Lua cache tests remain separate evidence categories. The protected branch, installed client, and SavedVariables have not been changed by these research PRs.
+
+---
+
 ## How to read and update this checklist
 
 - **[x] VERIFIED** means the *narrow action described* is evidenced by a linked source/commit/test. It does **not** mean its parent phase, feature, release or server testing is finished.
