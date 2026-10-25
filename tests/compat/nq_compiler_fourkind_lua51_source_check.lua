@@ -230,5 +230,54 @@ check("busy_guard_returns_without_compiling",function()
   local result,steps=drive(function()return compiler:Compile()end)
   assert(steps==1 and result==nil and Questie.db.global.npcBin==before)
 end)
-assert(passes==11,"expected exactly 11 checks, got "..passes)
-print("FOURKIND SOURCE RESULT: 11/11 PASS")
+-- GetDBHandle acquires a stream, then YIELDS before decoding the pointer map.
+-- A malformed map can fail before returning a handle to the caller, leaving
+-- no handle.stream to release. Instrument only this invented corrupt-map run.
+check("malformed_pointer_reader_abandons_stream_before_handle",function()
+  local owner
+  for i=1,32 do
+    local name,value=debug.getupvalue(compiler.GetDBHandle,i)
+    if name==nil then break end
+    if name=="QuestieStream" then owner=value; break end
+  end
+  assert(type(owner)=="table" and type(owner.GetStream)=="function",
+    "pinned reader stream upvalue unavailable")
+  local getStream=owner.GetStream
+  local leases={}
+  owner.GetStream=function(self,mode)
+    local stream=getStream(self,mode)
+    local originalFinished=stream.finished
+    local lease={stream=stream,originalFinished=originalFinished,
+      mode=mode,returned=false}
+    leases[#leases+1]=lease
+    stream.finished=function(current,...)
+      assert(current==stream and not lease.returned,
+        "duplicate or incorrect reader release")
+      lease.returned=true
+      current.finished=originalFinished
+      return originalFinished(current,...)
+    end
+    return stream
+  end
+  -- One byte cannot encode the required 2-byte pointer-map entry count.
+  local ok,why=pcall(function()
+    drive(function()
+      return compiler:GetDBHandle("X",string.char(0),
+        compiler:BuildSkipMap(db.npcCompilerTypes,db.npcCompilerOrder),
+        db.npcKeys,nil)
+    end)
+  end)
+  owner.GetStream=getStream
+  assert(not ok and type(why)=="string","malformed pointer map did not fail")
+  assert(#leases==1 and leases[1].mode=="raw",
+    "expected one actual source reader stream acquisition")
+  local lease=leases[1]
+  assert(not lease.returned,
+    "original compiler unexpectedly released failed pre-handle reader")
+  -- Test cleanup only: prevent our deliberately orphaned wrapper from
+  -- leaking into other local fixture cases or any pooled stream.
+  lease.stream.finished=lease.originalFinished
+  lease.originalFinished(lease.stream)
+end)
+assert(passes==12,"expected exactly 12 checks, got "..passes)
+print("FOURKIND SOURCE RESULT: 12/12 PASS")
