@@ -120,8 +120,8 @@ NQuestieCustomQuestData={revision=6,quests={
         startedByGameObjects={8816},finishedByGameObjects={8817}}),
     [920045]=rec({startedByNpcs={},startedByItems={6611},
         finishedByNpcs={7716}}), -- item-only starter, NPC finisher
-    [920046]=rec({startedByNpcs={},startedByItems={6613}}),
-    [920047]=rec({startedByNpcs={},startedByItems={6614}}),
+    [920046]=rec({startedByNpcs={7715},startedByItems={6613}}),
+    [920047]=rec({startedByNpcs={7711},startedByItems={6614}}),
     [920048]=rec({startedByNpcs={},startedByItems={6614}}),
     [920049]=rec({startedByNpcs={},startedByItems={9999}}),
     [920050]=rec({startedByNpcs={},startedByItems={6611,6611}}),
