@@ -399,5 +399,121 @@ end)
 check("old_state_visible_at_every_yield",function()
   assert(precommitOk and precommitResult=="SUCCESS" and allYields>=4)
 end)
-assert(passed==43,"wrong test count: "..passed)
-print("STAGED PROPOSAL RESULT: 43/43 PASS")
+-- Cover EVERY root compiler field using only fictional, codec-appropriate data.
+-- This does not certify arbitrary production nested records or pointer corruption.
+local function exampleForCodec(ty)
+  if ty=="s8" then return 9
+  elseif ty=="u8" then return 14
+  elseif ty=="u16" then return 141
+  elseif ty=="s16" then return 22
+  elseif ty=="u24" then return 301
+  elseif ty=="s24" then return 207
+  elseif ty=="u32" then return 123456
+  elseif ty=="u12pair" then return {5,6}
+  elseif ty=="u24pair" then return {7,8}
+  elseif ty=="s24pair" then return {9,10}
+  elseif ty=="u8string" then return "Synthetic name"
+  elseif ty=="u16string" then return "Synthetic long string"
+  elseif ty=="u8u16array" then return {16}
+  elseif ty=="u8s16pairs" then return {{17,18}}
+  elseif ty=="u16u16array" then return {19}
+  elseif ty=="u8s24pairs" then return {{20,21}}
+  elseif ty=="u8u24array" then return {301}
+  elseif ty=="u16u24array" then return {301}
+  elseif ty=="u8u16stringarray" then return {"Synthetic objective text"}
+  elseif ty=="faction" then return "AH"
+  elseif ty=="spawnlist" then return {[141]={{-1,-1}}}
+  elseif ty=="waypointlist" then return {[141]={{{-1,-1}}}}
+  elseif ty=="trigger" then return {"Synthetic trigger",{[141]={{-1,-1}}}}
+  elseif ty=="questgivers" then return {{101},{201},{401}}
+  elseif ty=="objective" then return {{101,"Synthetic target"}}
+  elseif ty=="spellobjective" then return {{501,"Synthetic spell",1}}
+  elseif ty=="objectives" then
+    return {
+      {{101,"Synthetic creature"}},
+      {{201,"Synthetic object"}},
+      {{401,"Synthetic item"}},
+      {5,6},
+      {{{101},101,"Synthetic kill"}},
+      {{501,"Synthetic spell",1}}
+    }
+  elseif ty=="reflist" then return {{"monster",101}}
+  elseif ty=="extraobjectives" then
+    return {{{[141]={{-1,-1}}},12,"Synthetic extra",2,{{"monster",101}}}}
+  end
+  error("unhandled pinned compiler type "..tostring(ty))
+end
+local function fillCompleteSchema()
+  local roots,typesSeen=0,{}
+  for _,spec in ipairs(specs)do
+    local record=db[spec.data][spec.id]
+    for _,field in ipairs(db[spec.order])do
+      local ty=db[spec.types][field]
+      assert(ty,"missing compiler type "..spec.kind.."."..field)
+      assert(type(compiler.writers[ty])=="function","missing writer for "..ty)
+      roots=roots+1
+      typesSeen[ty]=true
+      local index=db[spec.keys][field]
+      assert(index,"missing source key "..spec.kind.."."..field)
+      if record[index]==nil then record[index]=exampleForCodec(ty)end
+      assert(record[index]~=nil,"schema fixture missing "..field)
+    end
+  end
+  assert(roots==67,"pinned root schema drift, got "..roots)
+  local distinct=0
+  for _ in pairs(typesSeen)do distinct=distinct+1 end
+  assert(distinct==20,"pinned referenced codec count drift, got "..distinct)
+  return roots,distinct
+end
+reset()
+local allRootFields,allRootCodecs=fillCompleteSchema()
+local fullOk,fullResult=run()
+check("all_67_schema_fields_source_backed",function()
+  assert(fullOk and fullResult=="SUCCESS")
+  assert(allRootFields==67 and allRootCodecs==20)
+end)
+check("all_67_schema_fields_publish_metadata",function()
+  local g=Questie.db.global
+  assert(g.dbCompiledCount==12 and g.nQuestieDataRevision==23)
+  for _,kind in ipairs(specs)do
+    assert(type(g[kind.kind.."Bin"])=="string")
+    assert(type(g[kind.kind.."Ptrs"])=="string")
+  end
+end)
+reset()
+fillCompleteSchema()
+db.questData[301][db.questKeys.questLevel]="BAD_TYPE"
+local fullBad=run()
+check("full_schema_invalid_type_refused",function()assert(not fullBad)end)
+check("full_schema_bad_type_preserves_old",function()assertOld(Questie.db.global)end)
+reset()
+local multiCount=0
+db.itemData[16777215]={[db.itemKeys.name]="Synthetic edge item",
+  [db.itemKeys.startQuest]=301}
+db.itemData[10000]={[db.itemKeys.name]="Synthetic sparse item"}
+for _ in pairs(db.itemData)do multiCount=multiCount+1 end
+local multiOk,multiResult=run()
+check("sparse_u24_max_id_stage_succeeds",function()
+  assert(multiOk and multiResult=="SUCCESS" and multiCount==3)
+end)
+check("sparse_u24_max_id_decoded",function()
+  local g=Questie.db.global
+  local co=coroutine.create(function()
+    return compiler:GetDBHandle(g.itemBin,g.itemPtrs,
+      compiler:BuildSkipMap(db.itemCompilerTypes,db.itemCompilerOrder),
+      db.itemKeys,nil)
+  end)
+  local handle
+  for _=1,32 do
+    local ok,result=coroutine.resume(co)
+    assert(ok,tostring(result))
+    if coroutine.status(co)=="dead"then handle=result;break end
+  end
+  assert(handle,"unmasked sparse lookup did not finish")
+  assert(handle.pointers[10000] and handle.pointers[16777215])
+  assert(handle.QuerySingle(10000,"name")=="Synthetic sparse item")
+  assert(handle.QuerySingle(16777215,"name")=="Synthetic edge item")
+  handle.stream:finished()
+end)
+assert(passed==49,"wrong test count: "..passed)
+print("STAGED PROPOSAL RESULT: 49/49 PASS")
