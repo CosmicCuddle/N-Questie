@@ -399,6 +399,33 @@ check("postflight permits unrelated original item owner",
     QuestieCompat.VerifyNQuestieCustomItemSources()==true)
 check("postflight accepts clean sources again",
     QuestieCompat.VerifyNQuestieCustomItemSources()==true)
+-- Part 34: CHARACTERISE REMAINING NPC/GO SOURCE-OWNER GAPS (not fixes).
+-- This is an ITEM-only verifier. These five fictional cases deliberately
+-- PASS when it overlooks an NPC/GO orphan or altered non-item quest starter.
+-- Green results here must never be treated as safe NPC/GO source closure.
+local function characterizeUnplannedReverse(kind, id, reverseField, label)
+    local source = assert(db[kind][id], "missing synthetic source")
+    local previous = source[reverseField]
+    source[reverseField] = {920045} -- fictional custom item-start quest
+    local ok, result = pcall(QuestieCompat.VerifyNQuestieCustomItemSources)
+    check("KNOWN GAP item-only hook ignores "..label, ok and result == true and
+        source[reverseField][1] == 920045)
+    source[reverseField] = previous
+end
+characterizeUnplannedReverse("npcData", 7712, N.questStarts, "unplanned NPC starter")
+characterizeUnplannedReverse("npcData", 7716, N.questEnds, "unplanned NPC finisher")
+characterizeUnplannedReverse("objectData", 8817, G.questStarts, "unplanned GO starter")
+characterizeUnplannedReverse("objectData", 8816, G.questEnds, "unplanned GO finisher")
+local mixed = assert(db.questData[920052])
+local mixedSources = assert(mixed[Q.startedBy])
+local originalNpcStarts = mixedSources[1]
+mixedSources[1] = {7716} -- inconsistent with approved fictional NPC source
+local rawOk, rawResult = pcall(QuestieCompat.VerifyNQuestieCustomItemSources)
+check("KNOWN GAP item-only hook ignores modified NPC forward starter",
+    rawOk and rawResult == true and mixedSources[1][1] == 7716)
+mixedSources[1] = originalNpcStarts
+-- A future full owner verifier must turn these five acceptances into refusals.
+
 -- A previously released public custom record must never be modified via
 -- its narrow collision exception, even when the raw DB does not contain it.
 local function public2001MutationRejected(modify)
