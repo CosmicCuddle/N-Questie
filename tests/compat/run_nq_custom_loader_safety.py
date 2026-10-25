@@ -12,7 +12,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 LOADER = ROOT / "Compat/NQuestieCustomQuestLoader.lua"
 TESTS = ROOT / "tests/compat/nq_custom_loader_safety.lua"
-EXPECTED_LOADER_BLOB_SHA1 = "7135cf0f5a1dc6fd1763f232fa326ec36b4ccb41"
+EXPECTED_LOADER_BLOB_SHA1 = "e79d8bc832723127fbfc045b07176fc986fc623e"
 
 def assert_source_revision():
     data = LOADER.read_bytes()
