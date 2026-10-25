@@ -82,6 +82,18 @@ check("no fake NPC starter reverse link",npcUpdates[7716] and
 check("item source has no invented drops",db.itemData[6611][db.itemKeys.npcDrops]==nil and
     db.itemData[6611][db.itemKeys.objectDrops]==nil)
 
+-- The final Stage1 check must observe the *applied* source tables,
+-- not merely the approved callback's proposed correction output.
+db.questData[920245]=q
+db.itemData[6611][db.itemKeys.startQuest]=iq[db.itemKeys.startQuest]
+check("precompile item starter postflight accepts source closure",
+    QuestieCompat.VerifyNQuestieCustomItemSources()==true)
+db.itemData[6611][db.itemKeys.startQuest]=920010
+local postOk,postErr=pcall(QuestieCompat.VerifyNQuestieCustomItemSources)
+check("precompile postflight refuses a later item owner overwrite",
+    not postOk and type(postErr)=="string" and
+    postErr:find("postflight item owner mismatch",1,true)~=nil)
+db.itemData[6611][db.itemKeys.startQuest]=920245
 assert(loadfile("Database/compiler.lua"))()
 local compiler=QuestieLoader:ImportModule("DBCompiler")
 local function drive(fn)
@@ -127,5 +139,5 @@ check("actual item decoder does not invent loot source",
     itemHandle.QuerySingle(6611,"npcDrops")==nil and
     itemHandle.QuerySingle(6611,"objectDrops")==nil)
 itemHandle.stream:finished()
-assert(tests==10,"wrong item starter test count")
-print("ITEM-START REAL QUESTIE SOURCE RESULT: 10/10 PASS")
+assert(tests==12,"wrong item starter test count")
+print("ITEM-START REAL QUESTIE SOURCE RESULT: 12/12 PASS")
