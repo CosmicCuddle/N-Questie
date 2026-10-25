@@ -413,7 +413,7 @@ local function characterizeUnplannedReverse(kind, id, reverseField, label)
     source[reverseField] = previous
 end
 characterizeUnplannedReverse("npcData", 7712, N.questStarts, "unplanned NPC starter")
-characterizeUnplannedReverse("npcData", 7716, N.questEnds, "unplanned NPC finisher")
+characterizeUnplannedReverse("npcData", 7712, N.questEnds, "unplanned NPC finisher")
 characterizeUnplannedReverse("objectData", 8817, G.questStarts, "unplanned GO starter")
 characterizeUnplannedReverse("objectData", 8816, G.questEnds, "unplanned GO finisher")
 local mixed = assert(db.questData[920052])
@@ -424,6 +424,11 @@ local rawOk, rawResult = pcall(QuestieCompat.VerifyNQuestieCustomItemSources)
 check("KNOWN GAP item-only hook ignores modified NPC forward starter",
     rawOk and rawResult == true and mixedSources[1][1] == 7716)
 mixedSources[1] = originalNpcStarts
+-- After every synthetic perturbation has been restored, the existing
+-- item-only verifier must still accept the original known-good item links.
+-- Detect fixture contamination before the public-2001 immutability tests.
+check("post-gap characterization item source still valid after restores",
+    QuestieCompat.VerifyNQuestieCustomItemSources()==true)
 -- A future full owner verifier must turn these five acceptances into refusals.
 
 -- A previously released public custom record must never be modified via
