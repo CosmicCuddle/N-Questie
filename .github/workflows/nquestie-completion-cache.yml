@@ -1,0 +1,62 @@
+name: N-Questie completion-cache characterisation (CS02-CACHE-01, no artifacts)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nq-cache-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  completion-cache:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Lua 5.1 and Lua 5.4
+        run: |
+          timeout --signal=TERM --kill-after=5s 120s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+      - name: Self-check workflow has no upload/artifact steps
+        run: |
+          if grep -nE 'upload-artifact|download-artifact|secrets\.' .github/workflows/nquestie-completion-cache.yml | grep -v 'grep -nE'; then
+            echo "FAIL: forbidden step found"; exit 1
+          fi
+      - name: Baseline 57/57 on Lua 5.1 and Lua 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          T=tests/compat/nq_completion_cache_order.lua
+          for L in lua5.1 lua5.4; do
+            out="$RUNNER_TEMP/c-$L.txt"
+            timeout --signal=TERM --kill-after=5s 60s "$L" "$T" | tee "$out"
+            pass=$(grep -c '^PASS ' "$out" || true)
+            fail=$(grep -c 'FAIL' "$out" || true)
+            echo "$L: PASS=$pass FAIL=$fail"
+            if [ "$fail" -ne 0 ]; then echo "FAIL: $L reported $fail FAIL line(s)"; exit 1; fi
+            if [ "$pass" -ne 57 ]; then echo "FAIL: $L expected 57 PASS, got $pass"; exit 1; fi
+            grep -Fxq 'RESULT PASS checks=57' "$out" || { echo "FAIL: $L missing RESULT PASS checks=57"; exit 1; }
+          done
+      - name: Mutation probes must be detected (KILLED)
+        shell: bash
+        run: |
+          set -uo pipefail
+          T=tests/compat/nq_completion_cache_order.lua
+          for L in lua5.1 lua5.4; do
+            for m in skip-repeatable-strip return-copy swap-fill-modes; do
+              out="$RUNNER_TEMP/m-$L-$m.txt"
+              timeout --signal=TERM --kill-after=5s 60s "$L" "$T" --mutate="$m" > "$out" 2>&1 || true
+              if grep -q "^MUTATION KILLED $m " "$out"; then
+                echo "OK: $L mutant $m detected: $(grep "^MUTATION KILLED $m " "$out")"
+              else
+                cat "$out"; echo "FAIL: $L mutant $m SURVIVED (not detected)"; exit 1
+              fi
+            done
+          done
