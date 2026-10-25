@@ -24,7 +24,7 @@
 | 05 | Load graph / single owner / late-writer safeguards | UNDERWAY | Safe freeze/postflight and real CI |
 | 06 | Grok completion-cache draft #166 | UNDERWAY | Not CI-wired; independent review only when reviewer returns |
 | 07 | Actual Lua5.1 whole-loader safe integration | UNDERWAY | Production hook design/implementation |
-| 08 | Four-category compiler staging and safety | UNDERWAY | **70/70 pinned real Lua5.1 CI on #167 head `ae977daa`** = 26 codec + 8 original four-kind + 36 staged test-only; production integration still pending, full schema/memory/crash proof, production patch not yet made |
+| 08 | Four-category compiler staging and safety | UNDERWAY | **77/77 pinned real Lua5.1 CI on #167 head `3d42a73e`** = 26 codec + 8 original four-kind + 43 staged test-only; production integration still pending, full schema/memory/crash proof, production patch not yet made |
 | 09 | Private LOW quest source, loot, client and IP proof | UNDERWAY | Effective source and client validation (no private mapping here) |
 | 10 | Implement 1207,1208,1209 | OWNER APPROVED / TECHNICALLY PENDING | 0/3 added; require Gate09 accurate evidence |
 | 11 | WoW 3.3.5a + IP in-game regression | OWNER APPROVED / TECHNICALLY PENDING | Suitable build and actual client QA; do not infer pass from synthetic tests |
@@ -32,9 +32,9 @@
 
 **Status tally: 3 COMPLETE, 6 UNDERWAY, 3 OWNER-APPROVED TECHNICALLY PENDING; 0 outstanding owner approvals for these gates.**
 
-**Safety / coordination:** Protected `335` stays on `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`; Grok's draft #166 `89a844947e33908a267deb95d222f8c91861a426` stays untouched during his break. CS01 research stays isolated in draft [#167](https://github.com/CosmicCuddle/N-Questie/pull/167), latest test-only head `ae977daa58d7b4a741e9654eef59b15ac9b02005` (70/70 exact-head real Lua 5.1 test job verified; other PR workflows tracked separately). Never merge merely because fictional fixtures pass; no production compiler fix has been made.
+**Safety / coordination:** Protected `335` stays on `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`; Grok's draft #166 `89a844947e33908a267deb95d222f8c91861a426` stays untouched during his break. CS01 research stays isolated in draft [#167](https://github.com/CosmicCuddle/N-Questie/pull/167), latest test-only head `3d42a73efd5c5a256fa0c265166db85a79040856` (77/77 exact-head real Lua 5.1 test job verified; other PR workflows tracked separately). Never merge merely because fictional fixtures pass; no production compiler fix has been made.
 
-**Evidence classification:** **70/70** = actual Lua5.1 invoking pinned real-source compiler/stream on current `ae977daa` branch head ([codec workflow #40201220499](https://github.com/CosmicCuddle/N-Questie/actions/runs/40201220499): 26 codec + 8 original four-kind + 36 staged test-only, all actual log assertions PASS). This supersedes 57/57 at `720c12b9`. The overall seven PR workflows require an independent close-out check. The older 332/332 Python fictional-model tests and Grok's author-reported 57 Lua cache tests remain separate evidence categories. The protected branch, installed client, and SavedVariables have not been changed by these research PRs.
+**Evidence classification:** **77/77** = actual Lua 5.1 invoking pinned real-source compiler/stream on #167 head `3d42a73e` ([codec workflow #40202063177](https://github.com/CosmicCuddle/N-Questie/actions/runs/40202063177): 26 codec + 8 original four-kind + 43 staged test-only, all actual log assertions PASS). This supersedes 70/70 at `ae977daa` and 57/57 at `720c12b9`. The 43 staged cases include synthetic source-generation ABA/persistent-writer refusal, full populated-fixture readback and additional binary/witness corruption; they do not certify production writer coverage, whole 67-field schema, memory, or crash durability. The overall seven PR workflows require independent close-out. The older 332/332 Python fictional-model tests and Grok's author-reported 57 Lua cache tests remain separate evidence categories. The protected branch, installed client, and SavedVariables have not been changed by these research PRs.
 
 ---
 
