@@ -205,6 +205,20 @@ end,true)
 probe("override-only mixed custom duplicate still refused",function(s)
   s.db.npcOverrides[991104]={[10]={QA,990999,990999}}
 end,false,"DUPLICATE")
-if tests~=34 or passed~=34 then error("wrong synthetic test count") end
-print("OWNER REVERSE PROPOSAL RESULT: 34/34 PASS")
+-- CS02 M6 review: forward equality must be two-sided. A verifier
+-- that only checks planned owners are present would silently accept these
+-- *extra* (unapproved) effective forward references.
+probe("forward NPC superset is refused (M6 oracle)",function(s)
+  s.db.quests[QA][2][1]={NA,NC}
+end,false,"FORWARD_MISMATCH")
+probe("faction override GO finisher superset is refused",function(s)
+  s.db.questOverrides[QA]={[3]={{NB},{GB,GC}}}
+end,false,"FORWARD_MISMATCH")
+-- A GO source introduced only through an override (no raw record/pointer)
+-- is just as relevant as an override-only NPC source.
+probe("override-only GO foreign owner is refused",function(s)
+  s.db.goOverrides[992104]={[2]={QA}}
+end,false,"FOREIGN_REVERSE")
+if tests~=37 or passed~=37 then error("wrong synthetic test count") end
+print("OWNER REVERSE PROPOSAL RESULT: 37/37 PASS")
 print("TEST ONLY: excludes compiler-yield freeze, live client and item source proof")
