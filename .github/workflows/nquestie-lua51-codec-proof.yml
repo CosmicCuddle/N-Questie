@@ -70,5 +70,5 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/nq335"
           lua5.1 "$GITHUB_WORKSPACE/tests/compat/nq_compiler_staged_contract_lua51.lua" | tee "$RUNNER_TEMP/nq-staged.txt"
-          test "$(grep -c '^PASS STAGED ' "$RUNNER_TEMP/nq-staged.txt")" -eq 36
-          grep -Fx 'STAGED PROPOSAL RESULT: 36/36 PASS' "$RUNNER_TEMP/nq-staged.txt"
+          test "$(grep -c '^PASS STAGED ' "$RUNNER_TEMP/nq-staged.txt")" -eq 43
+          grep -Fx 'STAGED PROPOSAL RESULT: 43/43 PASS' "$RUNNER_TEMP/nq-staged.txt"
