@@ -1,0 +1,62 @@
+name: N-Questie completion-cache Lua characterisation (isolated)
+
+on:
+  pull_request:
+    paths:
+      - tests/compat/nq_completion_cache_order.lua
+      - .github/workflows/nquestie-completion-cache.yml
+      - .github/workflows/nquestie-overlay.yml
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-cache-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout unmerged synthetic test branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install and identify Lua 5.1 and Lua 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -E '^Lua 5\\.1\\.'
+          lua5.4 -v 2>&1 | grep -E '^Lua 5\\.4\\.'
+      - name: Verify reviewed fixture and parse on both interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object tests/compat/nq_completion_cache_order.lua)" = dcbb4b6d825cc0d5f7f1e1ef864803c4e47d2eb5
+          luac5.1 -p tests/compat/nq_completion_cache_order.lua
+          luac5.4 -p tests/compat/nq_completion_cache_order.lua
+      - name: Run the exact 57 baseline cases and three mutations on both Lua versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            log="$RUNNER_TEMP/nq-cache-${lua}-baseline.log"
+            "$lua" tests/compat/nq_completion_cache_order.lua | tee "$log"
+            test "$(grep -Fxc 'RESULT PASS checks=57' "$log")" -eq 1
+            test "$(grep -Fxc 'ALL SYNTHETIC COMPLETION-CACHE CHARACTERISATION CHECKS PASS' "$log")" -eq 1
+            if grep -Eq '^(RESULT FAIL|MUTATION SURVIVED|FAILED CHECK)' "$log"; then
+              echo "FAIL: baseline contains failure/survival markers ($lua)" >&2
+              exit 1
+            fi
+            for pair in 'skip-repeatable-strip:T3-repeatable-absent' 'return-copy:T5-same-object' 'swap-fill-modes:T2-ADD-ONLY-retains-stale'; do
+              mutation="${pair%%:*}"
+              check="${pair#*:}"
+              mutated_log="$RUNNER_TEMP/nq-cache-${lua}-${mutation}.log"
+              "$lua" tests/compat/nq_completion_cache_order.lua "--mutate=$mutation" | tee "$mutated_log"
+              test "$(grep -Fxc "MUTATION KILLED $mutation by $check" "$mutated_log")" -eq 1
+              if grep -Eq '^(MUTATION SURVIVED|RESULT PASS|ALL SYNTHETIC)' "$mutated_log"; then
+                echo "FAIL: mutation did not have the required isolated failure signal ($lua / $mutation)" >&2
+                exit 1
+              fi
+            done
+            echo "PASS: 57 baseline checks plus 3 mutation kill assertions under $lua"
+          done
