@@ -317,6 +317,32 @@ check("rejected item-source quests do not leak NPC reverse links",
         end
         return false
     end)())
+-- The approved quest plan was deliberately cached by earlier callbacks.
+-- A foreign writer could change an item record before our itemData callback.
+-- This guards against silently dropping the item reverse relation. An item
+-- writer AFTER our callback still needs a separate compiler-time postflight.
+local itemStartField=db.itemKeys.startQuest
+local savedItem6612=db.itemData[6612]
+savedItem6612[itemStartField]=920010
+local changedOk,changedErr=pcall(callbacks.itemData)
+check("late item owner change aborts correction callback",not changedOk and
+    type(changedErr)=="string" and
+    changedErr:find("item starter source changed after approval",1,true)~=nil)
+check("late item owner change is not overwritten",
+    savedItem6612[itemStartField]==920010)
+-- A source already pointing at precisely the approved quest is idempotent.
+savedItem6612[itemStartField]=920052
+local sameOk,sameResult=pcall(callbacks.itemData)
+check("same quest owner is accepted idempotently",sameOk and
+    sameResult[6612] and sameResult[6612][itemStartField]==920052)
+savedItem6612[itemStartField]=nil
+-- An item removed after the plan was frozen must also reject the callback.
+db.itemData[6612]=nil
+local missingOk,missingErr=pcall(callbacks.itemData)
+check("missing approved item source aborts callback",not missingOk and
+    type(missingErr)=="string" and
+    missingErr:find("item starter source changed after approval",1,true)~=nil)
+db.itemData[6612]=savedItem6612
 -- A previously released public custom record must never be modified via
 -- its narrow collision exception, even when the raw DB does not contain it.
 local function public2001MutationRejected(modify)
