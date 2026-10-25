@@ -12,6 +12,8 @@ on:
   pull_request:
     paths:
       - tests/compat/nq_codec_lua51_source_check.lua
+      - tests/compat/nq_compiler_fourkind_lua51_source_check.lua
+      - tests/compat/nq_compiler_staged_contract_lua51.lua
       - .github/workflows/nquestie-lua51-codec-proof.yml
 
 permissions:
@@ -68,5 +70,5 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/nq335"
           lua5.1 "$GITHUB_WORKSPACE/tests/compat/nq_compiler_staged_contract_lua51.lua" | tee "$RUNNER_TEMP/nq-staged.txt"
-          test "$(grep -c '^PASS STAGED ' "$RUNNER_TEMP/nq-staged.txt")" -eq 23
-          grep -Fx 'STAGED PROPOSAL RESULT: 23/23 PASS' "$RUNNER_TEMP/nq-staged.txt"
+          test "$(grep -c '^PASS STAGED ' "$RUNNER_TEMP/nq-staged.txt")" -eq 36
+          grep -Fx 'STAGED PROPOSAL RESULT: 36/36 PASS' "$RUNNER_TEMP/nq-staged.txt"
