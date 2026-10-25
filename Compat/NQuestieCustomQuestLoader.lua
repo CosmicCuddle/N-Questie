@@ -447,8 +447,9 @@ end)
 
 -- Final targeted source check: run AFTER all corrections, gathering changes and
 -- PreCompile, but BEFORE the existing binary compiler begins publication.
--- This checks only approved custom quest item-starter pairs: it is NOT a
--- comprehensive four-category source freeze or a coroutine-yielding safeguard.
+-- This checks approved custom quest/item starter pairs in BOTH directions:
+-- planned forward references and unexpected itemData.startQuest back-references.
+-- It is NOT a four-category source freeze or a coroutine-yielding safeguard.
 -- Its failure is deliberately uncaught by Stage1 so the custom cache revision
 -- cannot be advanced through a known-bad item-starter relationship.
 function QuestieCompat.VerifyNQuestieCustomItemSources()
@@ -457,7 +458,13 @@ function QuestieCompat.VerifyNQuestieCustomItemSources()
     if not questKey or not itemKey then
         error("N-Questie item starter postflight missing source keys")
     end
-    for questId, entry in pairs(approvedQuests()) do
+    local allItems = QuestieDB.itemData
+    if type(allItems) ~= "table" then
+        error("N-Questie item starter postflight item data unavailable")
+    end
+    local approvedEntries = approvedQuests()
+    local plannedItemOwners = {}
+    for questId, entry in pairs(approvedEntries) do
         local expected = entry.startedByItems
         if #expected > 0 then
             local quest = QuestieDB.questData and QuestieDB.questData[questId]
@@ -474,10 +481,23 @@ function QuestieCompat.VerifyNQuestieCustomItemSources()
                 if not seen[itemId] then
                     error("N-Questie item starter postflight quest source mismatch")
                 end
-                local item = QuestieDB.itemData and QuestieDB.itemData[itemId]
+                local item = allItems[itemId]
                 if type(item) ~= "table" or item[itemKey] ~= questId then
                     error("N-Questie item starter postflight item owner mismatch")
                 end
+                plannedItemOwners[itemId] = questId
+            end
+        end
+    end
+    -- A foreign correction could create an itemData.startQuest link to one of
+    -- our custom quests WITHOUT a matching quest.startedBy[3] source. Scan only
+    -- at the final precompile boundary, no writes and no giant item snapshot.
+    -- Linear in the effective item table; client frame-time is NOT yet measured.
+    for itemId, item in pairs(allItems) do
+        if type(item) == "table" then
+            local owner = item[itemKey]
+            if approvedEntries[owner] and plannedItemOwners[itemId] ~= owner then
+                error("N-Questie item starter postflight unplanned reverse item owner")
             end
         end
     end
