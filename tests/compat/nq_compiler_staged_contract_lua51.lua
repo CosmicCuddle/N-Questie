@@ -404,8 +404,21 @@ check("busy_status_explicit",function()assert(busyok and busyres=="BUSY")end)
 check("busy_leaves_old_published_data",function()assertOld(Questie.db.global)end)
 for _,corruption in ipairs({"pointer_offset","pointer_header_count","pointer_extra_bytes","truncate_pointer","truncate_bin","quest_requiredLevel","item_objectDrops_witness"})do
   reset()
-  local okcorrupt=run({corrupt=corruption})
-  check(corruption.."_refused",function()assert(not okcorrupt)end)
+  local okcorrupt,corruptReason=run({corrupt=corruption})
+  local expectedDiagnostic={
+    pointer_offset="unplanned pointer address",
+    pointer_header_count="pointer header count mismatch",
+    pointer_extra_bytes="pointer map byte length drift",
+    truncate_pointer="pointer map byte length drift",
+    truncate_bin="pointer outside staged binary",
+    quest_requiredLevel="field drift at quest",
+    item_objectDrops_witness="field drift at item"
+  }
+  check(corruption.."_refused",function()
+    assert(not okcorrupt and type(corruptReason)=="string")
+    assert(corruptReason:find(expectedDiagnostic[corruption],1,true),
+      "unexpected corruption failure: "..corruptReason)
+  end)
   check(corruption.."_preserves_old",function()assertOld(Questie.db.global)end)
 end
 reset()
@@ -561,9 +574,11 @@ end)
 for _,badId in ipairs({0,1.5,16777216})do
   reset()
   db.itemData[badId]={[db.itemKeys.name]="Synthetic invalid ID"}
-  local accepted=run()
+  local accepted,idReason=run()
   check("invalid_source_id_"..tostring(badId).."_refused",function()
-    assert(not accepted)
+    assert(not accepted and type(idReason)=="string")
+    assert(idReason:find("bad ID",1,true),
+      "unexpected invalid-ID failure: "..idReason)
   end)
   check("invalid_source_id_"..tostring(badId).."_preserves_old",function()
     assertOld(Questie.db.global)
@@ -571,8 +586,12 @@ for _,badId in ipairs({0,1.5,16777216})do
 end
 reset()
 for id=100000,165535 do db.itemData[id]=false end
-local overLimit=run()
-check("65536_plus_pointer_count_refused",function()assert(not overLimit)end)
+local overLimit,limitReason=run()
+check("65536_plus_pointer_count_refused",function()
+  assert(not overLimit and type(limitReason)=="string")
+  assert(limitReason:find("source pointer-count overflow",1,true),
+    "unexpected source-count failure: "..limitReason)
+end)
 check("65536_plus_pointer_count_preserves_old",function()
   assertOld(Questie.db.global)
 end)
@@ -589,10 +608,13 @@ compiler.GetDBHandle=function(self,...)
   end
   return handle
 end
-local afterHandle=run({corrupt="quest_requiredLevel"})
+local afterHandle,afterHandleReason=run({corrupt="quest_requiredLevel"})
 compiler.GetDBHandle=normalGetHandle
 check("failed_decoded_field_releases_reader_streams",function()
   assert(not afterHandle and observedCleanup>=3)
+  assert(type(afterHandleReason)=="string" and
+    afterHandleReason:find("field drift at quest",1,true),
+    "unexpected readback failure: "..tostring(afterHandleReason))
 end)
 check("failed_decoded_field_preserves_old",function()
   assertOld(Questie.db.global)
