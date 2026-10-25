@@ -97,7 +97,15 @@ local function deepCopy(v,seen)
 end
 local function capture()
   local out={}
-  for _,s in ipairs(specs)do out[s.kind]=deepCopy(db[s.data],{})end
+  for _,s in ipairs(specs)do
+    -- Prevent 16-bit pointer count overflow before allocating a snapshot.
+    local count=0
+    for _ in pairs(db[s.data])do
+      count=count+1
+      assert(count<=65535,"source pointer-count overflow")
+    end
+    out[s.kind]=deepCopy(db[s.data],{})
+  end
   return out
 end
 local function writeCategory(spec,source)
@@ -107,12 +115,15 @@ local function writeCategory(spec,source)
       id>=1 and id<=16777215,"bad ID")
     ids[#ids+1]=id
   end
+  assert(#ids<=65535,"too many pointer entries")
   table.sort(ids)
   local out=streamMod:GetStream("raw")
   local ptrs={}
   for _,id in ipairs(ids)do
     local record=source[id]
     assert(type(record)=="table","bad source entry")
+    assert(out._pointer>=1 and out._pointer<=16777215,
+      "pointer address exceeds 24-bit encoding")
     ptrs[id]=out._pointer
     for _,field in ipairs(db[spec.order])do
       local value=record[db[spec.keys][field]]
@@ -125,6 +136,7 @@ local function writeCategory(spec,source)
     end
   end
   local bin=out:Save()
+  assert(#bin<=16777215,"staged binary exceeds 24-bit pointer budget")
   local pointers=compiler:EncodePointerMap(out,ptrs)
   out:finished()
   assert(type(bin)=="string" and type(pointers)=="string")
@@ -164,10 +176,33 @@ local function equalExact(actual,expected,path)
   end
 end
 local function verify(spec,staged)
+  -- Check raw pointer grammar BEFORE yielding inside GetDBHandle.
+  -- In particular, malformed counts/lengths never acquire a stream.
+  local ptrs=staged.ptrs
+  local count=#staged.ids
+  assert(count<=65535,"pointer count overflow")
+  assert(#ptrs==2+6*count,"pointer map byte length drift")
+  local b1,b2=string.byte(ptrs,1,2)
+  assert(b1*256+b2==count,"pointer header count mismatch")
+  local seen={}
+  for i=1,count do
+    local p=3+(i-1)*6
+    local a,b,c,d,e,f=string.byte(ptrs,p,p+5)
+    local id=a*65536+b*256+c
+    local offset=d*65536+e*256+f
+    assert(not seen[id],"duplicate pointer ID")
+    seen[id]=true
+    assert(staged.offsets[id]~=nil,"unplanned pointer ID")
+    assert(staged.offsets[id]==offset,"unplanned pointer address")
+    assert(offset>=1 and offset<=#staged.bin,"pointer outside staged binary")
+  end
   -- Actual compiler.GetDBHandle yields and is NOT override masked.
   local handle=compiler:GetDBHandle(staged.bin,staged.ptrs,
     compiler:BuildSkipMap(db[spec.types],db[spec.order]),
     db[spec.keys],nil)
+  -- Only the non-yielding field verification may be pcall-wrapped under
+  -- Lua 5.1. Ensure reader streams are returned even on failed assertions.
+  local verified,verifyError=pcall(function()
   -- Validate the entire decoded pointer map, not only known ID presence.
   assert(#staged.ids<=65535,"pointer count would overflow short")
   assert(#staged.ptrs==2+6*#staged.ids,"pointer map byte length drift")
@@ -207,7 +242,9 @@ local function verify(spec,staged)
     assert(handle.QuerySingle(id,"startQuest")==301)
     assert(handle.QuerySingle(id,"npcDrops")[1]==101)
   end
+  end)
   handle.stream:finished()
+  assert(verified,verifyError)
 end
 -- Synthetic owner-controlled generation witness. Real production code still
 -- needs complete registration of all late writers before this can be trusted.
@@ -240,6 +277,11 @@ local function transaction(opts)
       ..item.bin:sub(offset+1)
   elseif opts and opts.corrupt=="item_objectDrops_witness"then
     staged.item.source[401][db.itemKeys.objectDrops]={999}
+  elseif opts and opts.corrupt=="pointer_header_count"then
+    local old=staged.quest.ptrs
+    staged.quest.ptrs=old:sub(1,1)..string.char(0)..old:sub(3)
+  elseif opts and opts.corrupt=="pointer_extra_bytes"then
+    staged.quest.ptrs=staged.quest.ptrs..string.char(0)
   elseif opts and opts.corrupt=="pointer_offset"then
     local old=staged.quest.ptrs
     local last=string.byte(old,#old)
@@ -360,7 +402,7 @@ busy=true
 local busyok,busyres=run()
 check("busy_status_explicit",function()assert(busyok and busyres=="BUSY")end)
 check("busy_leaves_old_published_data",function()assertOld(Questie.db.global)end)
-for _,corruption in ipairs({"pointer_offset","truncate_pointer","truncate_bin","quest_requiredLevel","item_objectDrops_witness"})do
+for _,corruption in ipairs({"pointer_offset","pointer_header_count","pointer_extra_bytes","truncate_pointer","truncate_bin","quest_requiredLevel","item_objectDrops_witness"})do
   reset()
   local okcorrupt=run({corrupt=corruption})
   check(corruption.."_refused",function()assert(not okcorrupt)end)
@@ -515,5 +557,45 @@ check("sparse_u24_max_id_decoded",function()
   assert(handle.QuerySingle(16777215,"name")=="Synthetic edge item")
   handle.stream:finished()
 end)
-assert(passed==49,"wrong test count: "..passed)
-print("STAGED PROPOSAL RESULT: 49/49 PASS")
+-- Malformed source IDs and impossible pointer counts must fail before publish.
+for _,badId in ipairs({0,1.5,16777216})do
+  reset()
+  db.itemData[badId]={[db.itemKeys.name]="Synthetic invalid ID"}
+  local accepted=run()
+  check("invalid_source_id_"..tostring(badId).."_refused",function()
+    assert(not accepted)
+  end)
+  check("invalid_source_id_"..tostring(badId).."_preserves_old",function()
+    assertOld(Questie.db.global)
+  end)
+end
+reset()
+for id=100000,165535 do db.itemData[id]=false end
+local overLimit=run()
+check("65536_plus_pointer_count_refused",function()assert(not overLimit)end)
+check("65536_plus_pointer_count_preserves_old",function()
+  assertOld(Questie.db.global)
+end)
+-- Cleanup oracle for a readback failure occurring AFTER handle acquisition.
+reset()
+local normalGetHandle=compiler.GetDBHandle
+local observedCleanup=0
+compiler.GetDBHandle=function(self,...)
+  local handle=normalGetHandle(self,...)
+  local originalFinish=handle.stream.finished
+  handle.stream.finished=function(stream)
+    observedCleanup=observedCleanup+1
+    return originalFinish(stream)
+  end
+  return handle
+end
+local afterHandle=run({corrupt="quest_requiredLevel"})
+compiler.GetDBHandle=normalGetHandle
+check("failed_decoded_field_releases_reader_streams",function()
+  assert(not afterHandle and observedCleanup>=3)
+end)
+check("failed_decoded_field_preserves_old",function()
+  assertOld(Questie.db.global)
+end)
+assert(passed==63,"wrong test count: "..passed)
+print("STAGED PROPOSAL RESULT: 63/63 PASS")
