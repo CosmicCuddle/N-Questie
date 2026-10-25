@@ -365,6 +365,11 @@ local oldStarter=started[3]
 started[3]={6612}
 check("postflight rejects mismatched quest startedBy item",
     postflightFail("postflight quest source mismatch"))
+-- Mutation M5: preserving the planned starter while adding a second starter
+-- must still fail. A membership-only verifier would silently accept this.
+started[3]={6611,6612}
+check("postflight rejects extra unapproved item starter",
+    postflightFail("postflight quest source mismatch"))
 started[3]=oldStarter
 db.itemData[6611]=nil
 check("postflight rejects missing item source after callback",
