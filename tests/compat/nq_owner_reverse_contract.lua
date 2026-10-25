@@ -28,7 +28,13 @@ local function same(a,b)
   return true
 end
 local function field(rec,overrides,id,key)
+  if overrides~=nil and type(overrides)~="table" then
+    refuse("BAD_OVERRIDE_CATEGORY")
+  end
   local patch=overrides and overrides[id]
+  if patch~=nil and type(patch)~="table" then
+    refuse("BAD_OVERRIDE_ENTRY")
+  end
   if patch and patch[key]~=nil then return patch[key] end
   return rec and rec[key]
 end
@@ -78,6 +84,9 @@ local function verify(plan,db)
     local owners=db[name]
     if type(owners)~="table" then refuse("MISSING_CATEGORY "..name) end
     local patch=db[name.."Overrides"]
+    if patch~=nil and type(patch)~="table" then
+      refuse("BAD_OVERRIDE_CATEGORY")
+    end
     -- Questie query overrides can supply a field for an ID absent from
     -- the compiled pointer map. The effective owner universe is the UNION
     -- of raw and override-only owner keys, not just raw owner records.
@@ -86,6 +95,9 @@ local function verify(plan,db)
     for id in pairs(patch or {}) do allOwners[id]=true end
     for id in pairs(allOwners) do
       local record=owners[id]
+      if patch and patch[id]~=nil and type(patch[id])~="table" then
+        refuse("BAD_OVERRIDE_ENTRY")
+      end
       if type(record)=="table" or type(patch and patch[id])=="table" then
         for _,role in ipairs({"start","end"}) do
           local fieldKey=keys[name][role=="start" and "start" or "finish"]
@@ -219,6 +231,25 @@ end,false,"FORWARD_MISMATCH")
 probe("override-only GO foreign owner is refused",function(s)
   s.db.goOverrides[992104]={[2]={QA}}
 end,false,"FOREIGN_REVERSE")
-if tests~=37 or passed~=37 then error("wrong synthetic test count") end
-print("OWNER REVERSE PROPOSAL RESULT: 37/37 PASS")
+-- CS02 M6r: a one-way reverse subset cannot be sufficient.
+probe("forward NPC subset is refused (M6r oracle)",function(s)
+  s.db.quests[QA][2][1]={}
+end,false,"FORWARD_MISMATCH")
+-- CS02 M16: malformed unrelated reverse-link fields must still fail typed.
+probe("non-table NPC reverse relation refused (M16 oracle)",function(s)
+  s.db.npc[NC][10]=990999
+end,false,"BAD_LIST")
+-- Typed, deterministic failures for malformed whole-field overrides, including
+-- an owner ID that is absent from the raw compiled pointer map.
+probe("malformed quest override entry refused",function(s)
+  s.db.questOverrides[QA]=true
+end,false,"BAD_OVERRIDE_ENTRY")
+probe("malformed override-only NPC entry refused",function(s)
+  s.db.npcOverrides[991104]=true
+end,false,"BAD_OVERRIDE_ENTRY")
+probe("malformed GO override category refused",function(s)
+  s.db.goOverrides=true
+end,false,"BAD_OVERRIDE_CATEGORY")
+if tests~=42 or passed~=42 then error("wrong synthetic test count") end
+print("OWNER REVERSE PROPOSAL RESULT: 42/42 PASS")
 print("TEST ONLY: excludes compiler-yield freeze, live client and item source proof")
