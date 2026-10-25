@@ -27,12 +27,15 @@ def assert_stage1_guard_order():
     stage_start = code.index("QuestieInit.Stages[1] =")
     stage_end = code.index("QuestieInit.Stages[2] =", stage_start)
     stage = code[stage_start:stage_end]
-    locations = [stage.index(fragment) for fragment in (
-        "loadFullDatabase()",
-        "QuestieCompat.VerifyNQuestieCustomItemSources()",
-        "QuestieDBCompiler:Compile()",
-        "Questie.db.global.nQuestieDataRevision = nQuestieRevision",
-    )]
+    try:
+        locations = [stage.index(fragment) for fragment in (
+            "loadFullDatabase()",
+            "QuestieCompat.VerifyNQuestieCustomItemSources()",
+            "QuestieDBCompiler:Compile()",
+            "Questie.db.global.nQuestieDataRevision = nQuestieRevision",
+        )]
+    except ValueError:
+        raise SystemExit("FAIL: required Stage1 postflight/compiler/revision call is missing")
     if locations != sorted(locations):
         raise SystemExit("FAIL: item source verification is not before Stage1 compile/revision")
     if "coYield()" in stage[locations[1]:locations[2]]:
