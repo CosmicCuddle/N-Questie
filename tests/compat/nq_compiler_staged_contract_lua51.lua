@@ -630,36 +630,48 @@ local originalGetStream=streamMod.GetStream
 local function runWithWriterStreamCounting(mutate)
   reset()
   mutate()
-  local returned=0
+  local acquired,returned=0,0
+  -- Count each acquired stream lease, not a reused pool object's historic
+  -- wrapper chain. Restore its original finished() on the first return so
+  -- later leases cannot inflate this attempt's release count.
   streamMod.GetStream=function(self,...)
     local st=originalGetStream(self,...)
+    acquired=acquired+1
     local previous=st.finished
-    st.finished=function(x)
+    local leaseReturned=false
+    st.finished=function(obj,...)
+      assert(not leaseReturned,"stream double-returned in one lease")
+      leaseReturned=true
       returned=returned+1
-      return previous(x)
+      obj.finished=previous
+      return previous(obj,...)
     end
     return st
   end
   local ok,reason=run()
   streamMod.GetStream=originalGetStream
-  return ok,reason,returned
+  return ok,reason,{acquired=acquired,returned=returned}
 end
-local rootAccepted,rootReason,rootReleased=runWithWriterStreamCounting(function()
+local rootAccepted,rootReason,rootStats=runWithWriterStreamCounting(function()
   db.questData[301][db.questKeys.questLevel]="INVALID_ROOT"
 end)
 check("invalid_root_writer_releases_its_stream",function()
-  assert(not rootAccepted and rootReleased>=3)
+  assert(not rootAccepted and rootStats.acquired>=3)
+  assert(rootStats.acquired==rootStats.returned,
+    "writer/reader stream lease imbalance on root error")
   assert(type(rootReason)=="string" and
     rootReason:find("preflight type mismatch",1,true))
 end)
 check("invalid_root_writer_preserves_published_data",function()
   assertOld(Questie.db.global)
 end)
-local nestedAccepted,nestedReason,nestedReleased=runWithWriterStreamCounting(function()
+local nestedAccepted,nestedReason,nestedStats=runWithWriterStreamCounting(function()
   db.questData[301][db.questKeys.startedBy]={{"BAD_NESTED_ID"}}
 end)
 check("nested_codec_failure_releases_writer_stream",function()
-  assert(not nestedAccepted and nestedReleased>=3)
+  assert(not nestedAccepted and nestedStats.acquired>=3)
+  assert(nestedStats.acquired==nestedStats.returned,
+    "writer/reader stream lease imbalance on nested writer error")
   assert(type(nestedReason)=="string" and
     not nestedReason:find("preflight type mismatch",1,true))
 end)
