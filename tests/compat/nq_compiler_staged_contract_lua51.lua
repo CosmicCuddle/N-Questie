@@ -58,7 +58,7 @@ local oldFields={
 local function fixtures()
   local nk,ok,qk,ik=db.npcKeys,db.objectKeys,db.questKeys,db.itemKeys
   db.npcData={[101]={[nk.name]="Synthetic NPC",[nk.minLevel]=12,
-    [nk.questStarts]={301},[nk.spawns]={[141]={{-1,-1}}}}}
+    [nk.questStarts]={301},[nk.spawns]={[141]={{-1,-1},{41.2,50.1}}}}}
   db.objectData={[201]={[ok.name]="Synthetic Object",
     [ok.zoneID]=141,[ok.questStarts]={301}}}
   db.questData={[301]={[qk.name]="Synthetic Quest",
@@ -130,6 +130,39 @@ local function writeCategory(spec,source)
   assert(type(bin)=="string" and type(pointers)=="string")
   return {bin=bin,ptrs=pointers,source=source,ids=ids,offsets=ptrs}
 end
+
+-- Fixture-only oracle: compare every explicitly populated source field.
+-- Spawn locations alone need the *real writer's* floor(x*40.90)/40.90 rule;
+-- a loose numeric tolerance would mask integer/source drift.
+local function normalizedSpawns(input)
+  local out={}
+  for zone,coords in pairs(input)do
+    out[zone]={}
+    for i,xy in ipairs(coords)do
+      if xy[1]==-1 and xy[2]==-1 then out[zone][i]={-1,-1}
+      else
+        out[zone][i]={
+          math.floor(xy[1]*40.90)/40.90,
+          math.floor(xy[2]*40.90)/40.90
+        }
+      end
+    end
+  end
+  return out
+end
+local function equalExact(actual,expected,path)
+  if type(expected)~="table"then
+    assert(actual==expected,"field drift at "..path)
+    return
+  end
+  assert(type(actual)=="table","missing table at "..path)
+  for k,value in pairs(expected)do
+    equalExact(actual[k],value,path.."."..tostring(k))
+  end
+  for k in pairs(actual)do
+    assert(expected[k]~=nil,"unexpected decoded member at "..path.."."..tostring(k))
+  end
+end
 local function verify(spec,staged)
   -- Actual compiler.GetDBHandle yields and is NOT override masked.
   local handle=compiler:GetDBHandle(staged.bin,staged.ptrs,
@@ -150,6 +183,15 @@ local function verify(spec,staged)
     assert(handle.pointers[id]~=nil,"missing staged pointer")
     assert(handle.QuerySingle(id,"name")==staged.source[id][db[spec.keys].name],
       "unmasked staged name drift")
+    for _,field in ipairs(db[spec.order])do
+      local expected=staged.source[id][db[spec.keys][field]]
+      if expected~=nil then
+        local ty=db[spec.types][field]
+        if ty=="spawnlist"then expected=normalizedSpawns(expected) end
+        equalExact(handle.QuerySingle(id,field),expected,
+          spec.kind.."["..tostring(id).."]."..field)
+      end
+    end
   end
   local id=spec.id
   if spec.kind=="npc"then
@@ -167,12 +209,20 @@ local function verify(spec,staged)
   end
   handle.stream:finished()
 end
+-- Synthetic owner-controlled generation witness. Real production code still
+-- needs complete registration of all late writers before this can be trusted.
+local sourceGeneration=0
+local function trackedQuestLevel(value)
+  db.questData[301][db.questKeys.questLevel]=value
+  sourceGeneration=sourceGeneration+1
+end
 local busy=false
 local function transaction(opts)
   if busy then return "BUSY"end
   busy=true
   -- All remaining failures are coroutine errors; published old data untouched.
   local snap=capture()
+  local capturedGeneration=sourceGeneration
   local staged={}
   for _,spec in ipairs(specs)do
     staged[spec.kind]=writeCategory(spec,snap[spec.kind])
@@ -182,7 +232,15 @@ local function transaction(opts)
     end
   end
   -- Test-only tampering AFTER four local stages, BEFORE readback/publish.
-  if opts and opts.corrupt=="pointer_offset"then
+  if opts and opts.corrupt=="quest_requiredLevel"then
+    local item=staged.quest
+    local offset=item.offsets[301]
+    local byte=assert(string.byte(item.bin,offset))
+    item.bin=item.bin:sub(1,offset-1)..string.char((byte+1)%256)
+      ..item.bin:sub(offset+1)
+  elseif opts and opts.corrupt=="item_objectDrops_witness"then
+    staged.item.source[401][db.itemKeys.objectDrops]={999}
+  elseif opts and opts.corrupt=="pointer_offset"then
     local old=staged.quest.ptrs
     local last=string.byte(old,#old)
     staged.quest.ptrs=old:sub(1,#old-1)..string.char((last+1)%256)
@@ -193,6 +251,8 @@ local function transaction(opts)
   end
   for _,spec in ipairs(specs)do verify(spec,staged[spec.kind])end
   if opts and opts.fail=="after_verify"then error("injected verify abort")end
+  assert(sourceGeneration==capturedGeneration,
+    "synthetic source-generation witness changed during compilation")
   -- Proposed catchable-success publish contract: NO YIELD in this section.
   local g=Questie.db.global
   for _,spec in ipairs(specs)do
@@ -229,7 +289,7 @@ local function check(label,fn)
   end
   passed=passed+1;print("PASS STAGED "..label)
 end
-local function reset()fixtures();publishOld();busy=false end
+local function reset()fixtures();publishOld();busy=false;sourceGeneration=0 end
 reset()
 local good,result=run()
 check("candidate_success",function()assert(good and result=="SUCCESS")end)
@@ -270,21 +330,37 @@ local transient=false
 local okaba,resultaba=run(nil,function(mark)
   if mark=="stage:npc"and not transient then
     transient=true
-    db.questData[301][db.questKeys.questLevel]=99
-    db.questData[301][db.questKeys.questLevel]=13
+    trackedQuestLevel(99)
+    trackedQuestLevel(13)
   end
 end)
 check("transient_ABA_exercised",function()assert(transient)end)
-check("transient_ABA_frozen_source_success",function()
-  assert(okaba and resultaba=="SUCCESS")
+check("transient_ABA_rejected_by_generation",function()
+  assert(not okaba and resultaba:find("source%-generation witness changed"))
   assert(db.questData[301][db.questKeys.questLevel]==13)
+end)
+check("transient_ABA_preserves_old",function()assertOld(Questie.db.global)end)
+reset()
+local trackedOnce=false
+local okmut,errmut=run(nil,function(mark)
+  if mark=="stage:npc"and not trackedOnce then
+    trackedOnce=true
+    trackedQuestLevel(19)
+  end
+end)
+check("persistent_writer_mutation_refused",function()
+  assert(not okmut and trackedOnce and
+    errmut:find("source%-generation witness changed"))
+end)
+check("persistent_writer_mutation_preserves_old",function()
+  assertOld(Questie.db.global)
 end)
 reset()
 busy=true
 local busyok,busyres=run()
 check("busy_status_explicit",function()assert(busyok and busyres=="BUSY")end)
 check("busy_leaves_old_published_data",function()assertOld(Questie.db.global)end)
-for _,corruption in ipairs({"pointer_offset","truncate_pointer","truncate_bin"})do
+for _,corruption in ipairs({"pointer_offset","truncate_pointer","truncate_bin","quest_requiredLevel","item_objectDrops_witness"})do
   reset()
   local okcorrupt=run({corrupt=corruption})
   check(corruption.."_refused",function()assert(not okcorrupt)end)
@@ -323,5 +399,5 @@ end)
 check("old_state_visible_at_every_yield",function()
   assert(precommitOk and precommitResult=="SUCCESS" and allYields>=4)
 end)
-assert(passed==36,"wrong test count: "..passed)
-print("STAGED PROPOSAL RESULT: 36/36 PASS")
+assert(passed==43,"wrong test count: "..passed)
+print("STAGED PROPOSAL RESULT: 43/43 PASS")
