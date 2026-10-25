@@ -60,8 +60,8 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/nq335"
           lua5.1 "$GITHUB_WORKSPACE/tests/compat/nq_compiler_fourkind_lua51_source_check.lua" | tee "$RUNNER_TEMP/nq-fourkind.txt"
-          test "$(grep -c '^PASS FOURKIND ' "$RUNNER_TEMP/nq-fourkind.txt")" -eq 11
-          grep -Fx 'FOURKIND SOURCE RESULT: 11/11 PASS' "$RUNNER_TEMP/nq-fourkind.txt"
+          test "$(grep -c '^PASS FOURKIND ' "$RUNNER_TEMP/nq-fourkind.txt")" -eq 12
+          grep -Fx 'FOURKIND SOURCE RESULT: 12/12 PASS' "$RUNNER_TEMP/nq-fourkind.txt"
 
 
       - name: Verify fail-closed staged four-kind proposal with actual Lua 5.1
