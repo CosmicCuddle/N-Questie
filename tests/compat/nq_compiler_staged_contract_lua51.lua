@@ -92,7 +92,7 @@ local function deepCopy(v,seen)
   seen[v]=true
   local out={}
   for k,x in pairs(v)do out[deepCopy(k,seen)]=deepCopy(x,seen)end
-  seen[v]=nil
+  -- Preserve 'seen' so shared branches are rejected, not just cycles.
   return out
 end
 local function capture()
@@ -128,13 +128,24 @@ local function writeCategory(spec,source)
   local pointers=compiler:EncodePointerMap(out,ptrs)
   out:finished()
   assert(type(bin)=="string" and type(pointers)=="string")
-  return {bin=bin,ptrs=pointers,source=source,ids=ids}
+  return {bin=bin,ptrs=pointers,source=source,ids=ids,offsets=ptrs}
 end
 local function verify(spec,staged)
   -- Actual compiler.GetDBHandle yields and is NOT override masked.
   local handle=compiler:GetDBHandle(staged.bin,staged.ptrs,
     compiler:BuildSkipMap(db[spec.types],db[spec.order]),
     db[spec.keys],nil)
+  -- Validate the entire decoded pointer map, not only known ID presence.
+  assert(#staged.ids<=65535,"pointer count would overflow short")
+  assert(#staged.ptrs==2+6*#staged.ids,"pointer map byte length drift")
+  local pointerCount=0
+  for pointerId,offset in pairs(handle.pointers)do
+    pointerCount=pointerCount+1
+    assert(staged.offsets[pointerId]~=nil,"unexpected decoded pointer ID")
+    assert(offset==staged.offsets[pointerId],"decoded pointer offset drift")
+    assert(offset>=1 and offset<=#staged.bin,"pointer offset outside bin")
+  end
+  assert(pointerCount==#staged.ids,"decoded pointer count drift")
   for _,id in ipairs(staged.ids)do
     assert(handle.pointers[id]~=nil,"missing staged pointer")
     assert(handle.QuerySingle(id,"name")==staged.source[id][db[spec.keys].name],
@@ -169,6 +180,16 @@ local function transaction(opts)
     if opts and opts.fail=="after_"..spec.kind then
       error("injected abort after "..spec.kind)
     end
+  end
+  -- Test-only tampering AFTER four local stages, BEFORE readback/publish.
+  if opts and opts.corrupt=="pointer_offset"then
+    local old=staged.quest.ptrs
+    local last=string.byte(old,#old)
+    staged.quest.ptrs=old:sub(1,#old-1)..string.char((last+1)%256)
+  elseif opts and opts.corrupt=="truncate_pointer"then
+    staged.quest.ptrs=staged.quest.ptrs:sub(1,1)
+  elseif opts and opts.corrupt=="truncate_bin"then
+    staged.quest.bin=""
   end
   for _,spec in ipairs(specs)do verify(spec,staged[spec.kind])end
   if opts and opts.fail=="after_verify"then error("injected verify abort")end
@@ -263,5 +284,44 @@ busy=true
 local busyok,busyres=run()
 check("busy_status_explicit",function()assert(busyok and busyres=="BUSY")end)
 check("busy_leaves_old_published_data",function()assertOld(Questie.db.global)end)
-assert(passed==23,"wrong test count: "..passed)
-print("STAGED PROPOSAL RESULT: 23/23 PASS")
+for _,corruption in ipairs({"pointer_offset","truncate_pointer","truncate_bin"})do
+  reset()
+  local okcorrupt=run({corrupt=corruption})
+  check(corruption.."_refused",function()assert(not okcorrupt)end)
+  check(corruption.."_preserves_old",function()assertOld(Questie.db.global)end)
+end
+reset()
+local shared={{101}}
+db.questData[301][db.questKeys.startedBy]=shared
+db.questData[301][db.questKeys.finishedBy]=shared
+local okshared=run()
+check("shared_reference_refused",function()assert(not okshared)end)
+check("shared_reference_preserves_old",function()assertOld(Questie.db.global)end)
+reset()
+setmetatable(db.questData[301],{__index=function()return nil end})
+local okmeta=run()
+check("metatable_refused",function()assert(not okmeta)end)
+check("metatable_preserves_old",function()assertOld(Questie.db.global)end)
+reset()
+db.questData[301][db.questKeys.questLevel]="WRONG-TYPE"
+local retryFailed=run()
+db.questData[301][db.questKeys.questLevel]=13
+local retryOk,retryResult=run()
+check("failed_run_retry_succeeds",function()
+  assert(not retryFailed and retryOk and retryResult=="SUCCESS")
+end)
+check("retry_metadata_once_only",function()
+  assert(Questie.db.global.dbCompiledCount==12)
+  assert(Questie.db.global.nQuestieDataRevision==23)
+end)
+reset()
+local allYields=0
+local precommitOk,precommitResult=run(nil,function()
+  allYields=allYields+1
+  assertOld(Questie.db.global)
+end)
+check("old_state_visible_at_every_yield",function()
+  assert(precommitOk and precommitResult=="SUCCESS" and allYields>=4)
+end)
+assert(passed==36,"wrong test count: "..passed)
+print("STAGED PROPOSAL RESULT: 36/36 PASS")
