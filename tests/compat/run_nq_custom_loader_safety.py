@@ -12,7 +12,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 LOADER = ROOT / "Compat/NQuestieCustomQuestLoader.lua"
 TESTS = ROOT / "tests/compat/nq_custom_loader_safety.lua"
-EXPECTED_LOADER_BLOB_SHA1 = "1feb6b5e8a55c68686a4a6bcb9f2355f89454970"
+STAGE1 = ROOT / "Modules/QuestieInit.lua"
+EXPECTED_LOADER_BLOB_SHA1 = "02003bab30d9bfd26d805a68d26e199376607971"
 
 def assert_source_revision():
     data = LOADER.read_bytes()
@@ -20,6 +21,35 @@ def assert_source_revision():
     if git_blob != EXPECTED_LOADER_BLOB_SHA1:
         raise SystemExit("FAIL: loader differs from reviewed draft (blob SHA-1 " + git_blob + ")")
     print("Verified reviewed draft Git blob SHA-1:", git_blob, flush=True)
+
+def assert_stage1_guard_order():
+    code = STAGE1.read_text(encoding="utf-8")
+    stage_start = code.index("QuestieInit.Stages[1] =")
+    stage_end = code.index("QuestieInit.Stages[2] =", stage_start)
+    stage = code[stage_start:stage_end]
+    try:
+        locations = [stage.index(fragment) for fragment in (
+            "loadFullDatabase()",
+            "QuestieCompat.VerifyNQuestieCustomItemSources()",
+            "QuestieDBCompiler:Compile()",
+            "Questie.db.global.nQuestieDataRevision = nQuestieRevision",
+        )]
+    except ValueError:
+        raise SystemExit("FAIL: required Stage1 postflight/compiler/revision call is missing")
+    if locations != sorted(locations):
+        raise SystemExit("FAIL: item source verification is not before Stage1 compile/revision")
+    if "coYield()" in stage[locations[1]:locations[2]]:
+        raise SystemExit("FAIL: unexpected yield between item source postflight and compilation")
+    # Source-placement regression only (not a runtime coroutine execution):
+    # configured 3.3.5a custom quests must not silently skip a missing hook.
+    for required in (
+        'type(nQuestieData.quests) == "table" and next(nQuestieData.quests) ~= nil',
+        'if type(QuestieCompat.VerifyNQuestieCustomItemSources) ~= "function" then',
+        'error("N-Questie source postflight unavailable; refusing compilation")',
+    ):
+        if required not in stage[locations[0]:locations[2]]:
+            raise SystemExit("FAIL: configured custom quests can skip required postflight hook")
+    print("PASS: postflight is required for configured quests before compile/revision", flush=True)
 
 def run_executable(executable):
     env = dict(os.environ, NQ_LOADER_PATH=str(LOADER))
@@ -61,6 +91,7 @@ def run_lua54_shared():
 
 if __name__ == "__main__":
     assert_source_revision()
+    assert_stage1_guard_order()
     os.environ["NQ_LOADER_PATH"] = str(LOADER)
     lua51 = shutil.which("lua5.1")
     lua54 = shutil.which("lua5.4") or shutil.which("lua")

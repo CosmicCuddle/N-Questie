@@ -9,6 +9,7 @@ local N = {questStarts=10,questEnds=11}
 local G = {questStarts=2,questEnds=3}
 local db = {
     questKeys=Q,npcKeys=N,objectKeys=G,
+    itemKeys={startQuest=5},
     questData={
         [437]={[Q.name]="Pre-existing prerequisite"},
         [920010]={[Q.name]="An existing quest"},
@@ -29,6 +30,9 @@ local db = {
     },
     itemData={
         [6611]={[1]="Synthetic trade item"}, -- deliberately has no drop coordinates
+        [6612]={[1]="Synthetic dual-mode starter item"},
+        [6613]={[1]="Synthetic already-assigned starter item",[5]=920010},
+        [6614]={[1]="Synthetic contested item source"},
     },
 }
 -- Boundary fixtures for u8-packed reverse quest-start arrays. They use
@@ -114,10 +118,24 @@ NQuestieCustomQuestData={revision=6,quests={
     [920043]=rec({startedByNpcs={7715},finishedByNpcs={7716}}),
     [920044]=rec({startedByNpcs={},finishedByNpcs={},
         startedByGameObjects={8816},finishedByGameObjects={8817}}),
+    [920045]=rec({startedByNpcs={},startedByItems={6611},
+        finishedByNpcs={7716}}), -- item-only starter, NPC finisher
+    [920046]=rec({startedByNpcs={7715},startedByItems={6613}}),
+    [920047]=rec({startedByNpcs={7711},startedByItems={6614}}),
+    [920048]=rec({startedByNpcs={},startedByItems={6614}}),
+    [920049]=rec({startedByNpcs={},startedByItems={9999}}),
+    [920050]=rec({startedByNpcs={},startedByItems={6611,6611}}),
+    [920051]=rec({startedByNpcs={},startedByItems={[1]=6611,[3]=6612}}),
+    [920052]=rec({startedByNpcs={7715},startedByItems={6612},
+        finishedByNpcs={7716}}), -- mixed NPC + item starters
+    [920053]=rec({startedByNpcs={},startedByItems={16777216}}),
 }}
 assert(loadfile(path))()
-assert(callbacks.questData and callbacks.npcData and callbacks.objectData)
--- Reverse callback first: must give consistent outputs independent of registry order.
+assert(callbacks.questData and callbacks.npcData and callbacks.objectData
+    and callbacks.itemData)
+-- Reverse callbacks first: prove callback-order independence without changing
+-- the source tables or adding any real server/world references.
+local itemUpdates = callbacks.itemData()
 local npcUpdates = callbacks.npcData()
 local goUpdates = callbacks.objectData()
 local quests = callbacks.questData()
@@ -126,6 +144,16 @@ local function check(message,condition)
     count=count+1
     assert(condition,"FAIL: "..message)
     print("PASS "..string.format("%02d",count).." "..message)
+end
+-- The approved plan is visited with pairs(). Multiple legitimate invented
+-- quests can use one NPC; reverse lists therefore have no stable first ID.
+-- Assert membership, not an incidental order chosen by Lua table hashing.
+local function hasId(ids,want)
+    if type(ids)~="table" then return false end
+    for _,id in ipairs(ids) do
+        if id==want then return true end
+    end
+    return false
 end
 check("baseline NPC quest accepted",quests[920001]~=nil)
 check("scaling quest level preserved",quests[920002] and quests[920002][Q.questLevel]==-1)
@@ -211,7 +239,8 @@ check("public 2001 prereq preserved",quests[2001] and quests[2001][Q.preQuestSin
 check("public 2001 kill goals preserved",quests[2001] and
     quests[2001][Q.objectives][1][1][1]==1868 and
     quests[2001][Q.objectives][1][2][1]==1869)
-check("public 2001 has no additional starter slot",quests[2001] and quests[2001][Q.startedBy][2]==nil)
+check("public 2001 has no additional starter slot",quests[2001] and quests[2001][Q.startedBy][2]==nil
+    and quests[2001][Q.startedBy][3]==nil)
 check("public 2001 has no additional finisher slot",quests[2001] and quests[2001][Q.finishedBy][2]==nil)
 check("public 2001 kill-only objective has no extra slots",quests[2001] and
     quests[2001][Q.objectives][2]==nil and quests[2001][Q.objectives][3]==nil)
@@ -221,12 +250,16 @@ check("different NPC starter and finisher preserved in quest row",
     quests[920043] and quests[920043][Q.startedBy][1][1]==7715 and
     quests[920043][Q.finishedBy][1][1]==7716)
 check("independent NPC starter updates only questStarts",
-    npcUpdates[7715] and npcUpdates[7715][N.questStarts] and
-    npcUpdates[7715][N.questStarts][1]==920043 and
+    npcUpdates[7715] and
+    hasId(npcUpdates[7715][N.questStarts],920043) and
+    hasId(npcUpdates[7715][N.questStarts],920052) and
+    not hasId(npcUpdates[7715][N.questStarts],920046) and
     (not npcUpdates[7715][N.questEnds] or #npcUpdates[7715][N.questEnds]==0))
 check("independent NPC finisher updates only questEnds",
-    npcUpdates[7716] and npcUpdates[7716][N.questEnds] and
-    npcUpdates[7716][N.questEnds][1]==920043 and
+    npcUpdates[7716] and
+    hasId(npcUpdates[7716][N.questEnds],920043) and
+    hasId(npcUpdates[7716][N.questEnds],920045) and
+    hasId(npcUpdates[7716][N.questEnds],920052) and
     (not npcUpdates[7716][N.questStarts] or #npcUpdates[7716][N.questStarts]==0))
 -- GameObject direction is independently testable: the earlier public and
 -- synthetic same-GameObject cases cannot reveal swapped reverse roles.
@@ -245,6 +278,159 @@ check("vanilla NPC start index retained",npcUpdates[7711] and npcUpdates[7711][N
 check("vanilla NPC end index retained",npcUpdates[7711] and npcUpdates[7711][N.questEnds][1]==24)
 check("public NPC starter 2001 indexed",npcUpdates[2121] and npcUpdates[2121][N.questStarts][1]==2001)
 check("client item-source coordinates never invented",quests[920003] and db.itemData[6611][2]==nil)
+-- The item starter codec uses quest.startedBy[3] and item.startQuest;
+-- itemObjectives uses quest.objectives[3] and is a SEPARATE relationship.
+check("item-only starter quest admitted",quests[920045] and
+    quests[920045][Q.startedBy][3][1]==6611 and
+    #quests[920045][Q.startedBy][1]==0)
+check("item-start updates one-to-one scalar source",itemUpdates[6611] and
+    itemUpdates[6611][db.itemKeys.startQuest]==920045)
+check("item-only starter retains NPC finisher",quests[920045] and
+    quests[920045][Q.finishedBy][1][1]==7716)
+check("item objective is independent of item starter",quests[920003] and
+    quests[920003][Q.objectives][3][1][1]==6611 and
+    quests[920003][Q.startedBy][3]==nil)
+check("preclaimed item start is not overwritten",quests[920046]==nil and
+    itemUpdates[6613]==nil and db.itemData[6613][db.itemKeys.startQuest]==920010)
+check("contested item rejects both proposed quests",quests[920047]==nil and
+    quests[920048]==nil and itemUpdates[6614]==nil)
+check("unknown item starter rejected",quests[920049]==nil)
+check("duplicate item source ID rejected",quests[920050]==nil)
+check("sparse item-source list rejected",quests[920051]==nil)
+check("joint NPC+item starter preserved",quests[920052] and
+    quests[920052][Q.startedBy][1][1]==7715 and
+    quests[920052][Q.startedBy][3][1]==6612 and
+    itemUpdates[6612][db.itemKeys.startQuest]==920052)
+check("item-starter u24 overflow rejected",quests[920053]==nil)
+check("previous public quest has no item source assignment",itemUpdates[2121]==nil and
+    itemUpdates[1868]==nil)
+check("rejected item-source quests do not leak NPC reverse links",
+    not (function()
+        for _, list in pairs(npcUpdates) do
+            for _, field in ipairs({N.questStarts,N.questEnds}) do
+                for _, questId in ipairs(list[field] or {}) do
+                    if questId==920046 or questId==920047 or questId==920048 then
+                        return true
+                    end
+                end
+            end
+        end
+        return false
+    end)())
+-- The approved quest plan was deliberately cached by earlier callbacks.
+-- A foreign writer could change an item record before our itemData callback.
+-- This guards against silently dropping the item reverse relation. An item
+-- writer AFTER our callback still needs a separate compiler-time postflight.
+local itemStartField=db.itemKeys.startQuest
+local savedItem6612=db.itemData[6612]
+savedItem6612[itemStartField]=920010
+local changedOk,changedErr=pcall(callbacks.itemData)
+check("late item owner change aborts correction callback",not changedOk and
+    type(changedErr)=="string" and
+    changedErr:find("item starter source changed after approval",1,true)~=nil)
+check("late item owner change is not overwritten",
+    savedItem6612[itemStartField]==920010)
+-- A source already pointing at precisely the approved quest is idempotent.
+savedItem6612[itemStartField]=920052
+local sameOk,sameResult=pcall(callbacks.itemData)
+check("same quest owner is accepted idempotently",sameOk and
+    sameResult[6612] and sameResult[6612][itemStartField]==920052)
+savedItem6612[itemStartField]=nil
+-- An item removed after the plan was frozen must also reject the callback.
+db.itemData[6612]=nil
+local missingOk,missingErr=pcall(callbacks.itemData)
+check("missing approved item source aborts callback",not missingOk and
+    type(missingErr)=="string" and
+    missingErr:find("item starter source changed after approval",1,true)~=nil)
+db.itemData[6612]=savedItem6612
+-- Simulate QuestieCompat.LoadCorrections applying the approved quest/item
+-- update pairs; all IDs below are invented fixture-only references.
+for _,questId in ipairs({920045,920052}) do
+    db.questData[questId]=quests[questId]
+end
+db.itemData[6611][itemStartField]=itemUpdates[6611][itemStartField]
+db.itemData[6612][itemStartField]=itemUpdates[6612][itemStartField]
+local function postflightFail(expected)
+    local ok,why=pcall(QuestieCompat.VerifyNQuestieCustomItemSources)
+    return not ok and type(why)=="string" and why:find(expected,1,true)~=nil
+end
+check("postflight accepts linked synthetic quest/item sources",
+    QuestieCompat.VerifyNQuestieCustomItemSources()==true)
+db.itemData[6612][itemStartField]=920010
+check("postflight rejects overwritten item owner after callback",
+    postflightFail("postflight item owner mismatch"))
+db.itemData[6612][itemStartField]=920052
+local started=db.questData[920045][Q.startedBy]
+local oldStarter=started[3]
+started[3]={6612}
+check("postflight rejects mismatched quest startedBy item",
+    postflightFail("postflight quest source mismatch"))
+-- Mutation M5: preserving the planned starter while adding a second starter
+-- must still fail. A membership-only verifier would silently accept this.
+started[3]={6611,6612}
+check("postflight rejects extra unapproved item starter",
+    postflightFail("postflight quest source mismatch"))
+started[3]=oldStarter
+db.itemData[6611]=nil
+check("postflight rejects missing item source after callback",
+    postflightFail("postflight item owner mismatch"))
+db.itemData[6611]={[1]="Synthetic trade item",[itemStartField]=920045}
+local oldQuest=db.questData[920052]
+db.questData[920052]=nil
+check("postflight rejects missing quest entry after callback",
+    postflightFail("postflight quest source mismatch"))
+db.questData[920052]=oldQuest
+-- A foreign item writer can create an item.startQuest -> custom quest
+-- back-reference without updating that quest's planned startedBy[3].
+-- This must fail even if every original planned item link is intact.
+db.itemData[6614][itemStartField]=920045
+check("postflight rejects unexpected reverse custom item owner",
+    postflightFail("postflight unplanned reverse item owner"))
+db.itemData[6614][itemStartField]=nil
+-- The public 2001 fixture is approved without any item starter; an invented
+-- item reverse link to it must also be refused (not treated as a new source).
+db.itemData[6614][itemStartField]=2001
+check("postflight refuses unplanned item owner for public 2001",
+    postflightFail("postflight unplanned reverse item owner"))
+db.itemData[6614][itemStartField]=nil
+-- Existing unrelated source owners must remain permitted and untouched.
+check("postflight permits unrelated original item owner",
+    db.itemData[6613][itemStartField]==920010 and
+    QuestieCompat.VerifyNQuestieCustomItemSources()==true)
+check("postflight accepts clean sources again",
+    QuestieCompat.VerifyNQuestieCustomItemSources()==true)
+-- Part 34: CHARACTERISE REMAINING NPC/GO SOURCE-OWNER GAPS (not fixes).
+-- This is an ITEM-only verifier. These five fictional cases deliberately
+-- PASS when it overlooks an NPC/GO orphan or altered non-item quest starter.
+-- Green results here must never be treated as safe NPC/GO source closure.
+local function characterizeUnplannedReverse(kind, id, reverseField, label)
+    local source = assert(db[kind][id], "missing synthetic source")
+    local previous = source[reverseField]
+    source[reverseField] = {920045} -- fictional custom item-start quest
+    local ok, result = pcall(QuestieCompat.VerifyNQuestieCustomItemSources)
+    check("KNOWN GAP item-only hook ignores "..label, ok and result == true and
+        source[reverseField][1] == 920045)
+    source[reverseField] = previous
+end
+characterizeUnplannedReverse("npcData", 7712, N.questStarts, "unplanned NPC starter")
+characterizeUnplannedReverse("npcData", 7712, N.questEnds, "unplanned NPC finisher")
+characterizeUnplannedReverse("objectData", 8817, G.questStarts, "unplanned GO starter")
+characterizeUnplannedReverse("objectData", 8816, G.questEnds, "unplanned GO finisher")
+local mixed = assert(db.questData[920052])
+local mixedSources = assert(mixed[Q.startedBy])
+local originalNpcStarts = mixedSources[1]
+mixedSources[1] = {7716} -- inconsistent with approved fictional NPC source
+local rawOk, rawResult = pcall(QuestieCompat.VerifyNQuestieCustomItemSources)
+check("KNOWN GAP item-only hook ignores modified NPC forward starter",
+    rawOk and rawResult == true and mixedSources[1][1] == 7716)
+mixedSources[1] = originalNpcStarts
+-- After every synthetic perturbation has been restored, the existing
+-- item-only verifier must still accept the original known-good item links.
+-- Detect fixture contamination before the public-2001 immutability tests.
+check("post-gap characterization item source still valid after restores",
+    QuestieCompat.VerifyNQuestieCustomItemSources()==true)
+-- A future full owner verifier must turn these five acceptances into refusals.
+
 -- A previously released public custom record must never be modified via
 -- its narrow collision exception, even when the raw DB does not contain it.
 local function public2001MutationRejected(modify)

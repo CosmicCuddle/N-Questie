@@ -18,7 +18,7 @@ local allowedKeys = {
     requiredRaces = true, requiredClasses = true, questFlags = true,
     specialFlags = true, preQuestSingle = true, preQuestGroup = true,
     exclusiveTo = true, parentQuest = true, nextQuestInChain = true,
-    startedByNpcs = true, finishedByNpcs = true,
+    startedByNpcs = true, finishedByNpcs = true, startedByItems = true,
     startedByGameObjects = true, finishedByGameObjects = true,
     killNpcs = true, objectObjectives = true, itemObjectives = true,
     noDirectObjectives = true,
@@ -77,6 +77,7 @@ end
 
 local listKeys = {
     "startedByNpcs", "finishedByNpcs", "startedByGameObjects",
+    "startedByItems",
     "finishedByGameObjects", "killNpcs", "objectObjectives",
     "itemObjectives", "preQuestSingle", "preQuestGroup", "exclusiveTo",
 }
@@ -150,10 +151,11 @@ local function parseQuest(id, q)
         entry[key] = denseIdList(q[key])
         if not entry[key] then return nil end
     end
-    if #entry.startedByNpcs + #entry.startedByGameObjects == 0 or
+    if #entry.startedByNpcs + #entry.startedByGameObjects + #entry.startedByItems == 0 or
         #entry.finishedByNpcs + #entry.finishedByGameObjects == 0 then return nil end
     if not allResolve(entry.startedByNpcs, QuestieDB.npcData) or
         not allResolve(entry.finishedByNpcs, QuestieDB.npcData) or
+        not allResolve(entry.startedByItems, QuestieDB.itemData) or
         not allResolve(entry.startedByGameObjects, QuestieDB.objectData) or
         not allResolve(entry.finishedByGameObjects, QuestieDB.objectData) or
         not allResolve(entry.killNpcs, QuestieDB.npcData) or
@@ -285,6 +287,35 @@ local function approvedQuests()
         end
         return discarded
     end
+    -- Item startQuest is a SINGLE u24 value, not a u8 questStarts array.
+    -- Never assign two proposed quests to one item or overwrite an existing
+    -- item startQuest. Reject all participants in the contested source,
+    -- rather than picking whichever pairs() callback happens to run first.
+    local function pruneItemStarterConflicts()
+        local claimedBy, rejectedItem = {}, {}
+        for questId, entry in pairs(approved) do
+            for _, itemId in ipairs(entry.startedByItems) do
+                local item = QuestieDB.itemData[itemId]
+                local previous = item[QuestieDB.itemKeys.startQuest]
+                if (previous ~= nil and previous ~= questId) or
+                    (claimedBy[itemId] ~= nil and claimedBy[itemId] ~= questId) then
+                    rejectedItem[itemId] = true
+                end
+                claimedBy[itemId] = questId
+            end
+        end
+        local didPrune = false
+        for questId, entry in pairs(approved) do
+            for _, itemId in ipairs(entry.startedByItems) do
+                if rejectedItem[itemId] then
+                    approved[questId] = nil
+                    didPrune = true
+                    break
+                end
+            end
+        end
+        return didPrune
+    end
     changed = true
     while changed do
         changed = false
@@ -292,6 +323,7 @@ local function approvedQuests()
                 "startedByNpcs", "finishedByNpcs") then changed = true end
         if pruneOverfull("objectData", QuestieDB.objectKeys,
                 "startedByGameObjects", "finishedByGameObjects") then changed = true end
+        if pruneItemStarterConflicts() then changed = true end
         for id, entry in pairs(approved) do
             if not resolved(entry) then approved[id] = nil; changed = true end
         end
@@ -321,6 +353,9 @@ QuestieCompat.RegisterCorrection("questData", function()
         }
         if #entry.startedByGameObjects > 0 then
             fields[keys.startedBy][2] = entry.startedByGameObjects
+        end
+        if #entry.startedByItems > 0 then
+            fields[keys.startedBy][3] = entry.startedByItems
         end
         if #entry.finishedByGameObjects > 0 then
             fields[keys.finishedBy][2] = entry.finishedByGameObjects
@@ -383,3 +418,88 @@ QuestieCompat.RegisterCorrection("objectData", function()
     return relationUpdates("objectData", keys.questStarts, keys.questEnds,
         "startedByGameObjects", "finishedByGameObjects")
 end)
+
+-- Item-started quests carry an itemData.startQuest scalar, unlike an item
+-- objective or an NPC/GO questStarts array. All conflicting claims are
+-- excluded by approvedQuests() before ANY callback emits corrections.
+QuestieCompat.RegisterCorrection("itemData", function()
+    local updates = {}
+    local key = QuestieDB.itemKeys and QuestieDB.itemKeys.startQuest
+    for questId, entry in pairs(approvedQuests()) do
+        for _, itemId in ipairs(entry.startedByItems) do
+            local record = QuestieDB.itemData[itemId]
+            -- An approval computed by an earlier correction callback can
+            -- become stale before the itemData callback executes. Failing
+            -- explicitly is safer than silently leaving an orphaned
+            -- quest.startedBy[3] → item.startQuest reverse relationship.
+            -- This is only a callback-time guard: a later writer still
+            -- requires an independent postflight before compilation.
+            if not key or not record or
+                (record[key] ~= nil and record[key] ~= questId) then
+                error("N-Questie item starter source changed after approval; aborting corrections")
+            end
+            updates[itemId] = {[key] = questId}
+        end
+    end
+    return updates
+end)
+
+
+-- Final targeted source check: run AFTER all corrections, gathering changes and
+-- PreCompile, but BEFORE the existing binary compiler begins publication.
+-- This checks approved custom quest/item starter pairs in BOTH directions:
+-- planned forward references and unexpected itemData.startQuest back-references.
+-- It is NOT a four-category source freeze or a coroutine-yielding safeguard.
+-- Its failure is deliberately uncaught by Stage1 so the custom cache revision
+-- cannot be advanced through a known-bad item-starter relationship.
+function QuestieCompat.VerifyNQuestieCustomItemSources()
+    local questKey = QuestieDB.questKeys and QuestieDB.questKeys.startedBy
+    local itemKey = QuestieDB.itemKeys and QuestieDB.itemKeys.startQuest
+    if not questKey or not itemKey then
+        error("N-Questie item starter postflight missing source keys")
+    end
+    local allItems = QuestieDB.itemData
+    if type(allItems) ~= "table" then
+        error("N-Questie item starter postflight item data unavailable")
+    end
+    local approvedEntries = approvedQuests()
+    local plannedItemOwners = {}
+    for questId, entry in pairs(approvedEntries) do
+        local expected = entry.startedByItems
+        if #expected > 0 then
+            local quest = QuestieDB.questData and QuestieDB.questData[questId]
+            local starters = type(quest) == "table" and quest[questKey]
+            local actual = type(starters) == "table" and denseIdList(starters[3])
+            if not actual or #actual ~= #expected then
+                error("N-Questie item starter postflight quest source mismatch")
+            end
+            -- The existing compiler can reorder arrays through pairs().
+            -- Compare sets rather than assuming a stable Lua hash order.
+            local seen = {}
+            for _, itemId in ipairs(actual) do seen[itemId] = true end
+            for _, itemId in ipairs(expected) do
+                if not seen[itemId] then
+                    error("N-Questie item starter postflight quest source mismatch")
+                end
+                local item = allItems[itemId]
+                if type(item) ~= "table" or item[itemKey] ~= questId then
+                    error("N-Questie item starter postflight item owner mismatch")
+                end
+                plannedItemOwners[itemId] = questId
+            end
+        end
+    end
+    -- A foreign correction could create an itemData.startQuest link to one of
+    -- our custom quests WITHOUT a matching quest.startedBy[3] source. Scan only
+    -- at the final precompile boundary, no writes and no giant item snapshot.
+    -- Linear in the effective item table; client frame-time is NOT yet measured.
+    for itemId, item in pairs(allItems) do
+        if type(item) == "table" then
+            local owner = item[itemKey]
+            if approvedEntries[owner] and plannedItemOwners[itemId] ~= owner then
+                error("N-Questie item starter postflight unplanned reverse item owner")
+            end
+        end
+    end
+    return true
+end
