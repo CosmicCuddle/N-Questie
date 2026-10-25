@@ -118,29 +118,35 @@ local function writeCategory(spec,source)
   assert(#ids<=65535,"too many pointer entries")
   table.sort(ids)
   local out=streamMod:GetStream("raw")
-  local ptrs={}
-  for _,id in ipairs(ids)do
-    local record=source[id]
-    assert(type(record)=="table","bad source entry")
-    assert(out._pointer>=1 and out._pointer<=16777215,
-      "pointer address exceeds 24-bit encoding")
-    ptrs[id]=out._pointer
-    for _,field in ipairs(db[spec.order])do
-      local value=record[db[spec.keys][field]]
-      local ty=db[spec.types][field]
-      assert(type(compiler.writers[ty])=="function","missing writer")
-      assert(value==nil or
-        (compiler.supportedTypes[type(value)] or {})[ty],
-        "preflight type mismatch "..spec.kind.."."..field)
-      compiler.writers[ty](out,value)
+  -- The writer and pointer encoder do not yield: Lua 5.1 permits pcall here.
+  -- Always return the source stream to its pool, even on a nested write error.
+  local ok,payload=pcall(function()
+    local ptrs={}
+    for _,id in ipairs(ids)do
+      local record=source[id]
+      assert(type(record)=="table","bad source entry")
+      assert(out._pointer>=1 and out._pointer<=16777215,
+        "pointer address exceeds 24-bit encoding")
+      ptrs[id]=out._pointer
+      for _,field in ipairs(db[spec.order])do
+        local value=record[db[spec.keys][field]]
+        local ty=db[spec.types][field]
+        assert(type(compiler.writers[ty])=="function","missing writer")
+        assert(value==nil or
+          (compiler.supportedTypes[type(value)] or {})[ty],
+          "preflight type mismatch "..spec.kind.."."..field)
+        compiler.writers[ty](out,value)
+      end
     end
-  end
-  local bin=out:Save()
-  assert(#bin<=16777215,"staged binary exceeds 24-bit pointer budget")
-  local pointers=compiler:EncodePointerMap(out,ptrs)
+    local bin=out:Save()
+    assert(#bin<=16777215,"staged binary exceeds 24-bit pointer budget")
+    local pointers=compiler:EncodePointerMap(out,ptrs)
+    assert(type(bin)=="string" and type(pointers)=="string")
+    return {bin=bin,ptrs=pointers,source=source,ids=ids,offsets=ptrs}
+  end)
   out:finished()
-  assert(type(bin)=="string" and type(pointers)=="string")
-  return {bin=bin,ptrs=pointers,source=source,ids=ids,offsets=ptrs}
+  if not ok then error(payload,0)end
+  return payload
 end
 
 -- Fixture-only oracle: compare every explicitly populated source field.
@@ -619,5 +625,46 @@ end)
 check("failed_decoded_field_preserves_old",function()
   assertOld(Questie.db.global)
 end)
-assert(passed==63,"wrong test count: "..passed)
-print("STAGED PROPOSAL RESULT: 63/63 PASS")
+-- Check streams are returned after bad root or nested codec writes.
+local originalGetStream=streamMod.GetStream
+local function runWithWriterStreamCounting(mutate)
+  reset()
+  mutate()
+  local returned=0
+  streamMod.GetStream=function(self,...)
+    local st=originalGetStream(self,...)
+    local previous=st.finished
+    st.finished=function(x)
+      returned=returned+1
+      return previous(x)
+    end
+    return st
+  end
+  local ok,reason=run()
+  streamMod.GetStream=originalGetStream
+  return ok,reason,returned
+end
+local rootAccepted,rootReason,rootReleased=runWithWriterStreamCounting(function()
+  db.questData[301][db.questKeys.questLevel]="INVALID_ROOT"
+end)
+check("invalid_root_writer_releases_its_stream",function()
+  assert(not rootAccepted and rootReleased>=3)
+  assert(type(rootReason)=="string" and
+    rootReason:find("preflight type mismatch",1,true))
+end)
+check("invalid_root_writer_preserves_published_data",function()
+  assertOld(Questie.db.global)
+end)
+local nestedAccepted,nestedReason,nestedReleased=runWithWriterStreamCounting(function()
+  db.questData[301][db.questKeys.startedBy]={{"BAD_NESTED_ID"}}
+end)
+check("nested_codec_failure_releases_writer_stream",function()
+  assert(not nestedAccepted and nestedReleased>=3)
+  assert(type(nestedReason)=="string" and
+    not nestedReason:find("preflight type mismatch",1,true))
+end)
+check("nested_codec_failure_preserves_published_data",function()
+  assertOld(Questie.db.global)
+end)
+assert(passed==67,"wrong test count: "..passed)
+print("STAGED PROPOSAL RESULT: 67/67 PASS")
