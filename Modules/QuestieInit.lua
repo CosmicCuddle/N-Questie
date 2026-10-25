@@ -211,6 +211,9 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     if (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID) or (Questie.db.global.nQuestieDataRevision ~= nQuestieRevision) then
         print("\124cFFAAEEFF" .. l10n("Questie DB has updated!") .. "\124r\124cFFFF6F22 " .. l10n("Data is being processed, this may take a few moments and cause some lag..."))
         loadFullDatabase()
+        if QuestieCompat.Is335 and type(QuestieCompat.VerifyNQuestieCustomItemSources) == "function" then
+            QuestieCompat.VerifyNQuestieCustomItemSources()
+        end
         QuestieDBCompiler:Compile()
         Questie.db.global.nQuestieDataRevision = nQuestieRevision
         dbCompiled = true
