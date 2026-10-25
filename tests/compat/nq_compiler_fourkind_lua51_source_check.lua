@@ -101,6 +101,15 @@ check("compile_metadata_only_after_success",function()
   assert(g.dbCompiledLang=="enUS" and g.dbCompiledOnVersion=="test-version")
   assert(g.dbCompiledExpansion==2)
 end)
+-- Characterization of original pinned compiler, not desired production behaviour.
+check("successful_compile_lock_blocks_second_attempt",function()
+  local g=Questie.db.global
+  assert(compiler._isCompiling==true,"expected original persistent lock")
+  local beforeBin,beforeCount=g.npcBin,g.dbCompiledCount
+  local result=drive(function()return compiler:Compile()end)
+  assert(result==nil and g.npcBin==beforeBin and g.dbCompiledCount==beforeCount,
+    "original compiler unexpectedly retried while lock held")
+end)
 for _,kind in ipairs(kinds) do
   local k,data,keys,types,order,id=unpack(kind)
   check(k.."_actual_pointer_and_unmasked_reader",function()
@@ -156,11 +165,21 @@ check("invalid_quest_characterizes_nonfatal_partial_publication",function()
   assert(g.dbIsCompiled==true and g.dbCompiledCount==1,
     "characterization missing current false success metadata")
 end)
+-- Even after invalid quest data is repaired, the original compiler lock persists.
+check("failed_compile_lock_blocks_valid_retry",function()
+  local g=Questie.db.global
+  assert(compiler._isCompiling==true,"expected original failed-run lock")
+  db.questData[301][db.questKeys.questLevel]=13
+  local oldBin,oldCount=g.questBin,g.dbCompiledCount
+  local result=drive(function()return compiler:Compile()end)
+  assert(result==nil and g.questBin==oldBin and g.dbCompiledCount==oldCount,
+    "original compiler unexpectedly retried repaired data")
+end)
 check("busy_guard_returns_without_compiling",function()
   local before=Questie.db.global.npcBin
   compiler._isCompiling=true
   local result=drive(function()return compiler:Compile()end)
   assert(result==nil and Questie.db.global.npcBin==before)
 end)
-assert(passes==8,"expected exactly 8 checks, got "..passes)
-print("FOURKIND SOURCE RESULT: 8/8 PASS")
+assert(passes==10,"expected exactly 10 checks, got "..passes)
+print("FOURKIND SOURCE RESULT: 10/10 PASS")
