@@ -1,8 +1,8 @@
 # N-Questie — living project master checklist
 
-**Snapshot:** 18 October 2026 (Europe/London). **Status:** tracking/documentation only, not approval to implement or merge.  
-**Protected branch:** `335`, verified GitHub HEAD `2be0f6f3001a20242c2fe81cb1915ff18602a4c8`.  
-**Owner:** N-Questie maintainer. **Lead developer:** CosmicScript01. **Independent reviewer:** CosmicScript02 (Grok, currently taking a break).  
+**Snapshot:** 25 October 2026 (Part 33, Europe/London). **Status:** tracking/documentation only, not approval to implement or merge.  
+**Protected branch:** `335`, pinned/verified GitHub HEAD `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`.  
+**Owner:** N-Questie maintainer. **Lead developer:** CosmicScript01. **Independent reviewer:** CosmicScript02 (Grok, active since owner-confirmed return 25 October).  
 **Purpose:** a single **whole-project** place to see what was completed, what is in progress or blocked, and what is planned. This is **not** just Grok's review queue.
 
 **Companion sources:**
@@ -11,9 +11,36 @@
 - [Single living CosmicScript02 rolling task queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348) — individual independent review tasks, verdicts and exact-SHA evidence. **Do not copy its task details into this overview**.
 - [Part 3 eight-decision sheet — draft PR #87](https://github.com/CosmicCuddle/N-Questie/pull/87) — proposed maintainer choices, not approvals.
 
+## PART 33 CURRENT TWELVE-GATE STATUS — 25 October 2026
+
+> **Current authoritative snapshot for the LOW / loader / source-owner / compiler workstream.** Historical Part 32 entries below are retained for traceability only and must not be interpreted as the latest CI evidence. DRAFT PRs are not merge/release permission. No private SQL, item/NPC/GO/loot source relationships or IP-client mappings belong in this PUBLIC repository.
+
+| # | Milestone | State | Current factual acceptance boundary |
+|---|---|---|---|
+| 01 | Reconcile 439 raw missing quest IDs | COMPLETE | 21 conventionally linked (12 inclusion review + 9 deferred), 418 exploratory; exclude 30000–30004 |
+| 02 | Verify 1207, 1208, 1209 are player-offered | COMPLETE | User confirmed offers; this does not prove item/NPC/GO/loot/IP source closure |
+| 03 | Pinned source/registration research | COMPLETE | Re-verify after any later implementation change |
+| 04 | OPT-A loader, R5 and immutable source manifest | UNDERWAY | Source provenance/complete closure still pending |
+| 05 | Load graph, bidirectional owner and no-late-writer safeguards | UNDERWAY | #168 has targeted item-only precompile postflight; NPC/GO/query-time overlay closure and compiler-yield ownership still incomplete |
+| 06 | Completion cache / CS02 #166 | UNDERWAY | #166 has 6/6 ordinary CI green; 57 author-run Lua characterisation checks not CI-wired. CS02 has approval to propose test-only **separate branch from 335** with no package/artifact workflow |
+| 07 | Real Lua 5.1 loader integration, item starters and source verification | UNDERWAY | #168 `04dc2cdb`: CS02 locally verified **95/95 Lua 5.1 + 95/95 Lua 5.4**, **12/12 actual pinned Questie item codec Lua 5.1**, 24-order previously-unplanned item reverse link now refused; six exact-head PR workflows were queued when checked. No real client runtime, memory budget or item-use offer verified |
+| 08 | Four-category compiler staging, success status and crash/stream safety | UNDERWAY | #167 `26a833a3`: CS01 independently inspected actual successful Lua5.1 job log for **26 codec + 10 pinned four-kind + 67 staged test-only = 103/103 PASS**; CS02 independently reproduced 103/103 on Lua 5.1/5.4. Later isolated test-oracle change `6d112adf` (sentinel + first-resume check) now has **103 proposed; exact-head CI pending**. Production compiler unchanged and still has sticky `_isCompiling`, invalid-type false success and skipped stream release |
+| 09 | Confidential 1207–1209 source/loot/IP verification | UNDERWAY | Owner/private-only verification required; no public-source claims inferred here |
+| 10 | Implement 1207,1208,1209 | OWNER APPROVED, TECHNICALLY PENDING | **0/3**, Gate09 source proof and full safety required first |
+| 11 | WoW 3.3.5a / Individual Progression client QA | OWNER APPROVED, TECHNICALLY PENDING | Real game, Lua heap/frame budget, cache/relog, marker, loot/eligibility and rollback not accepted yet |
+| 12 | Exact-head CI, peer review, final merge/package/release | OWNER APPROVED, TECHNICALLY PENDING | All technical and client QA gates must pass; current drafts not merged |
+
+**Current tally:** **3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED but TECHNICALLY PENDING.** Owner already granted development Gates 10–12; no repeat approval is required for safe research. This is **not** final merge, install or release authorization.
+
+**Pinned safety boundary:** protected `335` remains `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`; custom quests 1207–1209 remain absent from production (0/3). #96, #167 and #168 CS01 isolated draft overlay workflows explicitly disable automatic PR build assembly and artifact upload. Earlier published *temporary QA CI artifacts* on other/older runs are not releases and still need separately reviewed cleanup; other unpatched branch workflows may still assemble them. Never commit private source spreadsheets, SQL, loot/IP mappings, client state or SavedVariables to the PUBLIC repository.
+
+**Team evidence:** [#168 latest independent CS02 review](https://github.com/CosmicCuddle/N-Questie/pull/168#issuecomment-6401241843); [#167 latest independent CS02 review](https://github.com/CosmicCuddle/N-Questie/pull/167#issuecomment-6401241966); [CS01 new research and CS02 no-idle assignments](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6401302500); [#168 source safety status](https://github.com/CosmicCuddle/N-Questie/pull/168#issuecomment-6401186945). CS02 owns completion-cache test proposal review. All work remains draft and reviewable.
+
+---
+
 ## PART 32 LIVE TWELVE-GATE STATUS — 25 October 2026
 
-> **Authoritative CURRENT status for the N-Questie LOW/loader/compiler workstream.** This section supersedes dated gate/permission wording below where applicable, without rewriting historical findings or resolving unrelated eight-decision Part 3 contracts. Research identities and private server-source relationships must never be posted here.
+> **HISTORICAL Part 32 snapshot only.** The Part 33 table above supersedes this dated view for current workstream/CI/approval status. Preserve its original facts for traceability; do not transfer older CI claims to newer commits or resolve unrelated eight-decision Part 3 contracts. Research identities and private server-source relationships must never be posted here.
 
 | # | Milestone | Current state | Acceptance still needed |
 |---|---|---|---|
