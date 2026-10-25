@@ -37,7 +37,16 @@ def assert_stage1_guard_order():
         raise SystemExit("FAIL: item source verification is not before Stage1 compile/revision")
     if "coYield()" in stage[locations[1]:locations[2]]:
         raise SystemExit("FAIL: unexpected yield between item source postflight and compilation")
-    print("PASS: item source postflight runs after full DB load and before compilation", flush=True)
+    # Source-placement regression only (not a runtime coroutine execution):
+    # configured 3.3.5a custom quests must not silently skip a missing hook.
+    for required in (
+        'type(nQuestieData.quests) == "table" and next(nQuestieData.quests) ~= nil',
+        'if type(QuestieCompat.VerifyNQuestieCustomItemSources) ~= "function" then',
+        'error("N-Questie source postflight unavailable; refusing compilation")',
+    ):
+        if required not in stage[locations[0]:locations[2]]:
+            raise SystemExit("FAIL: configured custom quests can skip required postflight hook")
+    print("PASS: postflight is required for configured quests before compile/revision", flush=True)
 
 def run_executable(executable):
     env = dict(os.environ, NQ_LOADER_PATH=str(LOADER))
