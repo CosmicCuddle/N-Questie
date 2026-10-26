@@ -67,6 +67,18 @@ Owner clarified the project goal is full **eligible missing-quest coverage** aft
 
 ---
 
+### Part 35 — CS02 independent #173 review and two-case forward-subset child #176 (26 October 2026)
+
+**Gate 05 / CS02 peer review:** [#173 exact-head independent review](https://github.com/CosmicCuddle/N-Questie/pull/173#issuecomment-6414511933), `2d8816ff3ec196967e9f5de93e63ef0b38618f88`, **APPROVE WITH FOLLOW-UP (TEST-ONLY)**. Grok confirmed actual **47/47 Lua5.1 and 47/47 Lua5.4**, 24/24 correction category orders, 7/7 PR workflows plus push green, zero artifacts across eight runs and previous forward-superset / `MISSING_ITEM` mutation kills. More importantly, an independent mutant removing the **subset** loop of `same()` survived 47/47, so prior two changed-owner checks were not fully discriminating. The `effective()` inner typed category refusal is unreachable from the fixture's checked `closed()` call path; defence-in-depth survivor is **cosmetic test reachability**, not proven absence of code risk.
+
+**Gate 05 / new stacked [research-only DRAFT #176](https://github.com/CosmicCuddle/N-Questie/pull/176):** exact `b42ccdbe1f02fd2b0fe60ef45b6c5cb9a57acc9f` based on unchanged reviewed #173. Changed **two existing synthetic test/CI files**, adding `NPC forward subset refused` and `item forward subset refused` exactly as proposed by CS02, and updating the full-suite count **47 → 49** without changing any product source. Independently fetched [dedicated job `121545175066`](https://github.com/CosmicCuddle/N-Questie/actions/runs/40314976421): **49/49 PASS on real Lua5.1.5 + 49/49 PASS on real Lua5.4.6**, both new cases present and 24 correction permutations retained. At this checkpoint **6/7 current-head pull-request workflows SUCCESS**, M2 `40314976423` still in progress, push CI SUCCESS; all eight current-head artifact endpoints zero when audited. **No exact-head CS02 #176 approval yet**; independent subset-mutant kill still required. Do not transfer parent #173 review or CI results to this child.
+
+**Gate 08 / parent compiler streams:** #175 `9ce74b5a24cc594efbed81ef79e313e281246cdb` now has **8/8 pull-request workflows SUCCESS**, separate push CI SUCCESS, dedicated actual Lua5.1+5.4 12/12 fail-stop quarantine research per interpreter; no verified production integration, pool-failure recovery/cancellation semantics, writer epoch or four-kind publication. Peer review of #174 then #175 queued; no merges.
+
+**Programme boundary:** The **439-record investigation and eligible missing-quest implementation** is Milestone 10; quests 1207–1209 are only 0/3 of its initial pilot. The full 439 denominator **is not** 439 approved quest additions. Gates 05/08 remain **UNDERWAY** and 09/10/11/12 retain their existing status. This research has not modified protected `335`, public production loader source, real quest data, server or client. No package, merge, private source mapping or release.
+
+---
+
 ## PART 34 HISTORICAL TWELVE-GATE STATUS — 26 October 2026
 
 > **Current authoritative public-safe status.** This milestone tracker describes completed evidence, not the amount of code finished and not approval to merge or release. Individual quest-source, NPC/GO/item/loot or Individual Progression private mappings must not be published here.
