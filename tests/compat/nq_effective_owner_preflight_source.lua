@@ -128,6 +128,6 @@ npc199[N.questStarts]={[3]=910001}
 check("unrelated-only sparse legacy tolerated",valid()==true)
 npc199[N.questStarts]=prev
 check("source unaffected after negative tests",valid()==true)
-assert(count==21,"expected 21 synthetic source-owner checks, got "..count)
-print("EFFECTIVE SOURCE OWNER RESULT: 21/21 PASS")
+assert(count==22,"expected 22 synthetic source-owner checks, got "..count)
+print("EFFECTIVE SOURCE OWNER RESULT: 22/22 PASS")
 print("CANDIDATE ONLY: no compiler yield freeze, client/IP or release permission")
