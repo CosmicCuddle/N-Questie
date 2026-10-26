@@ -41,6 +41,16 @@
 
 ---
 
+### Part 35 follow-up — exact-head #173 closeout and #174 lease-driver research (26 October 2026)
+
+**Gate 05 / [test-only DRAFT #173](https://github.com/CosmicCuddle/N-Questie/pull/173):** exact head `2d8816ff3ec196967e9f5de93e63ef0b38618f88` based on frozen #172; exactly two changed research test/workflow paths. The **seven PR workflows are all SUCCESS** (including M2 run `40305406655`); the separate push CI also SUCCESS. **All 8 PR/push artifact endpoints independently checked: 0 artifacts.** The [actual dedicated Lua job 121513158657](https://github.com/CosmicCuddle/N-Questie/actions/runs/40305406526) shows **47/47 real Lua5.1 +47/47 real Lua5.4**. The extended fixture includes 24 full category-order permutations, nine legacy/malformed effective owner checks and all three independent CS02 #172 missing-discrimination cases (two forward supersets and MISSING_ITEM). **#173 has NOT yet received an exact-head independent CS02 review.** No production verifier, actual client/faction closure or source writer freeze is inferred from the result.
+
+**Gate 08 / NEW [research-only DRAFT #174](https://github.com/CosmicCuddle/N-Questie/pull/174):** isolated child of unchanged #167 `1ab7006d369d78fc74162e589119ee5d5a3f505d`, current `fbb2332f14bfcd439692209c4fae633dba6b0bb3`. Exactly two synthetic Lua test/PR-only workflow paths, no product compiler patch. Pin the separate 335 source worktree and Questie stream/compiler blobs; the driver wraps actual yielding `GetDBHandle` and tracks stream leases. Actual [dedicated Lua job 121518607098](https://github.com/CosmicCuddle/N-Questie/actions/runs/40307042902) confirms **9/9 real Lua5.1 +9/9 real Lua5.4** (malformed pre-handle decode, reader Load exception, post-handle failure, zero-lease acquisition refusal, transient toy epoch ABA/RETRY, concurrent BUSY, retry after repaired pointers, and no double release after pooling). **Other #174 exact-head workflows and artifact audit still pending at this documentation checkpoint; no overall-green claim.** Production owner coverage, four-kind/eight-field atomic commit, persistence durability, actual 3.3.5a performance and IP QA remain unimplemented.
+
+**Collaboration:** [CS02 primary #173 / backup #174 + #167](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6413751359); preserve unchanged peer-reviewed #172 exact head and existing #168 item-only regression. All new fixture values are fictional. Protected `335` pinned `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`. No private SQL/relationships, client/server/SavedVariables edits, package, merge or release. The Part35 12-gate tally remains **3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED TECHNICALLY PENDING**; actual missing quest implementation 1207–1209 remains **0/3**.
+
+---
+
 ## PART 34 HISTORICAL TWELVE-GATE STATUS — 26 October 2026
 
 > **Current authoritative public-safe status.** This milestone tracker describes completed evidence, not the amount of code finished and not approval to merge or release. Individual quest-source, NPC/GO/item/loot or Individual Progression private mappings must not be published here.
