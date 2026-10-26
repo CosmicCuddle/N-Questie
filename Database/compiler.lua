@@ -960,8 +960,13 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
                     -- caller-owned scratch stage. Never touch SavedVariables here.
                     local bin = stream:Save()
                     local ptrs = QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
+                    -- Fail closed if the writer cannot be returned safely.
+                    -- No scratch stage entry is visible before finished() returns.
+                    -- A possibly poisoned pool still needs future driver quarantine.
+                    stream:finished()
                     stage[databaseKey.."Bin"] = bin
                     stage[databaseKey.."Ptrs"] = ptrs
+                    return
                 elseif Questie.IsSoD then
                     Questie.db.global.sod[databaseKey.."Bin"] = stream:Save()
                     Questie.db.global.sod[databaseKey.."Ptrs"] = QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
