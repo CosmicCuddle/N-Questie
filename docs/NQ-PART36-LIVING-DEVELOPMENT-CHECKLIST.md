@@ -21,6 +21,18 @@
 
 **Status: 3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED TECHNICALLY PENDING.**
 
+## Part36 Gate08 — current-attempt receipts and suspended scratch ABA (26 October 2026)
+
+**Immutable parent:** [draft #184](https://github.com/CosmicCuddle/N-Questie/pull/184) `b47135da0b1b84e2bd411786e84ee1b932581dd8`, **9/9 original-head CI SUCCESS and 0 artifacts**, dual-Lua **45/45**. No merge/installation/tag/release.
+
+**NEW [draft #185](https://github.com/CosmicCuddle/N-Questie/pull/185)**, exact original `610e490e8625276f4f86e69af056ab8ccd5a621a` (child of #184): optional compiler-owned `BeginNQStagedGeneration(stage)` fresh token clears all eight `npc/obj/quest/item Bin/Ptrs`; `VerifyNQStagedGeneration(stage,token)` refuses missing/stale/tampered eight fields and receipts. Existing four writers stamp per-kind Bin/Ptrs **after writer finish**. Real source-backed test **45→58** invented cases; dedicated [run 40345016005](https://github.com/CosmicCuddle/N-Questie/actions/runs/40345016005) **SUCCESS 58/58 under both actual Lua5.1 and Lua5.4**. At last status **11/13** original PR+push workflows succeeded, two M2 runs still processing; full CI and all-artifact recheck required. Not an atomic eight-field publish, not source freeze.
+
+**NEW [draft #186](https://github.com/CosmicCuddle/N-Questie/pull/186)**, child of frozen #185. Scratched staged-generation replay issue: a writer suspended during `coroutine.yield` could resume after the same stage is reinitialized, and mistakenly stamp its old bytes with the *new* token. Optional staged writer now captures scratch token + monotonic attempt serial at entry, checks both after yield and before stamping; Begin increments serial. Five added fictional source-backed checks **58→63** exercise suspended actual writer, DEAD-only lease cleanup, token A→B→A while serial advances and successful new attempt. **The initial #186 head `0860dacb` correctly FAILED its dedicated job after tests #59–61 because the test accidentally reused the old transaction's lease owner in a new attempt**; test harness corrected on subsequent head `f325a78022e28f1ce48c82885d0b3e3ff129c5e6`, whose CI is **PENDING** at this checkpoint. Do not claim the current head green before exact dual-Lua run. This serial only guards reuse of the **scratch staging destination**, *not* source NPC/GO/item/quest A→B→A.
+
+**Gate08 remains BLOCKED:** no production transaction owner/Stage1 integration, full source-writer epoch or immutable source snapshot, global pool poison isolation, eight-field+revision atomic publication, relog/SavedVariables recovery, real 3.3.5a/IP memory/frame QA. [Source writer coverage audit](research/NQ-PART36-GATE08-SOURCE-WRITER-COVERAGE-AUDIT.md) identifies actual `_LoadCorrections`, nested corrections, faction overrides and yielding `PreCompile`; unknown third-party writes prevent a complete epoch claim. CS02 independent new-head review required.
+
+Protected `335` remains `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`. Twelve gates **3 COMPLETE / 6 UNDERWAY / 3 technically pending**. Entire **439-record** Gate10 investigation remains in scope; 1207–1209 pilot **0/3**. Never publish confidential NPC/GO/item/loot/IP/SQL source relationships, and do not merge/install/package/tag/release.
+
 ## Part36 Gate08 checkpoint — strict staged datatype refusal and writer coverage (26 October 2026)
 
 **PR #183 closed CI:** [draft #183](https://github.com/CosmicCuddle/N-Questie/pull/183) at `22686e486d15f7f3350f5e3fe7d55fc677a34f81` finished **13/13** original-branch GitHub Actions SUCCESS; real source-backed Lua5.1/5.4 **41/41**, previous regressions passed. Independent exact-head CS02 review remains separately required. No merge.
