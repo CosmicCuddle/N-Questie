@@ -21,6 +21,14 @@
 
 **Status: 3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED TECHNICALLY PENDING.**
 
+## Part 36 continuation — new Gate08 production-source staging seam (26 October 2026)
+
+**Gate05 #178 CI CLOSEOUT.** Frozen head `bebc6aab20104575220b8515158d3ae38bf18289` has **7/7 PR + 5/5 push workflows SUCCESS**, **0 artifacts across all twelve exact-head endpoints** independently checked, 25/25 effective-source cases each real Lua5.1/5.4, 101/101 inherited loader cases each, 12/12 real pinned item codec each, strict revision bump 11→12. **CS02 independent new-head M5/M6 mutation/faction and desktop performance review is still outstanding**. Older pending-CI notes are superseded, not erased; no merge or actual client/IP approval.
+
+**Gate08 new [DRAFT PR #180](https://github.com/CosmicCuddle/N-Questie/pull/180)** stacked on frozen #178. New `Database/compiler.lua` optional `stage` table on the actual NPC/GO/quest/item coroutine writer methods, outputs eight `Bin/Ptrs` fields to caller-owned scratch instead of direct live SavedVariables; no-stage original path is unchanged. Adds a fictional 18-check **actual codec/source readback** Lua5.1/5.4 test and PR-only no-artifact workflow. The first head `9d0bd101` **FAILED in the workflow's Lua version regex step before running the tests**; corrected on current `87c88b9837f2649b57e52fdf530bb3d1ea585b0a`, whose exact-head CI is **PENDING**, so **do not claim Gate08 green**. No writer/reader lease lifecycle fix, writer epoch A→B→A exclusion, immutable snapshot, full readback, atomic eight-field publish, SUCCESS-only revision, SavedVariables crash/relog recovery or WoW client memory/frame proof is implemented; this seam cannot be connected to Stage1 yet.
+
+**CS02 independent queue**: review #178 exact-head mutations and faction cache; independent compiler-stage diff/mutation analysis of #180; no-idle backup true Gate08 TX01–TX18 safe stream driver and #175 poison/cleanup 12→14 work. [Team coordination](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6416793224). **Whole 439-record investigation** remains Gate10; initial pilot 1207–1209 **0/3**; eligibility denominator unknown. **Milestones still 3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED TECHNICALLY PENDING**. No confidential source relations in public GitHub, merge/package/install/release or protected `335` edits.
+
 ## Priority A — full effective-owner draft PR #177 review follow-ups
 
 **Immutable reviewed parent:** [PR #177](https://github.com/CosmicCuddle/N-Questie/pull/177) `00f2b4d1d5814f64a7c2284469358299171d4baa` (child of [#168](https://github.com/CosmicCuddle/N-Questie/pull/168)). At snapshot, **7/7 PR + 5/5 push workflows SUCCESS; 0/12 artifacts**. Grok CS02 [APPROVE-WITH-FOLLOW-UP (DRAFT)](https://github.com/CosmicCuddle/N-Questie/pull/177#issuecomment-6415536358). Open an **isolated child draft** to preserve the reviewed branch.
