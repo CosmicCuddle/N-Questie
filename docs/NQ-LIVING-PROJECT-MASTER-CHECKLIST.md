@@ -57,6 +57,16 @@ Owner clarified the project goal is full **eligible missing-quest coverage** aft
 
 ---
 
+### Part 35 follow-up — suspended coroutine quarantine proposal (test-only #175)
+
+**New [isolated draft PR #175](https://github.com/CosmicCuddle/N-Questie/pull/175)** at exact head `9ce74b5a24cc594efbed81ef79e313e281246cdb`, stacked only on unchanged #174 `fbb2332f14bfcd439692209c4fae633dba6b0bb3`. **Exactly two additional synthetic Lua test/PR-only workflow paths**, no production compiler/stream modification. The [source-reviewed #174 toy-driver exhaustion gap](https://github.com/CosmicCuddle/N-Questie/pull/174#issuecomment-6414135312) becomes a **fail-closed/quarantine** test proposal: deliberately suspended coroutine before acquire/during actual source-backed `GetDBHandle` Load/after handle, no premature stream release or compiled revision increment, locked BUSY until controlled restart; terminal DEAD failures clean up once and support repaired retry; pre-pool `finished()` error poisons a lease and refuses retry.
+
+**Actual dedicated [run 40311836875](https://github.com/CosmicCuddle/N-Questie/actions/runs/40311836875), job `121534653290`** shows **12/12 PASS on real Lua 5.1.5 and 12/12 PASS on real Lua 5.4.6** against exact pinned unmodified compiler/stream sources. This *does not cancel a Lua5.1 coroutine, reclaim quarantined memory, cover a failed stream return that has already changed the pool, prove real source writer freeze/ABA, publish the four category Bin/Ptrs pairs, or verify crash durability or client performance*. At this note's checkpoint **7 of 8 pull-request checks success**, M2 run `40311836794` still processing, separate push CI SUCCESS and all nine artifact endpoints examined at 0. Exact-head independent CS02 review pending. Preserve parent #174's complete 7/7 CI, test-only evidence; do not transfer approval to #175 or to production.
+
+**Milestone 10 stays the whole 439-record eligible-coverage programme**, not a completed three-quest patch. First pilot remains 1207–1209 0/3; source/loot/IP evidence private and incomplete. **Milestone 08 remains UNDERWAY** despite positive synthetic driver checks. [CS02 primary #173; backups #174, #175 and #167](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6414422296). **No merge, 335 edit, private SQL/source publication, release or client installation**.
+
+---
+
 ## PART 34 HISTORICAL TWELVE-GATE STATUS — 26 October 2026
 
 > **Current authoritative public-safe status.** This milestone tracker describes completed evidence, not the amount of code finished and not approval to merge or release. Individual quest-source, NPC/GO/item/loot or Individual Progression private mappings must not be published here.
