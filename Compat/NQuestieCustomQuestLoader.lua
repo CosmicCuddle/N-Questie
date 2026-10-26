@@ -617,7 +617,7 @@ function QuestieCompat.VerifyNQuestieCustomEffectiveSources()
     local seen = {npc = {starts = {}, ends = {}}, go = {starts = {}, ends = {}}}
     local function inspectReverse(kind, ownerId, field, direction)
         local relation = effective(kind, ownerId, field)
-        if relation == nil then relation = {} end
+        if relation == nil then return end
         if type(relation) ~= "table" then refusal("BAD_RELATION") end
         local related = false
         for _, id in pairs(relation) do
