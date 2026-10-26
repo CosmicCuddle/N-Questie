@@ -73,6 +73,10 @@ check("unrelated preexisting owner unaffected",npc101[N.questStarts][1]==910000
 refusal("NPC forward subset", "FORWARD_MISMATCH",function()
   starts[1]={}
 end,function()starts[1]={101}end)
+-- Same-cardinality NPC substitution detects compare-loop off-by-one defects.
+refusal("NPC forward equal-sized substitution", "FORWARD_MISMATCH",function()
+  starts[1]={199}
+end,function()starts[1]={101}end)
 refusal("GO forward superset", "FORWARD_MISMATCH",function()
   starts[2]={201,299}
 end,function()starts[2]={201}end)
@@ -81,6 +85,10 @@ refusal("item forward subset", "ITEM_FORWARD_MISMATCH",function()
 end,function()starts[3]={301}end)
 refusal("faction effective quest override refused", "FORWARD_MISMATCH",function()
   db.questDataOverrides[A]={[Q.startedBy]={{}, {201},{301}}}
+end,function()db.questDataOverrides[A]=nil end)
+-- Read an effective faction-style finisher override, not only startedBy.
+refusal("faction effective finisher override refused", "FORWARD_MISMATCH",function()
+  db.questDataOverrides[A]={[Q.finishedBy]={{199},{202}}}
 end,function()db.questDataOverrides[A]=nil end)
 refusal("missing NPC reverse", "MISSING_REVERSE",function()
   npc101[N.questStarts]={910000}
@@ -112,6 +120,10 @@ end,function()item301[I.startQuest]=A end)
 refusal("override item scalar foreign owner", "FOREIGN_ITEM",function()
   db.itemDataOverrides[399]={[I.startQuest]=A}
 end,function()db.itemDataOverrides[399]=nil end)
+-- An override-only item with no base record must be scanned.
+refusal("override-only foreign item owner", "FOREIGN_ITEM",function()
+  db.itemDataOverrides[9399]={[I.startQuest]=A}
+end,function()db.itemDataOverrides[9399]=nil end)
 refusal("malformed source relation type", "BAD_RELATION",function()
   npc199[N.questEnds]="BAD"
 end,function()npc199[N.questEnds]=nil end)
@@ -128,6 +140,6 @@ npc199[N.questStarts]={[3]=910001}
 check("unrelated-only sparse legacy tolerated",valid()==true)
 npc199[N.questStarts]=prev
 check("source unaffected after negative tests",valid()==true)
-assert(count==22,"expected 22 synthetic source-owner checks, got "..count)
-print("EFFECTIVE SOURCE OWNER RESULT: 22/22 PASS")
+assert(count==25,"expected 25 synthetic source-owner checks, got "..count)
+print("EFFECTIVE SOURCE OWNER RESULT: 25/25 PASS")
 print("CANDIDATE ONLY: no compiler yield freeze, client/IP or release permission")
