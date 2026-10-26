@@ -943,7 +943,28 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
     local index = 0
 
     local pointerMap = {}
-    local stream = Questie.db.profile.debugEnabled and QuestieStream:GetStream("raw_assert") or QuestieStream:GetStream("raw")
+    -- Gate08 draft: only the optional stage path may request a driver-owned
+    -- writer lease. Pass the actual Questie stream owner explicitly; never
+    -- monkey-patch its GetStream method or intercept unrelated subsystems.
+    -- A DEAD/SUSPENDED-aware outer coroutine driver still has to own cleanup.
+    local leaseOwner = stage and stage._nqWriterLeaseOwner
+    local lease
+    local stream
+    local mode = Questie.db.profile.debugEnabled and "raw_assert" or "raw"
+    if leaseOwner ~= nil then
+        if type(leaseOwner) ~= "table" or
+                type(leaseOwner.Acquire) ~= "function" or
+                type(leaseOwner.Finish) ~= "function" then
+            error("Gate08 writer lease owner must implement Acquire and Finish")
+        end
+        lease = leaseOwner:Acquire(QuestieStream, mode)
+        if type(lease) ~= "table" or type(lease.stream) ~= "table" then
+            error("Gate08 writer owner returned an invalid lease")
+        end
+        stream = lease.stream
+    else
+        stream = QuestieStream:GetStream(mode)
+    end
 
     -- Localize functions
     local pcall, type = pcall, type
@@ -963,7 +984,13 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
                     -- Fail closed if the writer cannot be returned safely.
                     -- No scratch stage entry is visible before finished() returns.
                     -- A possibly poisoned pool still needs future driver quarantine.
-                    stream:finished()
+                    if leaseOwner then
+                        -- Lease ownership remains with the external driver,
+                        -- including an ambiguous failure inside Finish.
+                        leaseOwner:Finish(lease)
+                    else
+                        stream:finished()
+                    end
                     stage[databaseKey.."Bin"] = bin
                     stage[databaseKey.."Ptrs"] = ptrs
                     return

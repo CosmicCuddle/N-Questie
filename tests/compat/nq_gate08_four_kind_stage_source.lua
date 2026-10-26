@@ -166,6 +166,170 @@ check("writer finish failure preserves both old staged fields",
 check("writer finish failure leaves live objects and revision unchanged",
     saved.objBin=="OLD_BIN_obj" and saved.objPtrs=="OLD_PTRS_obj"
     and saved.nQuestieDataRevision==57 and saved.dbCompiledCount==9)
-assert(tests==21,"expected 21 source-backed compiler stage tests, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 21/21 PASS")
+-- Part36 Gate08 follow-up: driver-owned writer leases pass DIRECTLY to the
+-- real staged compiler. This avoids globally replacing GetStream. Ownership
+-- is demonstrated here, not yet installed as the production Stage1 driver.
+db.itemData={[77401]={[db.itemKeys.name]="Invented Item"}}
+local realGlobalGet=owner.GetStream
+local function newLeaseDriver(opts)
+    opts=opts or {}
+    local busy=false
+    local leases,finishAttempts={},0
+    local stage={npcBin="OLD_STAGE_NPC",npcPtrs="OLD_STAGE_NPC_PTRS"}
+    local leaseOwner={}
+    function leaseOwner:Acquire(streamParent,mode)
+        assert(streamParent==owner and (mode=="raw" or mode=="raw_assert"))
+        if opts.failAcquire then error("SYNTHETIC_ACQUIRE_BEFORE_POOL",0) end
+        local s=streamParent:GetStream(mode)
+        local lease={stream=s,done=false,releasing=false,poolTouched=false,attempts=0}
+        leases[#leases+1]=lease
+        if opts.stallAfterAcquire then
+            while true do coroutine.yield("SYNTHETIC_WRITER_STALLED") end
+        end
+        return lease
+    end
+    function leaseOwner:Finish(lease)
+        assert(type(lease)=="table" and not lease.done and not lease.releasing)
+        lease.releasing=true
+        lease.attempts=lease.attempts+1
+        finishAttempts=finishAttempts+1
+        if opts.failBeforePool then error("SYNTHETIC_FINISH_BEFORE_POOL",0) end
+        lease.stream:finished()
+        lease.poolTouched=true
+        if opts.failAfterPool then error("SYNTHETIC_FINISH_AFTER_POOL",0) end
+        lease.done=true
+        lease.releasing=false
+    end
+    stage._nqWriterLeaseOwner=leaseOwner
+    local function run()
+        if busy then return {status="BUSY",stage=stage,leases=leases,
+            finishAttempts=finishAttempts,busy=busy} end
+        busy=true
+        local co=coroutine.create(function()
+            for _,entry in ipairs(categories) do
+                compiler[entry.fn](compiler,stage)
+            end
+            return "SUCCESS"
+        end)
+        local status,reason,dead=nil,nil,false
+        for _=1,(opts.budget or 256) do
+            local ok,value=coroutine.resume(co)
+            dead=coroutine.status(co)=="dead"
+            if not ok then status,reason="ERROR",tostring(value);break end
+            if dead then status=value;break end
+        end
+        dead=coroutine.status(co)=="dead"
+        if not status then status="ABORTED_QUARANTINED" end
+        local quarantined=not dead
+        if dead then
+            for _,lease in ipairs(leases) do
+                if not lease.done then
+                    if lease.releasing then
+                        -- Any throwing finished() is pool-unknown. Never retry it.
+                        quarantined=true
+                    else
+                        -- Called only after coroutine is DEAD. No pcall wraps a yield.
+                        lease.releasing=true
+                        lease.attempts=lease.attempts+1
+                        finishAttempts=finishAttempts+1
+                        local ok=pcall(lease.stream.finished,lease.stream)
+                        if ok then
+                            lease.done=true
+                            lease.releasing=false
+                            lease.poolTouched=true
+                        else
+                            quarantined=true
+                            status="ERROR"
+                        end
+                    end
+                end
+            end
+        end
+        if quarantined then
+            busy=true -- Intentional fail-stop: do not resume a suspended thread.
+        else
+            busy=false
+        end
+        return {status=status,reason=reason,stage=stage,leases=leases,
+            finishAttempts=finishAttempts,busy=busy,quarantined=quarantined,
+            dead=dead}
+    end
+    return run
+end
+
+local ownedSuccess=newLeaseDriver()()
+check("explicit writer owner stages all four real compiler categories",
+    ownedSuccess.status=="SUCCESS" and ownedSuccess.dead
+    and #ownedSuccess.leases==4 and ownedSuccess.finishAttempts==4
+    and type(ownedSuccess.stage.itemBin)=="string"
+    and type(ownedSuccess.stage.questPtrs)=="string")
+local completed=true
+for _,lease in ipairs(ownedSuccess.leases) do
+    if not lease.done or lease.releasing or not lease.poolTouched
+        or lease.attempts~=1 then completed=false end
+end
+check("each successful writer lease finished exactly once and unlocked",
+    completed and not ownedSuccess.busy and not ownedSuccess.quarantined)
+check("explicit leased compiler preserved live generation and GetStream",
+    saved.objBin=="OLD_BIN_obj" and saved.questBin=="OLD_BIN_quest"
+    and saved.nQuestieDataRevision==57 and owner.GetStream==realGlobalGet)
+
+db.objectData={[77201]={[db.objectKeys.name]={99}}}
+local failedWrite=newLeaseDriver()()
+db.objectData={[77201]={[db.objectKeys.name]="Invented Object"}}
+check("malformed GO codec terminates with DEAD owned writer cleanup",
+    failedWrite.status=="ERROR" and failedWrite.dead and not failedWrite.busy
+    and not failedWrite.quarantined and #failedWrite.leases==2
+    and failedWrite.leases[1].done and failedWrite.leases[2].done
+    and failedWrite.leases[2].attempts==1)
+check("malformed GO never exposes partially encoded GO scratch pair",
+    failedWrite.stage.objBin==nil and failedWrite.stage.objPtrs==nil
+    and saved.objBin=="OLD_BIN_obj")
+
+local failBeforeRun=newLeaseDriver({failAcquire=true})
+local failedAcquire=failBeforeRun()
+check("pre-acquire failure creates zero writer leases and unlocks",
+    failedAcquire.status=="ERROR" and failedAcquire.dead and not failedAcquire.busy
+    and #failedAcquire.leases==0 and failedAcquire.finishAttempts==0)
+
+local beforeRun=newLeaseDriver({failBeforePool=true})
+local poisonedBefore=beforeRun()
+check("failed writer finish before pool quarantines without second attempt",
+    poisonedBefore.status=="ERROR" and poisonedBefore.dead
+    and poisonedBefore.quarantined and poisonedBefore.busy
+    and #poisonedBefore.leases==1 and poisonedBefore.finishAttempts==1
+    and not poisonedBefore.leases[1].poolTouched
+    and poisonedBefore.stage.npcBin=="OLD_STAGE_NPC"
+    and poisonedBefore.stage.npcPtrs=="OLD_STAGE_NPC_PTRS"
+    and beforeRun().status=="BUSY")
+
+local afterRun=newLeaseDriver({failAfterPool=true})
+local poisonedAfter=afterRun()
+check("pool-return-then-throw quarantines and never retries finished",
+    poisonedAfter.status=="ERROR" and poisonedAfter.dead
+    and poisonedAfter.quarantined and poisonedAfter.busy
+    and poisonedAfter.finishAttempts==1
+    and poisonedAfter.leases[1].poolTouched
+    and poisonedAfter.leases[1].attempts==1
+    and poisonedAfter.stage.npcBin=="OLD_STAGE_NPC"
+    and poisonedAfter.stage.npcPtrs=="OLD_STAGE_NPC_PTRS"
+    and afterRun().status=="BUSY")
+
+local suspendRun=newLeaseDriver({stallAfterAcquire=true,budget=4})
+local suspended=suspendRun()
+check("suspended acquired writer is never returned or resumed",
+    suspended.status=="ABORTED_QUARANTINED" and not suspended.dead
+    and suspended.quarantined and suspended.busy
+    and #suspended.leases==1 and not suspended.leases[1].done
+    and suspended.finishAttempts==0 and suspendRun().status=="BUSY")
+
+local rejectedStage={_nqWriterLeaseOwner={}}
+local invalidOwner=pcall(function()
+    drive(function()compiler:CompileNPCs(rejectedStage)end)
+end)
+check("unimplemented writer lease owner contract is refused before acquire",
+    not invalidOwner and rejectedStage.npcBin==nil and
+    rejectedStage.npcPtrs==nil and owner.GetStream==realGlobalGet)
+assert(tests==31,"expected 31 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 31/31 PASS")
 print("DRAFT ONLY: no writer epoch/ABA, lease recovery, atomic commit, disk recovery or client QA")
