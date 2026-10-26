@@ -216,10 +216,10 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
         -- and then advance the custom revision as though those quests loaded.
         if QuestieCompat.Is335 and type(nQuestieData) == "table" and
                 type(nQuestieData.quests) == "table" and next(nQuestieData.quests) ~= nil then
-            if type(QuestieCompat.VerifyNQuestieCustomItemSources) ~= "function" then
-                error("N-Questie source postflight unavailable; refusing compilation")
+            if type(QuestieCompat.VerifyNQuestieCustomEffectiveSources) ~= "function" then
+                error("N-Questie effective source postflight unavailable; refusing compilation")
             end
-            QuestieCompat.VerifyNQuestieCustomItemSources()
+            QuestieCompat.VerifyNQuestieCustomEffectiveSources()
         end
         QuestieDBCompiler:Compile()
         Questie.db.global.nQuestieDataRevision = nQuestieRevision

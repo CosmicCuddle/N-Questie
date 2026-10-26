@@ -503,3 +503,176 @@ function QuestieCompat.VerifyNQuestieCustomItemSources()
     end
     return true
 end
+
+
+-- Part35 candidate: full effective, post-correction ownership check.
+-- This is a read-only *precompile* verifier. It does not freeze writers
+-- across compiler coroutine yields and is not sufficient for a merge.
+-- Do not infer real quest availability or client/IP stage from this check.
+function QuestieCompat.VerifyNQuestieCustomEffectiveSources()
+    local approved = approvedQuests()
+    local Q, N, G, I = QuestieDB.questKeys, QuestieDB.npcKeys,
+        QuestieDB.objectKeys, QuestieDB.itemKeys
+    if type(Q) ~= "table" or type(N) ~= "table" or
+        type(G) ~= "table" or type(I) ~= "table" or
+        not Q.startedBy or not Q.finishedBy or
+        not N.questStarts or not N.questEnds or
+        not G.questStarts or not G.questEnds or not I.startQuest then
+        error("N-Questie effective owner preflight: BAD_KEYS")
+    end
+
+    local data = {
+        quest = QuestieDB.questData,
+        npc = QuestieDB.npcData,
+        go = QuestieDB.objectData,
+        item = QuestieDB.itemData,
+    }
+    local overrides = {
+        quest = QuestieDB.questDataOverrides,
+        npc = QuestieDB.npcDataOverrides,
+        go = QuestieDB.objectDataOverrides,
+        item = QuestieDB.itemDataOverrides,
+    }
+    for _, kind in ipairs({"quest", "npc", "go", "item"}) do
+        if type(data[kind]) ~= "table" then
+            error("N-Questie effective owner preflight: BAD_CATEGORY")
+        end
+        if overrides[kind] ~= nil and type(overrides[kind]) ~= "table" then
+            error("N-Questie effective owner preflight: BAD_OVERRIDE_CATEGORY")
+        end
+        -- Don't silently accept malformed even if an override entry is
+        -- unrelated to the approved custom quest set.
+        for _, entry in pairs(overrides[kind] or {}) do
+            if type(entry) ~= "table" then
+                error("N-Questie effective owner preflight: BAD_OVERRIDE_ENTRY")
+            end
+        end
+    end
+
+    local function effective(kind, id, key)
+        local row = data[kind][id]
+        if row ~= nil and type(row) ~= "table" then
+            error("N-Questie effective owner preflight: BAD_ENTRY")
+        end
+        local override = overrides[kind] and overrides[kind][id]
+        if override ~= nil then
+            if type(override) ~= "table" then
+                error("N-Questie effective owner preflight: BAD_OVERRIDE_ENTRY")
+            end
+            if override[key] ~= nil then return override[key] end
+        end
+        return row and row[key]
+    end
+
+    local function refusal(reason)
+        error("N-Questie effective owner preflight: "..reason, 0)
+    end
+    local function sameIds(actual, expected)
+        local ids = denseIdList(actual)
+        if not ids or #ids ~= #expected then return false end
+        local seen = {}
+        for _, id in ipairs(ids) do seen[id] = true end
+        for _, id in ipairs(expected) do
+            if not seen[id] then return false end
+        end
+        return true
+    end
+    local expected = {
+        npc = {starts = {}, ends = {}},
+        go = {starts = {}, ends = {}},
+    }
+    local expectedItem = {}
+    local function add(kind, direction, ownerId, questId)
+        local bucket = expected[kind][direction]
+        bucket[ownerId] = bucket[ownerId] or {}
+        bucket[ownerId][questId] = true
+    end
+    for questId, entry in pairs(approved) do
+        local starts = effective("quest", questId, Q.startedBy)
+        local ends = effective("quest", questId, Q.finishedBy)
+        if type(starts) ~= "table" or type(ends) ~= "table" then
+            refusal("BAD_FORWARD")
+        end
+        local fields = {
+            {starts[1], entry.startedByNpcs, "FORWARD_MISMATCH"},
+            {starts[2], entry.startedByGameObjects, "FORWARD_MISMATCH"},
+            {starts[3], entry.startedByItems, "ITEM_FORWARD_MISMATCH"},
+            {ends[1], entry.finishedByNpcs, "FORWARD_MISMATCH"},
+            {ends[2], entry.finishedByGameObjects, "FORWARD_MISMATCH"},
+        }
+        for _, group in ipairs(fields) do
+            if not sameIds(group[1], group[2]) then refusal(group[3]) end
+        end
+        for _, source in ipairs(entry.startedByNpcs) do add("npc", "starts", source, questId) end
+        for _, source in ipairs(entry.finishedByNpcs) do add("npc", "ends", source, questId) end
+        for _, source in ipairs(entry.startedByGameObjects) do add("go", "starts", source, questId) end
+        for _, source in ipairs(entry.finishedByGameObjects) do add("go", "ends", source, questId) end
+        for _, itemId in ipairs(entry.startedByItems) do
+            if expectedItem[itemId] and expectedItem[itemId] ~= questId then
+                refusal("CONTESTED_ITEM")
+            end
+            expectedItem[itemId] = questId
+        end
+    end
+    local seen = {npc = {starts = {}, ends = {}}, go = {starts = {}, ends = {}}}
+    local function inspectReverse(kind, ownerId, field, direction)
+        local relation = effective(kind, ownerId, field)
+        if relation == nil then relation = {} end
+        if type(relation) ~= "table" then refusal("BAD_RELATION") end
+        local related = false
+        for _, id in pairs(relation) do
+            if approved[id] then related = true end
+        end
+        -- Existing unrelated-only sparse/duplicate lists are historic Questie
+        -- data, not a basis for new custom source claims. Keep them intact.
+        if not related then return end
+        local dense = denseIdList(relation)
+        if not dense then refusal("BAD_RELATION") end
+        for _, questId in ipairs(dense) do
+            if approved[questId] then
+                if not (expected[kind][direction][ownerId] or {})[questId] then
+                    refusal("FOREIGN_REVERSE")
+                end
+                seen[kind][direction][ownerId] = seen[kind][direction][ownerId] or {}
+                seen[kind][direction][ownerId][questId] = true
+            end
+        end
+    end
+    local reverseFields = {
+        npc = {starts = N.questStarts, ends = N.questEnds},
+        go = {starts = G.questStarts, ends = G.questEnds},
+    }
+    for _, kind in ipairs({"npc", "go"}) do
+        local universe = {}
+        for id in pairs(data[kind]) do universe[id] = true end
+        for id in pairs(overrides[kind] or {}) do universe[id] = true end
+        for id in pairs(universe) do
+            inspectReverse(kind, id, reverseFields[kind].starts, "starts")
+            inspectReverse(kind, id, reverseFields[kind].ends, "ends")
+        end
+        for _, direction in ipairs({"starts", "ends"}) do
+            for id, owners in pairs(expected[kind][direction]) do
+                for questId in pairs(owners) do
+                    if not (seen[kind][direction][id] or {})[questId] then
+                        refusal("MISSING_REVERSE")
+                    end
+                end
+            end
+        end
+    end
+    local itemUniverse = {}
+    for id in pairs(data.item) do itemUniverse[id] = true end
+    for id in pairs(overrides.item or {}) do itemUniverse[id] = true end
+    for itemId in pairs(itemUniverse) do
+        local owner = effective("item", itemId, I.startQuest)
+        if approved[owner] and expectedItem[itemId] ~= owner then
+            refusal("FOREIGN_ITEM")
+        end
+    end
+    for itemId, questId in pairs(expectedItem) do
+        if effective("item", itemId, I.startQuest) ~= questId then
+            refusal("MISSING_ITEM")
+        end
+    end
+    return true
+end
