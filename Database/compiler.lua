@@ -1414,11 +1414,31 @@ function QuestieDBCompiler:ValidateQuests()
     Questie:Debug(Questie.DEBUG_INFO, "Finished quests validation without issues!")
 end
 
-function QuestieDBCompiler:GetDBHandle(data, pointers, skipMap, keyToRootIndex, overrides)
+function QuestieDBCompiler:GetDBHandle(data, pointers, skipMap, keyToRootIndex, overrides, readerLeaseOwner)
     local handle = {}
     local map, lastIndex, lastPtr, types, _, indexToKey, keyToIndex = unpack(skipMap)
 
-    local stream = QuestieStream:GetStream("raw")
+    -- Gate08 optional reader lease: the external coroutine driver must own
+    -- this lease BEFORE the first yield and before decoding pointers. Normal
+    -- callers (no sixth argument) retain the original GetStream behaviour.
+    -- The source does not hide a pcall across coroutine.yield, or reclaim a
+    -- suspended stream. No global GetStream method is replaced.
+    local stream
+    if readerLeaseOwner ~= nil then
+        if type(readerLeaseOwner) ~= "table" or
+                type(readerLeaseOwner.Acquire) ~= "function" or
+                type(readerLeaseOwner.Finish) ~= "function" then
+            error("Gate08 reader lease owner must implement Acquire and Finish")
+        end
+        local lease = readerLeaseOwner:Acquire(QuestieStream, "raw")
+        if type(lease) ~= "table" or type(lease.stream) ~= "table" then
+            error("Gate08 reader owner returned an invalid lease")
+        end
+        stream = lease.stream
+        handle.readerLease = lease
+    else
+        stream = QuestieStream:GetStream("raw")
+    end
     coroutine.yield()
     stream:Load(pointers)
     coroutine.yield()

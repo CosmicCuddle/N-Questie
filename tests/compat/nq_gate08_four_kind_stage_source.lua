@@ -330,6 +330,150 @@ end)
 check("unimplemented writer lease owner contract is refused before acquire",
     not invalidOwner and rejectedStage.npcBin==nil and
     rejectedStage.npcPtrs==nil and owner.GetStream==realGlobalGet)
-assert(tests==31,"expected 31 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 31/31 PASS")
+-- Part36 Gate08 reader-owned pre-handle acquisition. The real
+-- GetDBHandle yields before it loads pointers. The caller driver (not a
+-- global GetStream wrapper) must retain the stream even without a handle.
+local function newReaderDriver(opts)
+    opts=opts or {}
+    local busy,leases,finishAttempts=false,{},0
+    local leaseOwner={}
+    function leaseOwner:Acquire(streamParent,mode)
+        assert(streamParent==owner and mode=="raw")
+        if opts.failAcquire then error("SYNTHETIC_READER_PRE_ACQUIRE",0) end
+        local s=streamParent:GetStream(mode)
+        local lease={stream=s,done=false,releasing=false,attempts=0,
+            originalLoad=s.Load,poolTouched=false}
+        leases[#leases+1]=lease
+        return lease
+    end
+    function leaseOwner:Finish(lease)
+        assert(not lease.done and not lease.releasing)
+        lease.releasing=true
+        lease.attempts=lease.attempts+1
+        finishAttempts=finishAttempts+1
+        if opts.failBeforePool then error("SYNTHETIC_READER_FINISH_BEFORE",0) end
+        lease.stream.Load=lease.originalLoad
+        lease.stream:finished()
+        lease.poolTouched=true
+        if opts.failAfterPool then error("SYNTHETIC_READER_FINISH_AFTER",0) end
+        lease.done=true
+        lease.releasing=false
+    end
+    local function run()
+        if busy then return {status="BUSY",leases=leases,busy=busy,
+            finishAttempts=finishAttempts} end
+        busy=true
+        local co=coroutine.create(function()
+            local handle=compiler:GetDBHandle(
+                stage.npcBin,opts.badPointers or stage.npcPtrs,
+                compiler:BuildSkipMap(db.npcCompilerTypes,db.npcCompilerOrder),
+                db.npcKeys,nil,leaseOwner)
+            assert(handle.readerLease==leases[1],"handle did not keep owned lease")
+            if opts.failAfterHandle then error("SYNTHETIC_READER_POSTHANDLE",0) end
+            local value=handle.QuerySingle(77101,"name")
+            assert(value=="Invented NPC","real reader decode mismatch")
+            leaseOwner:Finish(handle.readerLease)
+            return "SUCCESS"
+        end)
+        local status,reason=nil,nil
+        for _=1,(opts.budget or 256) do
+            local ok,value=coroutine.resume(co)
+            if not ok then status,reason="ERROR",tostring(value);break end
+            if coroutine.status(co)=="dead" then status=value;break end
+        end
+        local dead=coroutine.status(co)=="dead"
+        if not status then status="ABORTED_QUARANTINED" end
+        local quarantine=not dead
+        if dead then
+            for _,lease in ipairs(leases) do
+                if not lease.done then
+                    if lease.releasing then
+                        quarantine=true -- pool state may be unknown: no retry
+                    else
+                        -- AFTER the reader coroutine is DEAD only.
+                        lease.releasing=true
+                        lease.attempts=lease.attempts+1
+                        finishAttempts=finishAttempts+1
+                        lease.stream.Load=lease.originalLoad
+                        local ok=pcall(lease.stream.finished,lease.stream)
+                        if ok then
+                            lease.done=true
+                            lease.releasing=false
+                            lease.poolTouched=true
+                        else
+                            quarantine=true
+                            status="ERROR"
+                        end
+                    end
+                end
+            end
+        end
+        busy=quarantine
+        return {status=status,reason=reason,leases=leases,dead=dead,
+            busy=busy,quarantined=quarantine,finishAttempts=finishAttempts}
+    end
+    return run
+end
+
+local readerSuccess=newReaderDriver()()
+check("explicit pre-handle reader lease succeeds with real pointer readback",
+    readerSuccess.status=="SUCCESS" and readerSuccess.dead
+    and #readerSuccess.leases==1 and readerSuccess.finishAttempts==1)
+check("successful reader lease returned once with no busy lock",
+    readerSuccess.leases[1].done and readerSuccess.leases[1].attempts==1
+    and readerSuccess.leases[1].poolTouched and not readerSuccess.busy)
+
+local badReader=newReaderDriver({badPointers=string.char(0)})()
+check("DEAD malformed pre-handle pointer decode reclaims owned reader",
+    badReader.status=="ERROR" and badReader.dead
+    and #badReader.leases==1 and badReader.leases[1].done
+    and badReader.finishAttempts==1 and not badReader.busy)
+local postHandleReader=newReaderDriver({failAfterHandle=true})()
+check("DEAD post-handle error returns reader once without publication",
+    postHandleReader.status=="ERROR" and postHandleReader.dead
+    and postHandleReader.leases[1].done and
+    postHandleReader.leases[1].attempts==1 and not postHandleReader.busy
+    and saved.nQuestieDataRevision==57)
+local preAcquireReader=newReaderDriver({failAcquire=true})()
+check("reader acquisition refusal before pool has zero leases",
+    preAcquireReader.status=="ERROR" and preAcquireReader.dead
+    and #preAcquireReader.leases==0 and not preAcquireReader.busy)
+
+local poisonReaderBefore=newReaderDriver({failBeforePool=true})
+local readerBefore=poisonReaderBefore()
+check("reader failed finish before pool is poisoned without second attempt",
+    readerBefore.status=="ERROR" and readerBefore.quarantined
+    and readerBefore.busy and readerBefore.finishAttempts==1
+    and readerBefore.leases[1].attempts==1
+    and not readerBefore.leases[1].poolTouched
+    and poisonReaderBefore().status=="BUSY")
+local poisonReaderAfter=newReaderDriver({failAfterPool=true})
+local readerAfter=poisonReaderAfter()
+check("reader pool-return-then-throw fails closed and stays BUSY",
+    readerAfter.status=="ERROR" and readerAfter.quarantined
+    and readerAfter.busy and readerAfter.finishAttempts==1
+    and readerAfter.leases[1].poolTouched
+    and poisonReaderAfter().status=="BUSY")
+
+local heldReader=newReaderDriver({budget=1})
+local held=heldReader()
+check("suspended pre-handle reader stays quarantined without a pool return",
+    held.status=="ABORTED_QUARANTINED" and not held.dead
+    and held.busy and held.quarantined and #held.leases==1
+    and held.finishAttempts==0 and not held.leases[1].done
+    and heldReader().status=="BUSY")
+
+local invalidReaderOwner=pcall(function()
+    drive(function()compiler:GetDBHandle(
+        stage.npcBin,stage.npcPtrs,
+        compiler:BuildSkipMap(db.npcCompilerTypes,db.npcCompilerOrder),
+        db.npcKeys,nil,{})end)
+end)
+check("invalid reader ownership contract refused before acquire",
+    not invalidReaderOwner and owner.GetStream==realGlobalGet)
+check("reader and writer owner paths did not intercept global GetStream",
+    owner.GetStream==realGlobalGet and saved.nQuestieDataRevision==57
+    and saved.npcBin~="OLD_STAGE_NPC")
+assert(tests==41,"expected 41 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 41/41 PASS")
 print("DRAFT ONLY: no writer epoch/ABA, lease recovery, atomic commit, disk recovery or client QA")
