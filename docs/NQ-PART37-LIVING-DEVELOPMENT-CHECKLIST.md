@@ -38,13 +38,13 @@ All these are draft/unmerged and **not based on `335` for merging**. Freshly ver
 | Explicit pre-handle reader owner | [#183](https://github.com/CosmicCuddle/N-Questie/pull/183) `22686e48` | **41/41** both Lua, 13/13 CI; CS02 review pending | Optional sixth reader lease argument |
 | Nonthrowing error fix | [#184](https://github.com/CosmicCuddle/N-Questie/pull/184) `b47135da` | **45/45** both Lua, 9/9 CI and 0 artifacts; CS02 review pending | Actual `Questie:Error` only prints; staged invalid type now explicitly fails |
 | Current generation receipt | [#185](https://github.com/CosmicCuddle/N-Questie/pull/185) **`610e490e8625276f4f86e69af056ab8ccd5a621a`** | **58/58** both Lua; **13/13 own CI SUCCESS, 0 artifacts**, fully rechecked at handover; CS02 review pending | New scratch generation, current per-kind receipt, reject eight stale values |
-| Suspended scratch ABA | [#186](https://github.com/CosmicCuddle/N-Questie/pull/186) **`f325a78022e28f1ce48c82885d0b3e3ff129c5e6`** | **63/63** both Lua in [run 40345915903](https://github.com/CosmicCuddle/N-Questie/actions/runs/40345915903); **8/9 own CI SUCCESS, only M2 PR run 40345916004 pending, 0/9 artifacts at handover**; CS02 review pending | Per-stage scratch attempt serial fences suspended stale coroutine + scratch token A→B→A |
+| Suspended scratch ABA | [#186](https://github.com/CosmicCuddle/N-Questie/pull/186) **`f325a78022e28f1ce48c82885d0b3e3ff129c5e6`** | **63/63** both Lua in [run 40345915903](https://github.com/CosmicCuddle/N-Questie/actions/runs/40345915903); **9/9 own CI SUCCESS including M2 PR run 40345916004; zero artifacts across all 9 endpoints independently rechecked**; CS02 review pending | Per-stage scratch attempt serial fences suspended stale coroutine + scratch token A→B→A |
 
-**#186 CI caveat:** the earlier experimental head `0860dacb41d7a3bdaf5ca3e6adfea30a26ea73f6` **FAILED** the dedicated runner because the fixture accidentally kept an old lease owner for a new recovered attempt; fixture corrected on `f325a780`, then dual-Lua **63/63 PASS**. Do not claim the old commit passed. Check M2 completion and final nine artifact endpoints anew.
+**#186 CI caveat:** the earlier experimental head `0860dacb41d7a3bdaf5ca3e6adfea30a26ea73f6` **FAILED** the dedicated runner because the fixture accidentally kept an old lease owner for a new recovered attempt; fixture corrected on `f325a780`, then dual-Lua **63/63 PASS**. Do not claim the old commit passed. The corrected head is now confirmed 9/9 CI SUCCESS and 0 artifacts; check only for newer activity or changed head.
 
 ## 3. PRIORITY A — CI closure and CS02 review
 
-- [ ] Check #186 **M2 pull-request run `40345916004`** on exact `f325a780`: green **9/9** only if that run succeeds. Recheck artifacts for all nine original branch runs.
+- [x] #186 exact `f325a780`: M2 PR run `40345916004` **SUCCESS**, full **9/9** original branch workflows SUCCESS, **0 artifacts** independently rechecked. Recheck only if new commits/workflows appear.
 - [x] #185 exact 13/13 successful/zero artifacts rechecked at Part37 handover. Recheck again if PR head changes.
 - [ ] Read new CS02 comments in [#42](https://github.com/CosmicCuddle/N-Questie/pull/42) and PRs #183–#186; obtain **independent exact-head reviews**, not inherited approvals.
 - [ ] Request typed mutation challenge of #185 missing/forged/stale receipts, #186 suspended writer and scratch A→B→A, #184 nonthrowing error, #183 pointer errors before handle.
@@ -87,4 +87,4 @@ All these are draft/unmerged and **not based on `335` for merging**. Freshly ver
 
 **Public confidentiality:** no real AzerothCore database SQL, private workbook or NPC/GO/item/loot/phase/IP mapping, ever. Only invented fixture data. **Never merge into `335`, publish ZIP, alter releases, tag, install or claim a production-ready transaction during this handover.**
 
-**Opening Part37 truth: 3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING; #185 13/13 green/0 artifacts; #186 8/9 green with M2 pending/0 artifacts at check; 63/63 dual Lua source-backed; actual source writer epoch and stream pool isolation remain blocked; 439-row programme, pilot 0/3.**
+**Opening Part37 truth: 3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING; #185 13/13 green/0 artifacts; #186 9/9 green/0 artifacts; 63/63 dual Lua source-backed; actual source writer epoch and stream pool isolation remain blocked; 439-row programme, pilot 0/3.**
