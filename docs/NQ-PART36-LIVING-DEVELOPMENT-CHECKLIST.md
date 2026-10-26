@@ -21,6 +21,16 @@
 
 **Status: 3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED TECHNICALLY PENDING.**
 
+## Part 36 live Gate08 writer+reader lease engineering — 26 October 2026
+
+**Frozen Gate08 writer parent:** [DRAFT #182](https://github.com/CosmicCuddle/N-Questie/pull/182) source head `3450e50a7e9d553fb6087aaa073c1c19b113519f`. Filtered the actual run list to its **own head branch** (exclude extra push runs created later when opening a child): **13/13 PR+push CI SUCCESS**, **zero artifacts across those 13 endpoints**, real Lua5.1+5.4 **31/31** source-backed tests. Exact head and reviewed ancestors preserved; no merge.
+
+**NEW [DRAFT #183](https://github.com/CosmicCuddle/N-Questie/pull/183)**, child of #182, initial head `22686e486d15f7f3350f5e3fe7d55fc677a34f81`. Three changed paths. Real `Database/compiler.lua:GetDBHandle(data,pointers,skipMap,keyToRootIndex,overrides,readerLeaseOwner)` adds an **optional explicit reader stream lease** acquired **before its first yield/pointer decode**; existing 5-argument callers are unmodified and do not use the owner. Returned handle carries `readerLease`; no global `GetStream` monkeypatch. The prior 31 real source-backed writer and staging checks are retained, with **10 new reader cases**, giving **41/41 PASS per actual Lua5.1 and Lua5.4** in dedicated [run 40338094131](https://github.com/CosmicCuddle/N-Questie/actions/runs/40338094131), job `121624975997`. Cases include pre-handle corrupt pointer DEAD cleanup, post-handle error, pre-acquire zero lease, failure before/after pool return quarantined without double finish, suspended reader (no return) and invalid owner contract. **Full current-head CI/zero-artifact final audit and independent CS02 review remain PENDING.**
+
+**Unresolved production hard stops:** test driver only; no Stage1 connection, real globally isolated stream pool quarantine, production transaction owner or reader/writer all-stage scheduling. A source A→B→A race cannot be prevented by the present precompile-only owner checker. All-eight-field publish+custom revision, crash/relog SavedVariables recovery, WoW3.3.5a/Individual Progression client tests and memory/frame profiling remain unimplemented. An ambiguous `finished()` that mutates the shared stream pool then throws can still affect unrelated Questie consumers; toy BUSY is NOT pool isolation. No merge, packages, installation or release. Protected `335` remains `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`.
+
+**Project milestones remain 3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED TECHNICALLY PENDING.** Entire **439 raw records** still require eligibility investigation (not 439 automatically approved additions); initial 1207–1209 pilot **0/3**. Never put owner-private SQL, NPC/GO/item/loot/IP mappings on the PUBLIC repository.
+
 ## Part 36 continued — Gate08 explicit writer lease seam (26 October 2026)
 
 **Previous draft [#181](https://github.com/CosmicCuddle/N-Questie/pull/181)** is fixed at `72d4b65039aa0b73e4dd00171318e586eee08e16`, now **13/13 exact-head PR/push workflows SUCCESS**, with **0 artifacts independently checked across all thirteen**. The original optional stage requires `finished()` before exposing staged fields, and actual source-backed **21/21 on both Lua5.1/5.4**. Neither Stage1 nor legacy Compile() switches to staging; #181 stays draft and peer-review pending.
