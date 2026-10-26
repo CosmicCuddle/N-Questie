@@ -643,12 +643,16 @@ function QuestieCompat.VerifyNQuestieCustomEffectiveSources()
         go = {starts = G.questStarts, ends = G.questEnds},
     }
     for _, kind in ipairs({"npc", "go"}) do
-        local universe = {}
-        for id in pairs(data[kind]) do universe[id] = true end
-        for id in pairs(overrides[kind] or {}) do universe[id] = true end
-        for id in pairs(universe) do
+        local function inspectOwner(id)
             inspectReverse(kind, id, reverseFields[kind].starts, "starts")
             inspectReverse(kind, id, reverseFields[kind].ends, "ends")
+        end
+        -- Scan the base table in place and visit override-ONLY owners
+        -- separately. No second full-size NPC/GO ID table is allocated.
+        -- effective() already selects the override for shared IDs.
+        for id in pairs(data[kind]) do inspectOwner(id) end
+        for id in pairs(overrides[kind] or {}) do
+            if data[kind][id] == nil then inspectOwner(id) end
         end
         for _, direction in ipairs({"starts", "ends"}) do
             for id, owners in pairs(expected[kind][direction]) do
@@ -660,14 +664,15 @@ function QuestieCompat.VerifyNQuestieCustomEffectiveSources()
             end
         end
     end
-    local itemUniverse = {}
-    for id in pairs(data.item) do itemUniverse[id] = true end
-    for id in pairs(overrides.item or {}) do itemUniverse[id] = true end
-    for itemId in pairs(itemUniverse) do
+    local function inspectItem(itemId)
         local owner = effective("item", itemId, I.startQuest)
         if approved[owner] and expectedItem[itemId] ~= owner then
             refusal("FOREIGN_ITEM")
         end
+    end
+    for id in pairs(data.item) do inspectItem(id) end
+    for id in pairs(overrides.item or {}) do
+        if data.item[id] == nil then inspectItem(id) end
     end
     for itemId, questId in pairs(expectedItem) do
         if effective("item", itemId, I.startQuest) ~= questId then
