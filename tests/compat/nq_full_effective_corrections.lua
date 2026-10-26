@@ -116,13 +116,22 @@ local function ids(value)
   if n~=high then refusal("BAD_RELATION") end
   return seen
 end
+local function referencesApproved(value,plan)
+  if type(value)~="table" then return false end
+  for _,questId in pairs(value) do
+    if plan[questId] then return true end
+  end
+  return false
+end
 local function same(a,b)
   for id in pairs(a) do if not b[id] then return false end end
   for id in pairs(b) do if not a[id] then return false end end
   return true
 end
 local function effective(raw,overrides,id,key)
+  if overrides~=nil and type(overrides)~="table" then refusal("BAD_OVERRIDE_CATEGORY") end
   local patch=overrides and overrides[id]
+  if patch~=nil and type(patch)~="table" then refusal("BAD_OVERRIDE_ENTRY") end
   if patch and patch[key]~=nil then return patch[key] end
   return raw and raw[key]
 end
@@ -175,16 +184,24 @@ local function closed(state)
     local spec=K[kind]
     local owners=db[spec.tableKey]
     local overrides=db[kind.."Overrides"]
+    if type(owners)~="table" then refusal("BAD_CATEGORY") end
+    if type(overrides)~="table" then refusal("BAD_OVERRIDE_CATEGORY") end
     local universe={}
     for id in pairs(owners) do universe[id]=true end
     for id in pairs(overrides) do universe[id]=true end
     for ownerId in pairs(universe) do
       for _,role in ipairs({"start","finish"}) do
         local field=spec[role]
-        local links=ids(effective(owners[ownerId],overrides,ownerId,field))
-        for questId in pairs(links) do
-          if plan[questId] then
-            rev[tuple(kind,ownerId,questId,role)]=true
+        local rawLinks=effective(owners[ownerId],overrides,ownerId,field)
+        if rawLinks~=nil and type(rawLinks)~="table" then refusal("BAD_RELATION") end
+        -- Strict density/duplicates only matter when an approved quest is present.
+        -- Unrelated-only legacy quest lists may be sparse or contain duplicates.
+        if referencesApproved(rawLinks,plan) then
+          local links=ids(rawLinks)
+          for questId in pairs(links) do
+            if plan[questId] then
+              rev[tuple(kind,ownerId,questId,role)]=true
+            end
           end
         end
       end
@@ -195,6 +212,8 @@ local function closed(state)
   -- An item starter is a scalar. Include override-only item IDs in the scan,
   -- rather than confusing an objective item with a direct item source.
   local itemUniverse={}
+  if type(db.itemData)~="table" then refusal("BAD_CATEGORY") end
+  if type(db.itemOverrides)~="table" then refusal("BAD_OVERRIDE_CATEGORY") end
   for id in pairs(db.itemData) do itemUniverse[id]=true end
   for id in pairs(db.itemOverrides) do itemUniverse[id]=true end
   for id in pairs(itemUniverse) do
@@ -278,6 +297,37 @@ local clean=build(order)
 clean.db.npcOverrides[NX]={[1]="Unrelated cosmetic name"}
 check("unrelated owner overrides remain allowed",closed(clean)==true)
 
-if checks~=35 then error("FULL FIXTURE expected 35 checks, got "..checks,0) end
-print("FULL EFFECTIVE CORRECTIONS RESULT: 35/35 PASS")
+-- Part35: safety contracts distinguishing benign legacy relations from
+-- reverse relations that contain approved fictional quest identifiers.
+local unrelatedNpc=build(order)
+unrelatedNpc.db.npcData[NX][N.questStarts]={990900,990900}
+check("unrelated duplicate NPC legacy list tolerated",closed(unrelatedNpc)==true)
+local unrelatedGo=build(order)
+unrelatedGo.db.objectData[GX][G.questStarts]={[3]=990900}
+check("unrelated sparse GO legacy list tolerated",closed(unrelatedGo)==true)
+local unrelatedOverride=build(order)
+unrelatedOverride.db.npcOverrides[7798]={[N.questStarts]={990900,990900}}
+check("override-only unrelated duplicate NPC list tolerated",closed(unrelatedOverride)==true)
+
+mutation("custom-related NPC reverse duplicate refused",function(db)
+  db.npcData[NA][N.questStarts]={A,A}
+end,"BAD_RELATION")
+mutation("mixed custom unrelated sparse reverse refused",function(db)
+  db.npcData[NX][N.questStarts]={[1]=990900,[3]=A}
+end,"BAD_RELATION")
+mutation("unrelated GO non-table reverse refused",function(db)
+  db.objectData[GX][G.questStarts]="malformed"
+end,"BAD_RELATION")
+mutation("malformed NPC override category typed refusal",function(db)
+  db.npcOverrides=true
+end,"BAD_OVERRIDE_CATEGORY")
+mutation("malformed GO override entry typed refusal",function(db)
+  db.goOverrides[GX]=true
+end,"BAD_OVERRIDE_ENTRY")
+mutation("malformed item override category typed refusal",function(db)
+  db.itemOverrides=true
+end,"BAD_OVERRIDE_CATEGORY")
+
+if checks~=44 then error("FULL FIXTURE expected 44 checks, got "..checks,0) end
+print("FULL EFFECTIVE CORRECTIONS RESULT: 44/44 PASS")
 print("TEST ONLY: complete fictional correction fixture; not a production write-freeze or client integration")

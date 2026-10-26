@@ -34,9 +34,9 @@ jobs:
           for lua in lua5.1 lua5.4; do
             file="$RUNNER_TEMP/nq-full-effective-$lua.log"
             timeout --signal=TERM --kill-after=5s 60s "$lua" tests/compat/nq_full_effective_corrections.lua | tee "$file"
-            test "$(grep -c '^PASS FULL ' "$file")" -eq 35
+            test "$(grep -c '^PASS FULL ' "$file")" -eq 44
             test "$(grep -c '^PASS FULL complete correction order ' "$file")" -eq 24
-            test "$(grep -Fxc 'FULL EFFECTIVE CORRECTIONS RESULT: 35/35 PASS' "$file")" -eq 1
+            test "$(grep -Fxc 'FULL EFFECTIVE CORRECTIONS RESULT: 44/44 PASS' "$file")" -eq 1
             grep -Fx 'TEST ONLY: complete fictional correction fixture; not a production write-freeze or client integration' "$file"
             if grep -Eq '^(FAIL FULL|EFFECTIVE FIXTURE)' "$file"; then
               echo "FAIL: unexpected synthetic correction error" >&2
