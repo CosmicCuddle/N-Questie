@@ -13,6 +13,12 @@
 - [Single living CosmicScript02 rolling task queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348) — individual independent review tasks, verdicts and exact-SHA evidence. **Do not copy its task details into this overview**.
 - [Part 3 eight-decision sheet — draft PR #87](https://github.com/CosmicCuddle/N-Questie/pull/87) — proposed maintainer choices, not approvals.
 
+## Part 36 live follow-up — 26 October 2026 (DRAFT #178; CI still running at snapshot)
+
+[Isolated #178](https://github.com/CosmicCuddle/N-Questie/pull/178) builds on frozen [#177](https://github.com/CosmicCuddle/N-Questie/pull/177) `00f2b4d1`. The new current source head `f810ce4b24b1116d8c869ae94773635bf30d09f2` includes three fictional effective-owner probes (**22→25**), nil reverse relation fast-return, strict SHA1 pin `20ffe65804c19dd9be25b3378a4b8cda02790158`, executable file mode restoration for unchanged `QuestieInit.lua`, and cache revision **11→12**. The initial child `bd469f5a` passed the dedicated 25-test workflow but **failed** the strict source-to-cache revision safeguard, correctly requiring a bump above 11. The bump was applied on the subsequent head. **No new-head success, peer approval or artifact-zero claim until that exact head is rechecked.** Six net changed paths against #177; #177 remains immutable and independently reviewed with follow-up.
+
+[CS02 team assignment](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6416337798) covers exact-head mutation and memory source review, cross-faction cached-login invariant, plus continued independent Gate08 compiler TX01–TX11/stream quarantine research while waiting. No production 4-kind compiler transaction, all-writer epoch protection, private quest proof or client QA completed. The **twelve-gate status remains 3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED TECHNICALLY PENDING**, including the full 439-record research programme, unknown eligible implementation denominator, initial pilot 1207–1209 **0/3**. Protected `335` is unchanged; no merge/install/package/release approval.
+
 ## PART 36 CURRENT TWELVE-GATE STATUS — 26 October 2026
 
 > **Current PUBLIC-SAFE status.** Passing GitHub workflows and independent research review are not production verification, owner-private Gate09 completion, or permission to merge, package, install or release. All quest/NPC/GO/item test identifiers in the research branches are fictional.
