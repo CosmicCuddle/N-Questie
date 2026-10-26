@@ -126,8 +126,11 @@ local function effective(raw,overrides,id,key)
   if patch and patch[key]~=nil then return patch[key] end
   return raw and raw[key]
 end
-local function relationSlot(row,key,slot)
-  local slots=row and row[key]
+local function relationSlot(db,questId,key,slot)
+  -- Questie's actual QuerySingle resolves whole-field overrides before the
+  -- compiled pointer-backed data; the fixture must follow the same order.
+  local slots=effective(db.questData[questId],db.questOverrides,questId,key)
+  if slots~=nil and type(slots)~="table" then refusal("BAD_RELATION") end
   return slots and slots[slot] or nil
 end
 local function tuple(kind,owner,quest,role)
@@ -150,7 +153,7 @@ local function closed(state)
         {"finish",Q.finishedBy,sourceEnd}
       }) do
         local role,key,planKey=relation[1],relation[2],relation[3]
-        local expected,actual=ids(q[planKey]),ids(relationSlot(row,key,slot))
+        local expected,actual=ids(q[planKey]),ids(relationSlot(db,questId,key,slot))
         if not same(expected,actual) then refusal("FORWARD_MISMATCH") end
         for ownerId in pairs(expected) do
           fwd[tuple(kind,ownerId,questId,role)]=true
@@ -158,7 +161,7 @@ local function closed(state)
       end
     end
     local expectedItems=ids(q.startedByItems)
-    local actualItems=ids(relationSlot(row,Q.startedBy,3))
+    local actualItems=ids(relationSlot(db,questId,Q.startedBy,3))
     if not same(expectedItems,actualItems) then refusal("ITEM_FORWARD_MISMATCH") end
     for itemId in pairs(expectedItems) do
       if approvedItem[itemId] and approvedItem[itemId]~=questId then
