@@ -831,20 +831,20 @@ QuestieDBCompiler.statics = {
     ["s24pair"] = 6,
 }
 
-function QuestieDBCompiler:CompileNPCs()
-    QuestieDBCompiler:CompileTableCoroutine(QuestieDB.npcData, QuestieDB.npcCompilerTypes, QuestieDB.npcCompilerOrder, QuestieDB.npcKeys, "npc", "NPC")
+function QuestieDBCompiler:CompileNPCs(stage)
+    QuestieDBCompiler:CompileTableCoroutine(QuestieDB.npcData, QuestieDB.npcCompilerTypes, QuestieDB.npcCompilerOrder, QuestieDB.npcKeys, "npc", "NPC", nil, stage)
 end
 
-function QuestieDBCompiler:CompileObjects()
-    QuestieDBCompiler:CompileTableCoroutine(QuestieDB.objectData, QuestieDB.objectCompilerTypes, QuestieDB.objectCompilerOrder, QuestieDB.objectKeys, "obj", "Object")
+function QuestieDBCompiler:CompileObjects(stage)
+    QuestieDBCompiler:CompileTableCoroutine(QuestieDB.objectData, QuestieDB.objectCompilerTypes, QuestieDB.objectCompilerOrder, QuestieDB.objectKeys, "obj", "Object", nil, stage)
 end
 
-function QuestieDBCompiler:CompileQuests()
-    QuestieDBCompiler:CompileTableCoroutine(QuestieDB.questData, QuestieDB.questCompilerTypes, QuestieDB.questCompilerOrder, QuestieDB.questKeys, "quest", "Quest", 28)
+function QuestieDBCompiler:CompileQuests(stage)
+    QuestieDBCompiler:CompileTableCoroutine(QuestieDB.questData, QuestieDB.questCompilerTypes, QuestieDB.questCompilerOrder, QuestieDB.questKeys, "quest", "Quest", 28, stage)
 end
 
-function QuestieDBCompiler:CompileItems()
-    QuestieDBCompiler:CompileTableCoroutine(QuestieDB.itemData, QuestieDB.itemCompilerTypes, QuestieDB.itemCompilerOrder, QuestieDB.itemKeys, "item", "Item", 128)
+function QuestieDBCompiler:CompileItems(stage)
+    QuestieDBCompiler:CompileTableCoroutine(QuestieDB.itemData, QuestieDB.itemCompilerTypes, QuestieDB.itemCompilerOrder, QuestieDB.itemKeys, "item", "Item", 128, stage)
 end
 
 local function equals(a, b)
@@ -914,7 +914,13 @@ function QuestieDBCompiler:CompileTable(tbl, types, order, lookup)
     return stream:Save(), QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
 end
 
-function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, databaseKey, kind, entriesPerTick)
+function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, databaseKey, kind, entriesPerTick, stage)
+    -- Part36 Gate08 draft seam: a caller-owned stage avoids direct publication.
+    -- The legacy no-argument compile path is unchanged. This is NOT a transaction:
+    -- source-writer exclusion, lease cleanup, readback, status and commit remain pending.
+    if stage ~= nil and type(stage) ~= "table" then
+        error("CompileTableCoroutine stage must be a caller-owned table")
+    end
     local count = 0
     local indexLookup = {};
 
@@ -949,7 +955,14 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
         for _=0,Questie.db.profile.debugEnabled and TICKS_PER_YIELD_DEBUG or (entriesPerTick or TICKS_PER_YIELD) do
             index = index + 1
             if index == count then
-                if Questie.IsSoD then
+                if stage ~= nil then
+                    -- Produce both encoded values before placing either in the
+                    -- caller-owned scratch stage. Never touch SavedVariables here.
+                    local bin = stream:Save()
+                    local ptrs = QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
+                    stage[databaseKey.."Bin"] = bin
+                    stage[databaseKey.."Ptrs"] = ptrs
+                elseif Questie.IsSoD then
                     Questie.db.global.sod[databaseKey.."Bin"] = stream:Save()
                     Questie.db.global.sod[databaseKey.."Ptrs"] = QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
                 else
