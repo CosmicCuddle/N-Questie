@@ -135,7 +135,7 @@ local function tuple(kind,owner,quest,role)
 end
 local function closed(state)
   local db,plan=state.db,state.custom.quests
-  local fwd,rev,approvedItem={}
+  local fwd,rev,approvedItem={},{},{}
   -- forward fields MUST match the complete approved synthetic plan, not
   -- just contain its values (both forward superset and subset rejected).
   for questId,q in pairs(plan) do
