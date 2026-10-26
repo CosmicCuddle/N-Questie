@@ -679,6 +679,10 @@ check("reverting a scratch token A-B-A cannot bypass attempt serial guard",
     abaAttempt.reason:find("GATE08_STAGE_ATTEMPT_CHANGED",1,true)~=nil
     and abaAttempt.cleanupCount==1)
 local reusedStage=resetAttempt.stage
+-- The aborted transaction's lease owner must not be reused. A new
+-- caller-owned driver installs its own lease control; this synthetic
+-- post-DEAD proof uses the legacy unleased opt-in stage for convenience.
+reusedStage._nqWriterLeaseOwner=nil
 local subsequent=compiler:BeginNQStagedGeneration(reusedStage)
 for _,entry in ipairs(categories) do
     drive(function()compiler[entry.fn](compiler,reusedStage)end)
