@@ -128,6 +128,44 @@ check("failed later stage cannot change previous saved fields or metadata",
     saved.itemBin=="OLD_BIN_item" and saved.itemPtrs=="OLD_PTRS_item"
     and saved.objBin=="OLD_BIN_obj" and saved.questBin=="OLD_BIN_quest"
     and saved.nQuestieDataRevision==57 and saved.dbCompiledCount==9)
-assert(tests==18,"expected 18 source-backed compiler stage tests, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 18/18 PASS")
+-- Inject a throwing writer finished() AFTER Save and pointer encoding,
+-- but BEFORE either caller-owned stage field may be updated. The driver
+-- must quarantine this poisoned writer in a future integration; do NOT retry.
+local function writerOwner()
+    for index=1,40 do
+        local name,value=debug.getupvalue(compiler.CompileTableCoroutine,index)
+        if name=="QuestieStream" then
+            assert(type(value)=="table" and type(value.GetStream)=="function")
+            return value
+        end
+        if name==nil then break end
+    end
+    error("pinned compiler writer-stream owner unavailable")
+end
+local owner=writerOwner()
+local originalGetStream=owner.GetStream
+local attempts=0
+owner.GetStream=function(self,mode)
+    local s=originalGetStream(self,mode)
+    s.finished=function()
+        attempts=attempts+1
+        error("SYNTHETIC_STAGE_FINISH_FAILURE",0)
+    end
+    return s
+end
+local poisonedStage={objBin="PRIOR_BIN",objPtrs="PRIOR_PTRS"}
+local finishOk,finishErr=pcall(function()
+    drive(function() compiler:CompileObjects(poisonedStage) end)
+end)
+owner.GetStream=originalGetStream
+check("writer finish failure is reported rather than accepted",
+    not finishOk and tostring(finishErr):find("SYNTHETIC_STAGE_FINISH_FAILURE",1,true)~=nil
+    and attempts==1 and owner.GetStream==originalGetStream)
+check("writer finish failure preserves both old staged fields",
+    poisonedStage.objBin=="PRIOR_BIN" and poisonedStage.objPtrs=="PRIOR_PTRS")
+check("writer finish failure leaves live objects and revision unchanged",
+    saved.objBin=="OLD_BIN_obj" and saved.objPtrs=="OLD_PTRS_obj"
+    and saved.nQuestieDataRevision==57 and saved.dbCompiledCount==9)
+assert(tests==21,"expected 21 source-backed compiler stage tests, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 21/21 PASS")
 print("DRAFT ONLY: no writer epoch/ABA, lease recovery, atomic commit, disk recovery or client QA")
