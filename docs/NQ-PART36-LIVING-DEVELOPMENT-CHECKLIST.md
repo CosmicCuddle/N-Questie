@@ -1,5 +1,7 @@
 # N-Questie — Part 36 Living Development Checklist
 
+**Historical Part 36 record — current work has transferred to the [complete Part36 → Part37 handover](HANDOVERS/2026-10-26_PART36_TO_PART37.md) and [Part37 living checklist](NQ-PART37-LIVING-DEVELOPMENT-CHECKLIST.md).** The dated checkpoints below are retained as evidence; their old pending labels are not current CI claims.
+
 **26 October 2026 — initial LIVE checkpoint.** Read the [complete Part35 → Part36 handover](HANDOVERS/2026-10-26_PART35_TO_PART36.md), [twelve-gate master](NQ-LIVING-PROJECT-MASTER-CHECKLIST.md), [compiler blueprint](research/NQ-PART35-GATE08-TRANSACTIONAL-COMPILER-INTEGRATION-BLUEPRINT.md) and [439-record programme](NQ-MISSING-QUEST-COVERAGE-PROGRAMME.md) first. All engineering PRs below remain **DRAFT / NOT APPROVED TO MERGE**.
 
 **Owner:** maintainer; **CS01:** engineering/project/integration lead; **CS02 (Grok):** independent reviewer. Team [coordination PR #42](https://github.com/CosmicCuddle/N-Questie/pull/42). Protected `335`: `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`. PUBLIC repository: NEVER copy owner-private SQL, NPC/GO/item/loot/IP source relationships.
