@@ -2,6 +2,8 @@
 """Offline-only regression checks for approved N-Questie JSON-to-Lua generation."""
 import copy
 import json
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -99,6 +101,123 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(expected, generate(copy.deepcopy(document),
                                             approved=[2002, 2001],
                                             verified=[1869, 2121, 1868]))
+
+    @unittest.skipUnless(shutil.which("lua5.1"), "requires installed Lua 5.1")
+    def test_generated_lua_loads_through_real_335_overlay(self):
+        # This is a PUBLIC, fully invented fixture, not a private review JSON.
+        # The approved generator must produce syntax the unchanged Lua 5.1
+        # loader accepts, and both quests must coexist without clobbering NPCs.
+        second = quest(2002)
+        second["title"] = 'Synthetic "Second" \\ Quest'
+        # Directional-link oracle: NPC 2121 starts both quests but ends only
+        # 2001; 1868 is an extra starter and 1869 is the distinct 2002 ender.
+        # All three NPC IDs already belong to the invented/public fixture.
+        second["starter_npcs"] = [2121, 1868]
+        second["ender_npcs"] = [1869]
+        result = generate(reviewed(quest(), second),
+                          approved=[2002, 2001],
+                          verified=[1869, 2121, 1868], revision=7)
+        lua_harness = r"""
+local generated, loader = assert(arg[1]), assert(arg[2])
+local callbacks = {}
+QuestieCompat = {
+    Is335 = true,
+    RegisterCorrection = function(kind, callback)
+        assert(callbacks[kind] == nil, "duplicate callback")
+        callbacks[kind] = callback
+    end,
+}
+local keys = {
+    name = 1, startedBy = 2, finishedBy = 3, requiredLevel = 4,
+    questLevel = 5, requiredRaces = 6, objectives = 10,
+    preQuestSingle = 13, zoneOrSort = 17, questFlags = 23,
+}
+local db = {
+    questKeys = keys,
+    npcKeys = {questStarts = 10, questEnds = 11},
+    npcData = {
+        [2121] = {[10] = {477, 479}, [11] = {478, 480}},
+        [1868] = {[10] = {}, [11] = {}},
+        [1869] = {[10] = {}, [11] = {}},
+    },
+}
+QuestieLoader = {
+    ImportModule = function(_, name)
+        assert(name == "QuestieDB")
+        return db
+    end,
+}
+dofile(generated)
+assert(NQuestieCustomQuestData.revision == 7)
+dofile(loader)
+assert(type(callbacks.questData) == "function")
+assert(type(callbacks.npcData) == "function")
+local quests = callbacks.questData()
+assert(quests[2001] and quests[2002], "generated quest missing")
+assert(quests[2001][keys.name] == "Ravenclaw Cleanup")
+assert(quests[2002][keys.name] == [[Synthetic "Second" \ Quest]],
+    "generated Lua title escaping was not preserved")
+assert(quests[2001][keys.objectives][1][1][1] == 1868)
+assert(quests[2002][keys.objectives][1][2][1] == 1869)
+assert(quests[2001][keys.preQuestSingle][1] == 437)
+assert(quests[2002][keys.requiredLevel] == 12)
+assert(quests[2002][keys.startedBy][1][1] == 2121)
+assert(quests[2002][keys.startedBy][1][2] == 1868)
+assert(quests[2002][keys.finishedBy][1][1] == 1869)
+assert(#quests[2002][keys.finishedBy][1] == 1,
+    "generated quest starter/ender fields were crossed")
+local overlayNpcs = callbacks.npcData()
+local npc = overlayNpcs[2121]
+assert(npc and #npc[10] == 4 and #npc[11] == 3,
+    "existing NPC relations lost or incorrect directional link count")
+assert(npc[10][1] == 477 and npc[10][2] == 479)
+assert(npc[11][1] == 478 and npc[11][2] == 480)
+local function count(list, needle)
+    local found = 0
+    for _, id in ipairs(list) do
+        if id == needle then found = found + 1 end
+    end
+    return found
+end
+assert(count(npc[10], 2001) == 1 and count(npc[10], 2002) == 1,
+    "shared starter lost or duplicated a generated reverse link")
+assert(count(npc[11], 2001) == 1 and count(npc[11], 2002) == 0,
+    "starter-only NPC incorrectly became a quest ender")
+assert(count(overlayNpcs[1868][10], 2002) == 1
+    and count(overlayNpcs[1868][11], 2002) == 0,
+    "second starter was missing or also registered as an ender")
+assert(count(overlayNpcs[1869][10], 2002) == 0
+    and count(overlayNpcs[1869][11], 2002) == 1,
+    "separate ender was missing or also registered as a starter")
+assert(#db.npcData[2121][10] == 2 and #db.npcData[2121][11] == 2,
+    "generator/loader integration mutated base NPC relations")
+assert(#db.npcData[1868][10] == 0 and #db.npcData[1868][11] == 0
+    and #db.npcData[1869][10] == 0 and #db.npcData[1869][11] == 0,
+    "generated directional links mutated unrelated base NPC tables")
+local repeated = callbacks.npcData()
+local again = repeated[2121]
+assert(#again[10] == 4 and #again[11] == 3
+    and count(repeated[1868][10], 2002) == 1
+    and count(repeated[1869][11], 2002) == 1,
+    "repeated generated callback appended duplicate directional links")
+print("PASS: generated reviewed JSON Lua loads through frozen Questie 3.3.5a overlay")
+"""
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            generated = folder / "generated-synthetic-quests.lua"
+            harness = folder / "synthetic-loader-harness.lua"
+            generated.write_text(result, encoding="utf-8")
+            harness.write_text(lua_harness, encoding="utf-8")
+            root = Path(__file__).resolve().parents[1]
+            process = subprocess.run(
+                [shutil.which("lua5.1"), str(harness), str(generated),
+                 str(root / "Compat/NQuestieCustomQuestLoader.lua")],
+                cwd=root, capture_output=True, text=True, timeout=15,
+                check=False,
+            )
+            self.assertEqual(0, process.returncode,
+                             process.stdout + "\n" + process.stderr)
+            self.assertIn("PASS: generated reviewed JSON Lua loads", process.stdout)
 
     def test_cli_requires_explicit_removal_approval(self):
         with tempfile.TemporaryDirectory() as temporary:
