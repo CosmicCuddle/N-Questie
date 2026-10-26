@@ -1,0 +1,46 @@
+name: N-Questie complete synthetic correction ownership research
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-effective-owners:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout reviewed loader fixture branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Lua 5.1 and Lua 5.4 explicitly
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -E '^Lua 5\.1'
+          lua5.4 -v 2>&1 | grep -E '^Lua 5\.4'
+      - name: Verify complete four-category correction fixture under both Luas
+        shell: bash
+        env:
+          NQ_LOADER_PATH: Compat/NQuestieCustomQuestLoader.lua
+        run: |
+          set -euo pipefail
+          luac5.1 -p tests/compat/nq_full_effective_corrections.lua
+          luac5.4 -p tests/compat/nq_full_effective_corrections.lua
+          for lua in lua5.1 lua5.4; do
+            file="$RUNNER_TEMP/nq-full-effective-$lua.log"
+            timeout --signal=TERM --kill-after=5s 60s "$lua" tests/compat/nq_full_effective_corrections.lua | tee "$file"
+            test "$(grep -c '^PASS FULL ' "$file")" -eq 35
+            test "$(grep -c '^PASS FULL complete correction order ' "$file")" -eq 24
+            test "$(grep -Fxc 'FULL EFFECTIVE CORRECTIONS RESULT: 35/35 PASS' "$file")" -eq 1
+            grep -Fx 'TEST ONLY: complete fictional correction fixture; not a production write-freeze or client integration' "$file"
+            if grep -Eq '^(FAIL FULL|EFFECTIVE FIXTURE)' "$file"; then
+              echo "FAIL: unexpected synthetic correction error" >&2
+              exit 1
+            fi
+            echo "VERIFIED complete fictional correction fixture under $lua"
+          done
