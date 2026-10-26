@@ -34,6 +34,20 @@
 - [ ] Document/test opposite-faction cached login override invariant; later writers still unbounded.
 - [ ] Grok independently reviews new child exact head + mutations; no merge even if green (Gate08 source freeze remains missing).
 
+## Part 36 LIVE engineering checkpoint — 26 October 2026
+
+**NEW isolated [DRAFT #178](https://github.com/CosmicCuddle/N-Questie/pull/178)**, child of frozen #177 `00f2b4d1d5814f64a7c2284469358299171d4baa`. The current head at this checkpoint is `f810ce4b24b1116d8c869ae94773635bf30d09f2`. Exactly **six net child paths**: loader nil-relation fast return, three fictional tests (22→25), CI 25-count gate, strict loader SHA1 repin (`20ffe65804c19dd9be25b3378a4b8cda02790158`), unchanged Init source with mode restored to **100755**, and custom data revision **11→12**. First initial #178 head (`bd469f5a`) had dedicated 25-case workflow PASS but **revision guard correctly FAILED** for unchanged revision 11. Fixed on current head by revision 12; **do not transfer first-head green or claim new head green until CI rechecked**. Actual protected `335` remains `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`.
+
+- [x] Three CS02-requested fictional test probes committed on isolated child (#178).
+- [x] Nil-relation temporary-allocation removal committed, subject to independent source and desktop GC/perf review.
+- [x] File mode 100755 restored without changing `Modules/QuestieInit.lua` bytes.
+- [x] Strict loader blob SHA1 repinned and revision **11→12** committed after initial guard refusal.
+- [ ] Reverify **current** #178 PR+push workflow conclusions, actual Lua5.1/5.4 **25/25**, inherited **101/101** and **12/12**, exact-head zero artifact endpoints.
+- [ ] Independent CS02 new-head M5/M6 mutation and cross-faction cached-login/writer safety review; actual 3.3.5a client not tested.
+- [ ] NO merge of #178 or #177: precompile checker still does not freeze writer/epoch across compiler yields; Gate08 remains UNDERWAY.
+
+**CS02 assignment:** [team #42](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6416337798) gives exact #178 review plus independent Gate08 TX01–TX11 / #175 12→14 poison mutant backup, no idle time while review pending.
+
 ## Priority B — Gate08 actual compiler source/transaction engineering
 
 [Blueprint TX01–TX18](research/NQ-PART35-GATE08-TRANSACTIONAL-COMPILER-INTEGRATION-BLUEPRINT.md). Pinned `Database/compiler.lua` commits each NPC/GO/quest/item Bin/Ptrs separately; early returns leak streams, error paths publish partial data; Stage1 always advances revision. #167/#174/#175 are **research-only**.
