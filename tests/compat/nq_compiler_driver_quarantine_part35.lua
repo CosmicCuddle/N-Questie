@@ -95,6 +95,7 @@ local function newDriver()
     assert(originalGet==originalReaderGet,
       "reader interception not restored from a prior attempt")
     local leases={}
+    local finishAttempts=0
     owner.GetStream=function(self,mode)
       acquisitions=acquisitions+1
       if opts.failAcquire then error("SYNTHETIC_ACQUIRE_FAILURE",0) end
@@ -103,6 +104,8 @@ local function newDriver()
       local lease={stream=s,done=false,poison=false,releases=0}
       leases[#leases+1]=lease
       s.finished=function(current,...)
+        -- Part36 CS02 probe counter: every attempt to return this lease.
+        finishAttempts=finishAttempts+1
         assert(current==s and not lease.done and not lease.poison,
           "invalid or duplicate stream return")
         if opts.failFinish then
@@ -210,7 +213,8 @@ local function newDriver()
       published.data="VERIFIED"
     end
     return {status=status,reason=reason,leases=#leases,
-      releases=releases,quarantined=#quarantine,yields=yields,dead=dead}
+      releases=releases,quarantined=#quarantine,yields=yields,dead=dead,
+      finishAttempts=finishAttempts}
   end
   return run,state
 end
@@ -318,7 +322,28 @@ check("clean_successful_pool_reuse_returns_every_lease_once",function()
   assert(b.status=="SUCCESS" and b.releases==1)
   assert(s.revision==9 and s.quarantine==0 and not s.busy and s.acquisitions==2)
 end)
-assert(count==12,"expected 12 checks")
+-- Part36 CS02 probes (fictional, test-only): poison flag and driver cleanup.
+check("poisoned_failed_finish_is_never_attempted_twice",function()
+  local run,snapshot=newDriver()
+  local r=run({failFinish=true})
+  local s=snapshot()
+  assert(r.status=="ERROR" and r.dead and r.leases==1)
+  assert(r.finishAttempts==1,"finished() attempted "..tostring(r.finishAttempts).." times")
+  assert(r.reason=="SYNTHETIC_FINISH_FAILURE",tostring(r.reason))
+  assert(r.releases==0 and r.quarantined==1)
+  assert(s.busy and s.revision==7 and owner.GetStream==originalReaderGet)
+end)
+check("driver_cleanup_finish_failure_quarantines",function()
+  local run,snapshot=newDriver()
+  local r=run({failAfterHandle=true,failFinish=true})
+  local s=snapshot()
+  assert(r.status=="ERROR" and r.dead and r.releases==0 and r.quarantined==1)
+  assert(r.finishAttempts==1)
+  assert(r.reason:find("FINISH_CLEANUP_FAILED",1,true),tostring(r.reason))
+  assert(s.busy and s.revision==7 and owner.GetStream==originalReaderGet)
+  assert(run().status=="BUSY")
+end)
+assert(count==14,"expected 14 checks")
 assert(owner.GetStream==originalReaderGet,"pinned GetStream method remains intercepted")
-print("QUARANTINE CONTRACT RESULT: 12/12 PASS")
+print("QUARANTINE CONTRACT RESULT: 14/14 PASS")
 print("TEST ONLY: fail-stop suspended-thread quarantine, original compiler untouched")

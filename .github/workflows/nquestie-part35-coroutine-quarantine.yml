@@ -34,7 +34,7 @@ jobs:
           test "$(git -C "$RUNNER_TEMP/nq335" hash-object Database/compiler.lua)" = abba0249f44d14711dbdd46bbde969ccffbc2963
           test "$(git -C "$RUNNER_TEMP/nq335" hash-object Modules/QuestieStream.lua)" = 1819aeea11148eae0742810dbd2338410edda238
           test -z "$(git -C "$RUNNER_TEMP/nq335" status --porcelain --untracked-files=no)"
-      - name: Verify 12 fail-stop quarantine and terminal-cleanup contracts on both Luas
+      - name: Verify 14 fail-stop quarantine and terminal-cleanup contracts on both Luas
         shell: bash
         run: |
           set -euo pipefail
@@ -44,8 +44,8 @@ jobs:
           for lua in lua5.1 lua5.4; do
             result="$RUNNER_TEMP/nq-part35-quarantine-$lua.txt"
             timeout --signal=TERM --kill-after=5s 90s "$lua" "$GITHUB_WORKSPACE/tests/compat/nq_compiler_driver_quarantine_part35.lua" | tee "$result"
-            test "$(grep -c '^PASS QUARANTINE ' "$result")" -eq 12
-            grep -Fx 'QUARANTINE CONTRACT RESULT: 12/12 PASS' "$result"
+            test "$(grep -c '^PASS QUARANTINE ' "$result")" -eq 14
+            grep -Fx 'QUARANTINE CONTRACT RESULT: 14/14 PASS' "$result"
             grep -Fx 'TEST ONLY: fail-stop suspended-thread quarantine, original compiler untouched' "$result"
-            echo "VERIFIED quarantine 12/12 under $lua"
+            echo "VERIFIED quarantine 14/14 under $lua"
           done
