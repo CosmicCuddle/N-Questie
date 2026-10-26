@@ -28,8 +28,8 @@ jobs:
             "${lua/lua/luac}" -p tests/compat/nq_gate08_four_kind_stage_source.lua
             output="$RUNNER_TEMP/stage-$lua.log"
             timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate08_four_kind_stage_source.lua | tee "$output"
-            test "$(grep -c '^PASS GATE08 STAGE ' "$output")" -eq 41
-            grep -Fx 'GATE08 SOURCE STAGING RESULT: 41/41 PASS' "$output"
+            test "$(grep -c '^PASS GATE08 STAGE ' "$output")" -eq 45
+            grep -Fx 'GATE08 SOURCE STAGING RESULT: 45/45 PASS' "$output"
             grep -Fx 'DRAFT ONLY: no writer epoch/ABA, lease recovery, atomic commit, disk recovery or client QA' "$output"
           done
       - name: Reject test artifact packaging
