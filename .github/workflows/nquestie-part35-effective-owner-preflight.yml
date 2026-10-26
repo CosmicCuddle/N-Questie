@@ -22,7 +22,7 @@ jobs:
           timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
           lua5.1 -v 2>&1 | grep -E '^Lua 5\.1'
           lua5.4 -v 2>&1 | grep -E '^Lua 5\.4'
-      - name: Validate Lua source and 22 fictional full owner checks
+      - name: Validate Lua source and 25 fictional full owner checks
         shell: bash
         env:
           NQ_LOADER_PATH: Compat/NQuestieCustomQuestLoader.lua
@@ -37,8 +37,8 @@ jobs:
           for lua in lua5.1 lua5.4; do
             output="$RUNNER_TEMP/owner-$lua.log"
             timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_effective_owner_preflight_source.lua | tee "$output"
-            test "$(grep -c '^PASS OWNER ' "$output")" -eq 22
-            grep -Fx 'EFFECTIVE SOURCE OWNER RESULT: 22/22 PASS' "$output"
+            test "$(grep -c '^PASS OWNER ' "$output")" -eq 25
+            grep -Fx 'EFFECTIVE SOURCE OWNER RESULT: 25/25 PASS' "$output"
             grep -Fx 'CANDIDATE ONLY: no compiler yield freeze, client/IP or release permission' "$output"
           done
       - name: Assert no release or addon artifacts were assembled
