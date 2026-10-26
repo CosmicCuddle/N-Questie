@@ -925,8 +925,18 @@ function QuestieDBCompiler:BeginNQStagedGeneration(stage)
     if type(stage) ~= "table" then
         error("GATE08_STAGE_BAD_DESTINATION", 0)
     end
-    -- Each call owns a fresh table identity, not a reused counter or bytes.
-    -- Keep optional writer lease configuration on the caller's stage.
+    -- Each call owns a fresh table identity AND an incremented attempt serial.
+    -- Even if an external caller restores a previous token (A→B→A), a
+    -- suspended old coroutine cannot stamp the newly started generation.
+    -- This serial tracks SCRATCH ATTEMPTS only, NOT source table mutations.
+    local serial = stage._nqGenerationSerial
+    if serial == nil then
+        serial = 0
+    elseif type(serial) ~= "number" or serial % 1 ~= 0 or
+            serial < 0 or serial >= 9007199254740991 then
+        error("GATE08_STAGE_BAD_SERIAL", 0)
+    end
+    stage._nqGenerationSerial = serial + 1
     stage._nqGenerationToken = {}
     stage._nqGenerationReceipts = {}
     for _, databaseKey in ipairs(NQ_STAGE_KINDS) do
@@ -947,6 +957,7 @@ function QuestieDBCompiler:VerifyNQStagedGeneration(stage, expectedToken)
         local bin = stage[databaseKey.."Bin"]
         local ptrs = stage[databaseKey.."Ptrs"]
         if type(receipt) ~= "table" or receipt.token ~= expectedToken or
+                receipt.serial ~= stage._nqGenerationSerial or
                 type(bin) ~= "string" or #bin == 0 or
                 type(ptrs) ~= "string" or #ptrs == 0 or
                 receipt.bin ~= bin or receipt.ptrs ~= ptrs then
@@ -962,6 +973,12 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
     -- source-writer exclusion, lease cleanup, readback, status and commit remain pending.
     if stage ~= nil and type(stage) ~= "table" then
         error("CompileTableCoroutine stage must be a caller-owned table")
+    end
+    local expectedToken = stage and stage._nqGenerationToken
+    local expectedSerial = stage and stage._nqGenerationSerial
+    if expectedToken ~= nil and (type(expectedToken) ~= "table" or
+            type(expectedSerial) ~= "number") then
+        error("GATE08_STAGE_BAD_GENERATION", 0)
     end
     local count = 0
     local indexLookup = {};
@@ -1015,6 +1032,14 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
 
     while true do
         coroutine.yield()
+        -- The coroutine may have been suspended before a newer attempt
+        -- began on the same scratch stage. Refuse BEFORE any old writes,
+        -- rather than stamping them with the new attempt's token.
+        if expectedToken ~= nil and
+                (stage._nqGenerationToken ~= expectedToken or
+                 stage._nqGenerationSerial ~= expectedSerial) then
+            error("GATE08_STAGE_ATTEMPT_CHANGED", 0)
+        end
         for _=0,Questie.db.profile.debugEnabled and TICKS_PER_YIELD_DEBUG or (entriesPerTick or TICKS_PER_YIELD) do
             index = index + 1
             if index == count then
@@ -1043,8 +1068,13 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
                                 type(stage._nqGenerationReceipts) ~= "table" then
                             error("GATE08_STAGE_BAD_GENERATION", 0)
                         end
+                        if stage._nqGenerationToken ~= expectedToken or
+                                stage._nqGenerationSerial ~= expectedSerial then
+                            error("GATE08_STAGE_ATTEMPT_CHANGED", 0)
+                        end
                         stage._nqGenerationReceipts[databaseKey] = {
-                            token = stage._nqGenerationToken,
+                            token = expectedToken,
+                            serial = expectedSerial,
                             bin = bin, ptrs = ptrs,
                         }
                     end

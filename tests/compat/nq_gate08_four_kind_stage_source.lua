@@ -618,6 +618,86 @@ end)
 check("foreign receipt token cannot authenticate staged bytes",
     not invalid)
 
-assert(tests==58,"expected 58 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 58/58 PASS")
+-- Source-backed concurrency counterexample: a writer may be suspended
+-- while the same SCRATCH stage is reused. Only an external coroutine driver
+-- resumes threads and returns their leases AFTER coroutine status is DEAD.
+local function interruptedScratchAttempt(restorePriorToken)
+    local scratch={}
+    local oldToken=compiler:BeginNQStagedGeneration(scratch)
+    local oldSerial=scratch._nqGenerationSerial
+    local acquired,finished=nil,0
+    local externalOwner={}
+    function externalOwner:Acquire(streamParent,mode)
+        assert(acquired==nil and streamParent==owner)
+        acquired={stream=streamParent:GetStream(mode)}
+        return acquired
+    end
+    function externalOwner:Finish(lease)
+        assert(lease==acquired and finished==0)
+        finished=finished+1
+        lease.stream:finished()
+    end
+    scratch._nqWriterLeaseOwner=externalOwner
+    local thread=coroutine.create(function()
+        return compiler:CompileNPCs(scratch)
+    end)
+    local resumed=coroutine.resume(thread)
+    assert(resumed and coroutine.status(thread)=="suspended" and acquired)
+    local newToken=compiler:BeginNQStagedGeneration(scratch)
+    local newSerial=scratch._nqGenerationSerial
+    if restorePriorToken then
+        -- A→B→A of the visible token is NOT equivalent to no Begin().
+        scratch._nqGenerationToken=oldToken
+    end
+    local ok,reason=coroutine.resume(thread)
+    local dead=coroutine.status(thread)=="dead"
+    if dead and finished==0 then
+        -- Driver cleanup after DEAD only; no pcall across a yielding writer.
+        acquired.stream:finished()
+        finished=finished+1
+    end
+    return {ok=ok,reason=tostring(reason),dead=dead,
+        stage=scratch,oldToken=oldToken,newToken=newToken,
+        oldSerial=oldSerial,newSerial=newSerial,
+        cleanupCount=finished}
+end
+local resetAttempt=interruptedScratchAttempt(false)
+check("suspended writer cannot stamp a newer scratch attempt",
+    not resetAttempt.ok and resetAttempt.dead and
+    resetAttempt.reason:find("GATE08_STAGE_ATTEMPT_CHANGED",1,true)~=nil
+    and resetAttempt.oldToken~=resetAttempt.newToken and
+    resetAttempt.newSerial==resetAttempt.oldSerial+1)
+check("suspended stale writer emitted no receipt and DEAD cleanup occurred once",
+    resetAttempt.stage.npcBin==nil and resetAttempt.stage.npcPtrs==nil
+    and next(resetAttempt.stage._nqGenerationReceipts)==nil
+    and resetAttempt.cleanupCount==1)
+local abaAttempt=interruptedScratchAttempt(true)
+check("reverting a scratch token A-B-A cannot bypass attempt serial guard",
+    not abaAttempt.ok and abaAttempt.dead and
+    abaAttempt.stage._nqGenerationToken==abaAttempt.oldToken and
+    abaAttempt.newSerial>abaAttempt.oldSerial and
+    abaAttempt.reason:find("GATE08_STAGE_ATTEMPT_CHANGED",1,true)~=nil
+    and abaAttempt.cleanupCount==1)
+local reusedStage=resetAttempt.stage
+-- The aborted transaction's lease owner must not be reused. A new
+-- caller-owned driver installs its own lease control; this synthetic
+-- post-DEAD proof uses the legacy unleased opt-in stage for convenience.
+reusedStage._nqWriterLeaseOwner=nil
+local subsequent=compiler:BeginNQStagedGeneration(reusedStage)
+for _,entry in ipairs(categories) do
+    drive(function()compiler[entry.fn](compiler,reusedStage)end)
+end
+check("safe fresh attempt after DEAD cleanup generates all four current receipts",
+    compiler:VerifyNQStagedGeneration(reusedStage,subsequent)==true
+    and reusedStage._nqGenerationSerial==resetAttempt.newSerial+1)
+local badSerial={_nqGenerationSerial="malformed"}
+local serialOk,serialErr=pcall(function()
+    compiler:BeginNQStagedGeneration(badSerial)
+end)
+check("invalid generation serial is rejected instead of silently resetting",
+    not serialOk and tostring(serialErr):find("GATE08_STAGE_BAD_SERIAL",1,true)~=nil
+    and badSerial._nqGenerationToken==nil)
+
+assert(tests==63,"expected 63 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 63/63 PASS")
 print("DRAFT ONLY: no writer epoch/ABA, lease recovery, atomic commit, disk recovery or client QA")
