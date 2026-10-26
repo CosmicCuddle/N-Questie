@@ -514,6 +514,110 @@ check("clean retry after DEAD staged datatype ERROR remains possible",
     and type(repaired.stage.itemBin)=="string"
     and #reported==2 and Questie.Error==priorError)
 
-assert(tests==45,"expected 45 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 45/45 PASS")
+-- Gate08 Part36: current-generation completeness receipts, backed by
+-- the real four compiler writers. The original data and all IDs are fictional.
+local fresh={oldMarker="untouched"}
+for _,entry in ipairs(categories) do
+    fresh[entry.kind.."Bin"]="STALE_"..entry.kind.."_BIN"
+    fresh[entry.kind.."Ptrs"]="STALE_"..entry.kind.."_PTRS"
+end
+local gen=compiler:BeginNQStagedGeneration(fresh)
+local cleared=type(gen)=="table" and fresh.oldMarker=="untouched"
+for _,entry in ipairs(categories) do
+    if fresh[entry.kind.."Bin"]~=nil or fresh[entry.kind.."Ptrs"]~=nil then
+        cleared=false
+    end
+end
+check("fresh generation clears all eight stale bytes and pointer fields",
+    cleared and type(fresh._nqGenerationReceipts)=="table")
+local noEntries,noReason=pcall(function()
+    compiler:VerifyNQStagedGeneration(fresh,gen)
+end)
+check("uncompiled generation cannot claim success",
+    not noEntries and tostring(noReason):find("GATE08_STAGE_INCOMPLETE",1,true)~=nil)
+drive(function()compiler:CompileNPCs(fresh)end)
+local partialOk=pcall(function()compiler:VerifyNQStagedGeneration(fresh,gen)end)
+check("single successful NPC receipt is not a complete generation",
+    not partialOk and fresh._nqGenerationReceipts.npc.token==gen)
+for _,method in ipairs({"CompileObjects","CompileQuests","CompileItems"}) do
+    drive(function()compiler[method](compiler,fresh)end)
+end
+local allReceipts=true
+local savedPairs={}
+for _,entry in ipairs(categories) do
+    local k=entry.kind
+    local receipt=fresh._nqGenerationReceipts[k]
+    if type(receipt)~="table" or receipt.token~=gen or
+        receipt.bin~=fresh[k.."Bin"] or
+        receipt.ptrs~=fresh[k.."Ptrs"] then allReceipts=false end
+    savedPairs[k.."Bin"]=fresh[k.."Bin"]
+    savedPairs[k.."Ptrs"]=fresh[k.."Ptrs"]
+end
+check("all four real writers stamped current-generation receipts",
+    allReceipts and type(fresh.itemBin)=="string")
+check("exact generation with eight current writer outputs verifies",
+    compiler:VerifyNQStagedGeneration(fresh,gen)==true)
+
+fresh.itemBin="FOREIGN_WRITER_CHANGED_BYTES"
+local dirtyOk,dirtyReason=pcall(function()
+    compiler:VerifyNQStagedGeneration(fresh,gen)
+end)
+check("post-staging byte mutation invalidates receipt",
+    not dirtyOk and tostring(dirtyReason):find("GATE08_STAGE_INCOMPLETE_OR_STALE",1,true)~=nil)
+fresh.itemBin=savedPairs.itemBin
+check("restored immutable encoded value matches original current receipt",
+    compiler:VerifyNQStagedGeneration(fresh,gen)==true)
+
+local oldToken=gen
+gen=compiler:BeginNQStagedGeneration(fresh)
+local wrongToken,wrongMessage=pcall(function()
+    compiler:VerifyNQStagedGeneration(fresh,oldToken)
+end)
+check("old generation token cannot be replayed in a fresh attempt",
+    not wrongToken and gen~=oldToken and
+    tostring(wrongMessage):find("GATE08_STAGE_GENERATION_MISMATCH",1,true)~=nil)
+for key,value in pairs(savedPairs) do fresh[key]=value end
+local replayOk=pcall(function()compiler:VerifyNQStagedGeneration(fresh,gen)end)
+check("stale eight bytes replayed without fresh receipts are rejected",
+    not replayOk and next(fresh._nqGenerationReceipts)==nil)
+
+local logger=Questie.Error
+local logCalls=0
+Questie.Error=function()logCalls=logCalls+1 end
+db.objectData={[77201]={[db.objectKeys.name]={99}}}
+compiler:BeginNQStagedGeneration(fresh)
+drive(function()compiler:CompileNPCs(fresh)end)
+local invalidKind,invalidKindErr=pcall(function()
+    drive(function()compiler:CompileObjects(fresh)end)
+end)
+local errorReceipt=pcall(function()compiler:VerifyNQStagedGeneration(fresh,fresh._nqGenerationToken)end)
+db.objectData={[77201]={[db.objectKeys.name]="Invented Object"}}
+Questie.Error=logger
+check("print-only datatype refusal never issues GO generation receipt",
+    not invalidKind and
+    tostring(invalidKindErr):find("GATE08_STAGE_INVALID_DATATYPE",1,true)~=nil
+    and logCalls==1 and not errorReceipt and
+    fresh._nqGenerationReceipts.obj==nil)
+
+local retryToken=compiler:BeginNQStagedGeneration(fresh)
+local noInitialReceipt=next(fresh._nqGenerationReceipts)==nil
+for _,entry in ipairs(categories) do
+    drive(function()compiler[entry.fn](compiler,fresh)end)
+end
+check("repaired input succeeds with only current generation receipts",
+    noInitialReceipt and retryToken~=oldToken and
+    compiler:VerifyNQStagedGeneration(fresh,retryToken)==true)
+check("receipts never publish to SavedVariables or advance revision",
+    saved.nQuestieDataRevision==57 and saved.dbCompiledCount==9 and
+    saved.objBin=="OLD_BIN_obj" and saved.itemBin=="OLD_BIN_item")
+
+local forged={_nqGenerationToken={},_nqGenerationReceipts={}}
+local invalid=pcall(function()
+    compiler:VerifyNQStagedGeneration(forged,{})
+end)
+check("foreign receipt token cannot authenticate staged bytes",
+    not invalid)
+
+assert(tests==57,"expected 57 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 57/57 PASS")
 print("DRAFT ONLY: no writer epoch/ABA, lease recovery, atomic commit, disk recovery or client QA")
