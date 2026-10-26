@@ -1016,7 +1016,14 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
                 local t = types[key]
 
                 if v and not supportedTypes[type(v)][t] then
-                    Questie:Error("|cFFFF0000Invalid datatype!|r   " .. kind .. "s[" .. tostring(id) .. "]."..key..": \"" .. type(v) .. "\" is not compatible with type \"" .. t .."\"")
+                    local message = "|cFFFF0000Invalid datatype!|r   " .. kind .. "s[" .. tostring(id) .. "]."..key..": \"" .. type(v) .. "\" is not compatible with type \"" .. t .."\""
+                    Questie:Error(message)
+                    -- The real Questie:Error reports rather than throwing.
+                    -- In the opt-in staging path, a silent return would let an
+                    -- outer coroutine mistake incomplete data for success.
+                    -- Raise after reporting, leaving writer cleanup to the
+                    -- owner of this DEAD coroutine. Legacy behaviour is kept.
+                    if stage ~= nil then error("GATE08_STAGE_INVALID_DATATYPE: " .. message, 0) end
                     return
                 end
                 if not writers[t] then
