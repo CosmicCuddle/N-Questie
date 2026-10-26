@@ -13,14 +13,14 @@ ROOT = Path(__file__).resolve().parents[2]
 LOADER = ROOT / "Compat/NQuestieCustomQuestLoader.lua"
 TESTS = ROOT / "tests/compat/nq_custom_loader_safety.lua"
 STAGE1 = ROOT / "Modules/QuestieInit.lua"
-EXPECTED_LOADER_BLOB_SHA1 = "02003bab30d9bfd26d805a68d26e199376607971"
+EXPECTED_LOADER_BLOB_SHA1 = "f7934358384f36cb30a142ff2a24817ace495722"
 
 def assert_source_revision():
     data = LOADER.read_bytes()
     git_blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
     if git_blob != EXPECTED_LOADER_BLOB_SHA1:
-        raise SystemExit("FAIL: loader differs from reviewed draft (blob SHA-1 " + git_blob + ")")
-    print("Verified reviewed draft Git blob SHA-1:", git_blob, flush=True)
+        raise SystemExit("FAIL: loader differs from exact candidate (blob SHA-1 " + git_blob + ")")
+    print("Verified exact candidate Git blob SHA-1:", git_blob, flush=True)
 
 def assert_stage1_guard_order():
     code = STAGE1.read_text(encoding="utf-8")
@@ -30,22 +30,22 @@ def assert_stage1_guard_order():
     try:
         locations = [stage.index(fragment) for fragment in (
             "loadFullDatabase()",
-            "QuestieCompat.VerifyNQuestieCustomItemSources()",
+            "QuestieCompat.VerifyNQuestieCustomEffectiveSources()",
             "QuestieDBCompiler:Compile()",
             "Questie.db.global.nQuestieDataRevision = nQuestieRevision",
         )]
     except ValueError:
         raise SystemExit("FAIL: required Stage1 postflight/compiler/revision call is missing")
     if locations != sorted(locations):
-        raise SystemExit("FAIL: item source verification is not before Stage1 compile/revision")
+        raise SystemExit("FAIL: complete effective source verification is not before Stage1 compile/revision")
     if "coYield()" in stage[locations[1]:locations[2]]:
-        raise SystemExit("FAIL: unexpected yield between item source postflight and compilation")
+        raise SystemExit("FAIL: unexpected yield between complete effective source postflight and compilation")
     # Source-placement regression only (not a runtime coroutine execution):
     # configured 3.3.5a custom quests must not silently skip a missing hook.
     for required in (
         'type(nQuestieData.quests) == "table" and next(nQuestieData.quests) ~= nil',
-        'if type(QuestieCompat.VerifyNQuestieCustomItemSources) ~= "function" then',
-        'error("N-Questie source postflight unavailable; refusing compilation")',
+        'if type(QuestieCompat.VerifyNQuestieCustomEffectiveSources) ~= "function" then',
+        'error("N-Questie effective source postflight unavailable; refusing compilation")',
     ):
         if required not in stage[locations[0]:locations[2]]:
             raise SystemExit("FAIL: configured custom quests can skip required postflight hook")
