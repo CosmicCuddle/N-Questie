@@ -1,0 +1,52 @@
+name: N-Questie Part35 Lua coroutine lease research
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lease-driver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout research proposal
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install real Lua interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -E '^Lua 5\.1'
+          lua5.4 -v 2>&1 | grep -E '^Lua 5\.4'
+      - name: Use exact read-only pinned production source worktree
+        shell: bash
+        env:
+          PINNED_335: 8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/nq335" "$PINNED_335"
+          test "$(git -C "$RUNNER_TEMP/nq335" rev-parse HEAD)" = "$PINNED_335"
+          test "$(git -C "$RUNNER_TEMP/nq335" hash-object Database/compiler.lua)" = abba0249f44d14711dbdd46bbde969ccffbc2963
+          test "$(git -C "$RUNNER_TEMP/nq335" hash-object Modules/QuestieStream.lua)" = 1819aeea11148eae0742810dbd2338410edda238
+          test -z "$(git -C "$RUNNER_TEMP/nq335" status --porcelain --untracked-files=no)"
+      - name: Verify 9 failure-safe coroutine lease proposal checks under both Luas
+        shell: bash
+        run: |
+          set -euo pipefail
+          luac5.1 -p tests/compat/nq_compiler_driver_lease_part35.lua
+          luac5.4 -p tests/compat/nq_compiler_driver_lease_part35.lua
+          cd "$RUNNER_TEMP/nq335"
+          for lua in lua5.1 lua5.4; do
+            result="$RUNNER_TEMP/driver-lease-$lua.log"
+            timeout --signal=TERM --kill-after=5s 90s "$lua" "$GITHUB_WORKSPACE/tests/compat/nq_compiler_driver_lease_part35.lua" | tee "$result"
+            test "$(grep -c '^PASS LEASE ' "$result")" -eq 9
+            grep -Fx 'DRIVER LEASE PROPOSAL RESULT: 9/9 PASS' "$result"
+            grep -Fx 'TEST ONLY: pinned source wrapped by a fictional coroutine owner; production unmodified' "$result"
+            echo "VERIFIED 9 driver-owned lease cases under $lua"
+          done
