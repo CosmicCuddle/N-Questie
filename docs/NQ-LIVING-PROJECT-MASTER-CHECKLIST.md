@@ -17,7 +17,7 @@
 
 | # | Milestone | Part 35 state | Remaining acceptance |
 |---|---|---|---|
-| 01 | 439 missing-quest inventory | **COMPLETE** | Preserve 12 inclusion-review, 9 deferred, 418 exploratory; exclude 30000–30004 |
+| 01 | 439 server-only quest research inventory | **COMPLETE** | Keep distinct buckets: **12 review candidates + 418 exploratory + 9 accounted-for** (5 owner-excluded 30000–30004, 3 placeholders, 1 existing overlay quest 2001). Inventory complete ≠ missing-quest coverage complete |
 | 02 | Owner confirmation of quests 1207–1209 being offered | **COMPLETE** | Offer evidence does not prove exact private source/loot/IP links |
 | 03 | Pinned Questie source and registration audit | **COMPLETE** | Recheck after later production changes |
 | 04 | OPT-A staged loader, full manifest, R5 | **UNDERWAY** | Provenance and source manifest/closure unfinished |
@@ -25,12 +25,18 @@
 | 06 | Completion-cache research and isolated CI | **UNDERWAY** | #169 canonical research candidate, #170 comparison only; real CLEAR/ADD-ONLY client behavior unknown |
 | 07 | Lua5.1 loader and item-starter integration | **UNDERWAY** | #168 101-case real Lua5.1/5.4 research + 12 pinned codec cases; NPC/GO and in-game coverage missing |
 | 08 | Four-category compiler transaction/recovery | **UNDERWAY** | #167 source-backed 105-case Lua5.1 research; driver-owned stream lease, BUSY/SUCCESS/RETRY/ERROR, snapshot/epoch, staged atomic eight-field publication and revision coupling not production-integrated |
-| 09 | Confidential source/loot/IP verification | **UNDERWAY** | Private-only reviewed proof for each actual missing quest |
-| 10 | Implement quests 1207, 1208 and 1209 | **OWNER APPROVED; TECHNICALLY PENDING** | **0/3**; needs private Gate09 evidence and safe runtime integration |
+| 09 | Private source/loot/IP and eligibility proof for approved batches | **UNDERWAY** | Investigate candidate-specific player availability, actual source/loot and Individual Progression privately; 439 rows are not 439 proven playable quests |
+| 10 | **Missing-Quest Coverage & Implementation Programme** | **OWNER APPROVED FOR DEVELOPMENT; TECHNICALLY PENDING** | Scope the **439-record investigation** into eligible, approved waves; **1207–1209 are the first pilot (0/3 implemented), not the full milestone**. Other wave sizes and implementation denominator remain **UNDETERMINED** until private evidence and individual inclusion decisions |
 | 11 | Actual WoW 3.3.5a and IP gameplay QA | **OWNER APPROVED; TECHNICALLY PENDING** | Client backups/rollback, real faction sources/markers, frame/GC, relog/cache/eligibility |
 | 12 | Final reviewed integration, packaging and release | **OWNER APPROVED; TECHNICALLY PENDING** | Exact-head QA, privacy/licensing audit, independent production review and explicit final approval |
 
 **Part35 tally: 3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED, TECHNICALLY PENDING.**
+
+**Programme clarification (owner direction, 26 Oct):** Milestone 10 covers the broader missing-quest investigation and implementation work, **not only** 1207–1209. The three identified quests are the first pilot batch with separately outstanding source evidence. Do **not** add them to the aggregate counts as a separate 3; their membership in the 12/418/9 audit categories is not established here. The historic shorthand "9 deferred" is imprecise: only **5** were explicitly owner-deferred; the other **4** are three placeholders and already-covered quest 2001. In the **439** raw server-only comparison, a quest is not automatically absent from the **effective compiled** Questie database, genuinely offered in game, eligible for IP, or approved for an addon entry. See [public-safe programme and batch gates](NQ-MISSING-QUEST-COVERAGE-PROGRAMME.md) and [the separate four-file inventory draft #164](https://github.com/CosmicCuddle/N-Questie/pull/164). This change does not retroactively rewrite dated Part 34/33 historical records. Individual quest data insertions, installation and final release remain separately gated.
+
+### Part 35 programme scope correction — whole 439-record investigation, not a three-quest finish line
+
+Owner clarified the project goal is full **eligible missing-quest coverage** after investigation of the **439** server-only raw-ID audit universe. Milestone 10 is now explicitly a *programme*, with **1207, 1208, 1209 as the first pilot only (0/3)**. The pilot is not added to 439 as a separate bucket, and no private membership assertions are made. The 439 reconciles as **12 unapproved first-pass candidates + 418 exploratory + 9 accounted-for** (5 explicitly owner-deferred, 3 placeholders, 1 covered by the existing quest-2001 overlay). Not all 439 warrant or permit new Questie records: eligibility, effective compiled DB presence, source type, phase, server scripts and individual approval must be verified. Comprehensive implementation scope, denominator and percentage are **unknown** until review. This is a change to the current **Milestone 10 label and programme planning only**, not approval to import private data or to release. [Full plan](NQ-MISSING-QUEST-COVERAGE-PROGRAMME.md), [earlier inventory draft #164](https://github.com/CosmicCuddle/N-Questie/pull/164).
 
 **Part 35 latest exact-head engineering evidence:**
 - Protected `335` remains `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`; not modified by Part35.
