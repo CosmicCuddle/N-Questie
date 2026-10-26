@@ -1,6 +1,6 @@
 # N-Questie — living project master checklist
 
-**Snapshot:** 25 October 2026 (Part 34, Europe/London). **Status:** tracking/documentation only, not approval to implement or merge.  
+**Snapshot:** 26 October 2026 (Part 35, Europe/London). **Status:** tracking/documentation only, not approval to implement or merge.  
 **Protected branch:** `335`, pinned/verified GitHub HEAD `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`.  
 **Owner:** N-Questie maintainer. **Lead developer:** CosmicScript01. **Independent reviewer:** CosmicScript02 (Grok, active since owner-confirmed return 25 October).  
 **Purpose:** a single **whole-project** place to see what was completed, what is in progress or blocked, and what is planned. This is **not** just Grok's review queue.
@@ -11,7 +11,37 @@
 - [Single living CosmicScript02 rolling task queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348) — individual independent review tasks, verdicts and exact-SHA evidence. **Do not copy its task details into this overview**.
 - [Part 3 eight-decision sheet — draft PR #87](https://github.com/CosmicCuddle/N-Questie/pull/87) — proposed maintainer choices, not approvals.
 
-## PART 34 CURRENT TWELVE-GATE STATUS — 26 October 2026
+## PART 35 CURRENT TWELVE-GATE STATUS — 26 October 2026
+
+> **Current PUBLIC-SAFE status.** Passing GitHub workflows and independent research review are not production verification, owner-private Gate09 completion, or permission to merge, package, install or release. All quest/NPC/GO/item test identifiers in the research branches are fictional.
+
+| # | Milestone | Part 35 state | Remaining acceptance |
+|---|---|---|---|
+| 01 | 439 missing-quest inventory | **COMPLETE** | Preserve 12 inclusion-review, 9 deferred, 418 exploratory; exclude 30000–30004 |
+| 02 | Owner confirmation of quests 1207–1209 being offered | **COMPLETE** | Offer evidence does not prove exact private source/loot/IP links |
+| 03 | Pinned Questie source and registration audit | **COMPLETE** | Recheck after later production changes |
+| 04 | OPT-A staged loader, full manifest, R5 | **UNDERWAY** | Provenance and source manifest/closure unfinished |
+| 05 | NPC/GO/item effective ownership and late-writer exclusion | **UNDERWAY** | #171 research review PASS, #172 review APPROVE-WITH-FOLLOW-UP, #173 isolated research; runtime/global closure, exact faction view and compiler-yield freeze not implemented |
+| 06 | Completion-cache research and isolated CI | **UNDERWAY** | #169 canonical research candidate, #170 comparison only; real CLEAR/ADD-ONLY client behavior unknown |
+| 07 | Lua5.1 loader and item-starter integration | **UNDERWAY** | #168 101-case real Lua5.1/5.4 research + 12 pinned codec cases; NPC/GO and in-game coverage missing |
+| 08 | Four-category compiler transaction/recovery | **UNDERWAY** | #167 source-backed 105-case Lua5.1 research; driver-owned stream lease, BUSY/SUCCESS/RETRY/ERROR, snapshot/epoch, staged atomic eight-field publication and revision coupling not production-integrated |
+| 09 | Confidential source/loot/IP verification | **UNDERWAY** | Private-only reviewed proof for each actual missing quest |
+| 10 | Implement quests 1207, 1208 and 1209 | **OWNER APPROVED; TECHNICALLY PENDING** | **0/3**; needs private Gate09 evidence and safe runtime integration |
+| 11 | Actual WoW 3.3.5a and IP gameplay QA | **OWNER APPROVED; TECHNICALLY PENDING** | Client backups/rollback, real faction sources/markers, frame/GC, relog/cache/eligibility |
+| 12 | Final reviewed integration, packaging and release | **OWNER APPROVED; TECHNICALLY PENDING** | Exact-head QA, privacy/licensing audit, independent production review and explicit final approval |
+
+**Part35 tally: 3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED, TECHNICALLY PENDING.**
+
+**Part 35 latest exact-head engineering evidence:**
+- Protected `335` remains `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`; not modified by Part35.
+- [#172](https://github.com/CosmicCuddle/N-Questie/pull/172) exact `33ebb8a9c08f7ff72a4652a718d3df0b0c4566a1`: **7/7 pull_request workflows SUCCESS**, with *all seven* artifact endpoints independently audited at **0**; separate push CI also SUCCESS/0 artifacts. Actual [job 121502903613](https://github.com/CosmicCuddle/N-Questie/actions/runs/40302314454) gives **35/35 real Lua5.1 + 35/35 real Lua5.4**, 24 distinct fictional correction category orders. [CS02 independent exact-head APPROVE-WITH-FOLLOW-UP](https://github.com/CosmicCuddle/N-Questie/pull/172#issuecomment-6413388025) verified effective applications, plan nonmutation, raw-forward and override-only mutant kills. Reviewer found missing discrimination for forward **supersets** and absence of item-scalar `MISSING_ITEM` refusal; this is research coverage, not confirmed runtime defect.
+- NEW isolated child [#173](https://github.com/CosmicCuddle/N-Questie/pull/173) **DRAFT** based on unchanged #172, exact `2d8816ff3ec196967e9f5de93e63ef0b38618f88`: **two research test/CI files only**, correcting standalone oracle's false positive for unrelated-only sparse/duplicate legacy reverse lists, retaining strict custom-related refusals and adding typed malformed effective override checks. Incorporates all **three CS02 #172 gap probes**. Dedicated exact-head [run 40305406526](https://github.com/CosmicCuddle/N-Questie/actions/runs/40305406526), job `121513158657`, **47/47 PASS under actual Lua 5.1 and 47/47 actual Lua5.4**, including existing 24 permutations. **Overall seven-workflow exact-head CI, full artifact audit and independent CS02 #173 review are NOT yet accepted** at this checkpoint; do not inherit #172 CI or review.
+- [Team coordination #42](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6413414910): Grok has primary #172 review complete and useful backup #167 coroutine stream lease/source epoch/ABA/four-category stage research; follow-up #173 mutation review is queued. Research-only branches remain separate and unmerged. #169 hardening is held and #170 is comparison-only.
+- No private source/loot/IP relationships, private SQL, SavedVariables, install/package or release. Real quest implementation **0/3**. Quest 2001's previously confirmed basic gameplay lifecycle remains historical PARTIAL PASS; unverified gameplay axes still need evidence.
+
+---
+
+## PART 34 HISTORICAL TWELVE-GATE STATUS — 26 October 2026
 
 > **Current authoritative public-safe status.** This milestone tracker describes completed evidence, not the amount of code finished and not approval to merge or release. Individual quest-source, NPC/GO/item/loot or Individual Progression private mappings must not be published here.
 
