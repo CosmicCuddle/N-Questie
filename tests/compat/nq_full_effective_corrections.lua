@@ -328,6 +328,19 @@ mutation("malformed item override category typed refusal",function(db)
   db.itemOverrides=true
 end,"BAD_OVERRIDE_CATEGORY")
 
-if checks~=44 then error("FULL FIXTURE expected 44 checks, got "..checks,0) end
-print("FULL EFFECTIVE CORRECTIONS RESULT: 44/44 PASS")
+-- Part35 independent CS02 review follow-ups (#172): mutation-discriminating
+-- forward superset refusal for NPCs and faction-effective item sources, and
+-- missing scalar item backlink refusal (none are product code changes).
+mutation("NPC quest forward superset refused",function(db)
+  db.questData[A][Q.startedBy][1]={NA,NX}
+end,"FORWARD_MISMATCH")
+mutation("effective item forward superset refused",function(db)
+  db.questOverrides[C]={[Q.startedBy]={{},nil,{IA,IX}}}
+end,"ITEM_FORWARD_MISMATCH")
+mutation("missing planned item backlink refused",function(db)
+  db.itemData[IA][I.startQuest]=nil
+end,"MISSING_ITEM")
+
+if checks~=47 then error("FULL FIXTURE expected 47 checks, got "..checks,0) end
+print("FULL EFFECTIVE CORRECTIONS RESULT: 47/47 PASS")
 print("TEST ONLY: complete fictional correction fixture; not a production write-freeze or client integration")
