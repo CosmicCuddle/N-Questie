@@ -618,6 +618,6 @@ end)
 check("foreign receipt token cannot authenticate staged bytes",
     not invalid)
 
-assert(tests==57,"expected 57 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 57/57 PASS")
+assert(tests==58,"expected 58 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 58/58 PASS")
 print("DRAFT ONLY: no writer epoch/ABA, lease recovery, atomic commit, disk recovery or client QA")
