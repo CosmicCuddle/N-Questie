@@ -914,6 +914,48 @@ function QuestieDBCompiler:CompileTable(tbl, types, order, lookup)
     return stream:Save(), QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
 end
 
+-- Part36 Gate08 draft: current-attempt receipts are compiler-owned evidence
+-- that all four source writers completed their optional staging outputs. They
+-- do not freeze source tables, quarantine the shared pool or publish a cache.
+-- A fresh identity token prevents an A→B→A of *scratch contents* from being
+-- mistaken for the same completed attempt; source A→B→A remains unprotected.
+local NQ_STAGE_KINDS = {"npc", "obj", "quest", "item"}
+
+function QuestieDBCompiler:BeginNQStagedGeneration(stage)
+    if type(stage) ~= "table" then
+        error("GATE08_STAGE_BAD_DESTINATION", 0)
+    end
+    -- Each call owns a fresh table identity, not a reused counter or bytes.
+    -- Keep optional writer lease configuration on the caller's stage.
+    stage._nqGenerationToken = {}
+    stage._nqGenerationReceipts = {}
+    for _, databaseKey in ipairs(NQ_STAGE_KINDS) do
+        stage[databaseKey.."Bin"] = nil
+        stage[databaseKey.."Ptrs"] = nil
+    end
+    return stage._nqGenerationToken
+end
+
+function QuestieDBCompiler:VerifyNQStagedGeneration(stage, expectedToken)
+    if type(stage) ~= "table" or type(expectedToken) ~= "table" or
+            stage._nqGenerationToken ~= expectedToken or
+            type(stage._nqGenerationReceipts) ~= "table" then
+        error("GATE08_STAGE_GENERATION_MISMATCH", 0)
+    end
+    for _, databaseKey in ipairs(NQ_STAGE_KINDS) do
+        local receipt = stage._nqGenerationReceipts[databaseKey]
+        local bin = stage[databaseKey.."Bin"]
+        local ptrs = stage[databaseKey.."Ptrs"]
+        if type(receipt) ~= "table" or receipt.token ~= expectedToken or
+                type(bin) ~= "string" or #bin == 0 or
+                type(ptrs) ~= "string" or #ptrs == 0 or
+                receipt.bin ~= bin or receipt.ptrs ~= ptrs then
+            error("GATE08_STAGE_INCOMPLETE_OR_STALE: "..databaseKey, 0)
+        end
+    end
+    return true
+end
+
 function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, databaseKey, kind, entriesPerTick, stage)
     -- Part36 Gate08 draft seam: a caller-owned stage avoids direct publication.
     -- The legacy no-argument compile path is unchanged. This is NOT a transaction:
@@ -993,6 +1035,19 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
                     end
                     stage[databaseKey.."Bin"] = bin
                     stage[databaseKey.."Ptrs"] = ptrs
+                    -- A receipt is assigned only AFTER successful stream
+                    -- completion and both immutable encoded values exist.
+                    -- The opt-in generation check refuses stale/missing pairs.
+                    if stage._nqGenerationToken ~= nil then
+                        if type(stage._nqGenerationToken) ~= "table" or
+                                type(stage._nqGenerationReceipts) ~= "table" then
+                            error("GATE08_STAGE_BAD_GENERATION", 0)
+                        end
+                        stage._nqGenerationReceipts[databaseKey] = {
+                            token = stage._nqGenerationToken,
+                            bin = bin, ptrs = ptrs,
+                        }
+                    end
                     return
                 elseif Questie.IsSoD then
                     Questie.db.global.sod[databaseKey.."Bin"] = stream:Save()
