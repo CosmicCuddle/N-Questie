@@ -1,9 +1,11 @@
 # N-Questie — living project master checklist
 
-**Snapshot:** 26 October 2026 (Part 35, Europe/London). **Status:** tracking/documentation only, not approval to implement or merge.  
+**Snapshot:** 26 October 2026 (**Part 36 opening**, Europe/London). **Status:** tracking/documentation only, not approval to implement or merge.  
 **Protected branch:** `335`, pinned/verified GitHub HEAD `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`.  
 **Owner:** N-Questie maintainer. **Lead developer:** CosmicScript01. **Independent reviewer:** CosmicScript02 (Grok, active since owner-confirmed return 25 October).  
 **Purpose:** a single **whole-project** place to see what was completed, what is in progress or blocked, and what is planned. This is **not** just Grok's review queue.
+
+**Part 36 transition — READ FIRST:** [Complete Part35 → Part36 Handover](HANDOVERS/2026-10-26_PART35_TO_PART36.md) and [Part36 Living Development Checklist](NQ-PART36-LIVING-DEVELOPMENT-CHECKLIST.md). New CS02 [#176 approval](https://github.com/CosmicCuddle/N-Questie/pull/176#issuecomment-6415492760), [#177 draft review](https://github.com/CosmicCuddle/N-Questie/pull/177#issuecomment-6415536358), [#174 research review](https://github.com/CosmicCuddle/N-Questie/pull/174#issuecomment-6415526071) and [#175 research review](https://github.com/CosmicCuddle/N-Questie/pull/175#issuecomment-6415563517) supersede older dated **pending review** notes below. Historical Part35 records are preserved, not rewritten.
 
 **Companion sources:**
 - [Historical feature roadmap](ROADMAP.md) — phases 0–4, 14 October snapshots and in-game QA requirements. Keep it; this document is the current index, not a rewrite of historical evidence.
@@ -11,26 +13,26 @@
 - [Single living CosmicScript02 rolling task queue](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6248354348) — individual independent review tasks, verdicts and exact-SHA evidence. **Do not copy its task details into this overview**.
 - [Part 3 eight-decision sheet — draft PR #87](https://github.com/CosmicCuddle/N-Questie/pull/87) — proposed maintainer choices, not approvals.
 
-## PART 35 CURRENT TWELVE-GATE STATUS — 26 October 2026
+## PART 36 CURRENT TWELVE-GATE STATUS — 26 October 2026
 
 > **Current PUBLIC-SAFE status.** Passing GitHub workflows and independent research review are not production verification, owner-private Gate09 completion, or permission to merge, package, install or release. All quest/NPC/GO/item test identifiers in the research branches are fictional.
 
-| # | Milestone | Part 35 state | Remaining acceptance |
+| # | Milestone | Part 36 state | Remaining acceptance |
 |---|---|---|---|
 | 01 | 439 server-only quest research inventory | **COMPLETE** | Keep distinct buckets: **12 review candidates + 418 exploratory + 9 accounted-for** (5 owner-excluded 30000–30004, 3 placeholders, 1 existing overlay quest 2001). Inventory complete ≠ missing-quest coverage complete |
 | 02 | Owner confirmation of quests 1207–1209 being offered | **COMPLETE** | Offer evidence does not prove exact private source/loot/IP links |
 | 03 | Pinned Questie source and registration audit | **COMPLETE** | Recheck after later production changes |
 | 04 | OPT-A staged loader, full manifest, R5 | **UNDERWAY** | Provenance and source manifest/closure unfinished |
-| 05 | NPC/GO/item effective ownership and late-writer exclusion | **UNDERWAY** | #173 reviewed test-only, #176 49-case test-only; **#177 actual loader/Stage1 effective-owner precompile draft 7/7 PR CI green, exact head 00f2b4d1, peer review pending**, still NOT writer/epoch-frozen during compiler yields or production-integrated |
+| 05 | NPC/GO/item effective ownership and late-writer exclusion | **UNDERWAY** | **#176 CS02 APPROVE (test-only)**; **#177 loader/Stage1 effective-owner draft at 00f2b4d1 has 7/7 PR + 5/5 push CI SUCCESS and CS02 APPROVE-WITH-FOLLOW-UP (draft only)**. Three mutation cases, nil-relation GC, faction invariant and file mode remain; writer epoch across compiler yields NOT implemented |
 | 06 | Completion-cache research and isolated CI | **UNDERWAY** | #169 canonical research candidate, #170 comparison only; real CLEAR/ADD-ONLY client behavior unknown |
 | 07 | Lua5.1 loader and item-starter integration | **UNDERWAY** | #168 101-case real Lua5.1/5.4 research + 12 pinned codec cases; NPC/GO and in-game coverage missing |
-| 08 | Four-category compiler transaction/recovery | **UNDERWAY** | [Part35 Gate08 implementation blueprint](research/NQ-PART35-GATE08-TRANSACTIONAL-COMPILER-INTEGRATION-BLUEPRINT.md) defines source freeze, stream leases, all-four-kind staging and SUCCESS-only revision; #167/#174/#175 research is test-only, **production integration still incomplete** |
+| 08 | Four-category compiler transaction/recovery | **UNDERWAY** | [Part35 Gate08 blueprint](research/NQ-PART35-GATE08-TRANSACTIONAL-COMPILER-INTEGRATION-BLUEPRINT.md) specifies source-epoch/immutable snapshot, reader/writer stream ownership, eight-field staging and SUCCESS-only metadata. **#174/#175 reviewed APPROVE-WITH-FOLLOW-UP for research**, two cleanup/poison mutants survive. **Production-safe compiler not implemented** |
 | 09 | Private source/loot/IP and eligibility proof for approved batches | **UNDERWAY** | Investigate candidate-specific player availability, actual source/loot and Individual Progression privately; 439 rows are not 439 proven playable quests |
 | 10 | **Missing-Quest Coverage & Implementation Programme** | **OWNER APPROVED FOR DEVELOPMENT; TECHNICALLY PENDING** | Scope the **439-record investigation** into eligible, approved waves; **1207–1209 are the first pilot (0/3 implemented), not the full milestone**. Other wave sizes and implementation denominator remain **UNDETERMINED** until private evidence and individual inclusion decisions |
 | 11 | Actual WoW 3.3.5a and IP gameplay QA | **OWNER APPROVED; TECHNICALLY PENDING** | Client backups/rollback, real faction sources/markers, frame/GC, relog/cache/eligibility |
 | 12 | Final reviewed integration, packaging and release | **OWNER APPROVED; TECHNICALLY PENDING** | Exact-head QA, privacy/licensing audit, independent production review and explicit final approval |
 
-**Part35 tally: 3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED, TECHNICALLY PENDING.**
+**Part36 opening tally: 3 COMPLETE / 6 UNDERWAY / 3 OWNER-APPROVED, TECHNICALLY PENDING.**
 
 **Programme clarification (owner direction, 26 Oct):** Milestone 10 covers the broader missing-quest investigation and implementation work, **not only** 1207–1209. The three identified quests are the first pilot batch with separately outstanding source evidence. Do **not** add them to the aggregate counts as a separate 3; their membership in the 12/418/9 audit categories is not established here. The historic shorthand "9 deferred" is imprecise: only **5** were explicitly owner-deferred; the other **4** are three placeholders and already-covered quest 2001. In the **439** raw server-only comparison, a quest is not automatically absent from the **effective compiled** Questie database, genuinely offered in game, eligible for IP, or approved for an addon entry. See [public-safe programme and batch gates](NQ-MISSING-QUEST-COVERAGE-PROGRAMME.md) and [the separate four-file inventory draft #164](https://github.com/CosmicCuddle/N-Questie/pull/164). This change does not retroactively rewrite dated Part 34/33 historical records. Individual quest data insertions, installation and final release remain separately gated.
 
