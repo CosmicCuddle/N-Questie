@@ -250,6 +250,11 @@ end,false,"BAD_OVERRIDE_ENTRY")
 probe("malformed GO override category refused",function(s)
   s.db.goOverrides=true
 end,false,"BAD_OVERRIDE_CATEGORY")
-if tests~=42 or passed~=42 then error("wrong synthetic test count") end
-print("OWNER REVERSE PROPOSAL RESULT: 42/42 PASS")
+-- CS02 R31: the quest-view field reader must reject a malformed override
+-- CATEGORY with a typed error, instead of surfacing a raw Lua index error.
+probe("malformed quest override category refused (R31 oracle)",function(s)
+  s.db.questOverrides=true
+end,false,"BAD_OVERRIDE_CATEGORY")
+if tests~=43 or passed~=43 then error("wrong synthetic test count") end
+print("OWNER REVERSE PROPOSAL RESULT: 43/43 PASS")
 print("TEST ONLY: excludes compiler-yield freeze, live client and item source proof")
