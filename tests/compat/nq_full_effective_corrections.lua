@@ -341,6 +341,16 @@ mutation("missing planned item backlink refused",function(db)
   db.itemData[IA][I.startQuest]=nil
 end,"MISSING_ITEM")
 
-if checks~=47 then error("FULL FIXTURE expected 47 checks, got "..checks,0) end
-print("FULL EFFECTIVE CORRECTIONS RESULT: 47/47 PASS")
+-- CS02 Part35 exact-head #173 review: the *subset* direction of same()
+-- must reject a deleted approved owner, not only extra foreign owners.
+-- Keep the reviewed 47-case head immutable: these cases live in child #176.
+mutation("NPC forward subset refused",function(db)
+  db.questData[A][Q.startedBy][1]={}
+end,"FORWARD_MISMATCH")
+mutation("item forward subset refused",function(db)
+  db.questData[C][Q.startedBy][3]={}
+end,"ITEM_FORWARD_MISMATCH")
+
+if checks~=49 then error("FULL FIXTURE expected 49 checks, got "..checks,0) end
+print("FULL EFFECTIVE CORRECTIONS RESULT: 49/49 PASS")
 print("TEST ONLY: complete fictional correction fixture; not a production write-freeze or client integration")
