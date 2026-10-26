@@ -474,6 +474,46 @@ check("invalid reader ownership contract refused before acquire",
 check("reader and writer owner paths did not intercept global GetStream",
     owner.GetStream==realGlobalGet and saved.nQuestieDataRevision==57
     and saved.npcBin~="OLD_STAGE_NPC")
-assert(tests==41,"expected 41 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 41/41 PASS")
+-- The real Questie:Error logs diagnostics without raising. Staged writes
+-- must therefore fail with an explicit Lua error instead of silently
+-- returning, which a transaction driver could misread as SUCCESS.
+local priorError=Questie.Error
+local reported={}
+Questie.Error=function(_,message)
+    reported[#reported+1]=tostring(message)
+end
+db.objectData={[77201]={[db.objectKeys.name]={99}}}
+local stale={objBin="PRIOR_GO_BIN",objPtrs="PRIOR_GO_PTRS"}
+local stageOk,stageErr=pcall(function()
+    drive(function() compiler:CompileObjects(stale) end)
+end)
+check("print-only Questie Error cannot silently accept invalid staged GO",
+    not stageOk and type(stageErr)=="string" and
+    stageErr:find("GATE08_STAGE_INVALID_DATATYPE",1,true)~=nil
+    and #reported==1)
+check("nonthrowing log error cannot replace old scratch or live GO pair",
+    stale.objBin=="PRIOR_GO_BIN" and stale.objPtrs=="PRIOR_GO_PTRS"
+    and saved.objBin=="OLD_BIN_obj" and saved.objPtrs=="OLD_PTRS_obj"
+    and saved.nQuestieDataRevision==57 and saved.dbCompiledCount==9)
+
+local ownedBadRun=newLeaseDriver()
+local ownedBad=ownedBadRun()
+check("owned multi-kind stage reports ERROR and cleans DEAD leases",
+    ownedBad.status=="ERROR" and ownedBad.dead and not ownedBad.busy
+    and not ownedBad.quarantined and #ownedBad.leases==2
+    and ownedBad.leases[1].done and ownedBad.leases[2].done
+    and ownedBad.leases[1].attempts==1 and ownedBad.leases[2].attempts==1
+    and ownedBad.stage.objBin==nil and ownedBad.stage.objPtrs==nil)
+db.objectData={[77201]={[db.objectKeys.name]="Invented Object"}}
+local repaired=ownedBadRun()
+Questie.Error=priorError
+check("clean retry after DEAD staged datatype ERROR remains possible",
+    repaired.status=="SUCCESS" and not repaired.busy
+    and type(repaired.stage.objBin)=="string"
+    and type(repaired.stage.objPtrs)=="string"
+    and type(repaired.stage.itemBin)=="string"
+    and #reported==2 and Questie.Error==priorError)
+
+assert(tests==45,"expected 45 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 45/45 PASS")
 print("DRAFT ONLY: no writer epoch/ABA, lease recovery, atomic commit, disk recovery or client QA")
