@@ -19,7 +19,7 @@ jobs:
           timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
           lua5.1 -v 2>&1 | grep -E '^Lua 5\.1'
           lua5.4 -v 2>&1 | grep -E '^Lua 5\.4'
-      - name: Check eleven bounded owned-copy behaviours and non-atomic capture gap
+      - name: Check twenty registered-writer capture and unknown-writer bypass probes
         shell: bash
         run: |
           set -euo pipefail
@@ -29,9 +29,9 @@ jobs:
             "${lua/lua/luac}" -p tests/compat/nq_gate08_owned_snapshot_feasibility.lua
             output="$RUNNER_TEMP/known-gaps-$lua.log"
             timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate08_owned_snapshot_feasibility.lua | tee "$output"
-            test "$(grep -c '^PASS FEASIBILITY GATE08 OWNED SNAPSHOT ' "$output")" -eq 11
-            grep -Fx 'GATE08 OWNED SNAPSHOT: 11/11 BOUNDED FIXTURE CHECKS (NOT IMPLEMENTED)' "$output"
-            grep -Fx 'BLOCKED SOURCE CAPTURE: atomicity, coverage, unknown writers, faction APIs, RAM/GC, publish, relog and client QA' "$output"
+            test "$(grep -c '^PASS FEASIBILITY GATE08 OWNED SNAPSHOT ' "$output")" -eq 20
+            grep -Fx 'GATE08 OWNED SNAPSHOT: 20/20 BOUNDED CONTRACT CHECKS (NOT IMPLEMENTED)' "$output"
+            grep -Fx 'BLOCKED SOURCE CAPTURE: unknown unregistered writers bypass epoch, unsealed copy, client RAM/GC and actual atomic publish' "$output"
           done
       - name: Reject artifacts and package files
         shell: bash

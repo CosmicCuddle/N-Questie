@@ -274,6 +274,110 @@ check("11 no publication of partial SavedVariables or revision by prototype",
     and saved.questBin==nil and saved.itemBin==nil
     and saved.nQuestieDataRevision==57 and saved.dbCompiledCount==9)
 
-assert(count==11,"expected eleven bounded snapshot feasibility checks, got "..count)
-print("GATE08 OWNED SNAPSHOT: 11/11 BOUNDED FIXTURE CHECKS (NOT IMPLEMENTED)")
-print("BLOCKED SOURCE CAPTURE: atomicity, coverage, unknown writers, faction APIs, RAM/GC, publish, relog and client QA")
+-- Part37 bounded CONTRACT PROBE, NOT a production epoch or sealed source.
+-- A private version counter protects a capture ONLY IF all source writers are
+-- certified and every relevant mutation increments it, including A-B-A.
+-- The certification boolean below is test input, not an authority primitive.
+local function versionedFixtureCapture(proven,interruption)
+    if not proven then return nil,"GATE08_SOURCE_WRITERS_UNCERTIFIED" end
+    local generation=0
+    local before=generation
+    local function registeredWrite(fn)
+        generation=generation+1 -- before any write, even transient A-B-A
+        fn()
+    end
+    local out=ownInputs(function()
+        if interruption then interruption(registeredWrite) end
+    end)
+    if before~=generation then
+        return nil,"GATE08_SOURCE_GENERATION_CHANGED"
+    end
+    return out,nil
+end
+initInventedSources()
+local cleanOwned,cleanError=versionedFixtureCapture(true)
+local cleanReceipt=compileOwned(cleanOwned)
+check("12 bounded registered-writer contract accepts unchanged input",
+    cleanError==nil and cleanOwned~=nil
+    and readOwned(cleanReceipt,"npc","name",77101,nil)=="Witness A"
+    and readOwned(cleanReceipt,"quest","name",77301,nil)=="Witness Quest")
+
+initInventedSources()
+local changedScalar,scalarError=versionedFixtureCapture(true,function(write)
+    write(function()
+        db.npcData[77101][db.npcKeys.name]="Witness B"
+        db.questData[77301][db.questKeys.name]="Witness B"
+    end)
+end)
+check("13 registered persistent edit during capture forces typed refusal",
+    changedScalar==nil and scalarError=="GATE08_SOURCE_GENERATION_CHANGED")
+
+initInventedSources()
+local returnedABA,abaError=versionedFixtureCapture(true,function(write)
+    write(function()db.questData[77301][db.questKeys.name]="Transient B"end)
+    write(function()db.questData[77301][db.questKeys.name]="Witness Quest"end)
+end)
+check("14 registered transient A-B-A still forces typed refusal",
+    returnedABA==nil and abaError=="GATE08_SOURCE_GENERATION_CHANGED"
+    and db.questData[77301][db.questKeys.name]=="Witness Quest")
+
+initInventedSources()
+local nestedCopy,nestedError=versionedFixtureCapture(true,function(write)
+    write(function()
+        db.npcData[77101][db.npcKeys.questStarts][1]=77302
+    end)
+end)
+check("15 registered in-place nested list change forces refusal",
+    nestedCopy==nil and nestedError=="GATE08_SOURCE_GENERATION_CHANGED")
+
+initInventedSources()
+local overrideCopy,overrideError=versionedFixtureCapture(true,function(write)
+    write(function()
+        factionViews.H[77501][db.questKeys.name]="Changed opposite view"
+    end)
+end)
+check("16 registered opposite-faction override mutation forces refusal",
+    overrideCopy==nil and overrideError=="GATE08_SOURCE_GENERATION_CHANGED")
+
+initInventedSources()
+local unrelatedCopy,unrelatedError=versionedFixtureCapture(true,function(write)
+    write(function()
+        db.npcData[77102]={[db.npcKeys.name]="Unrelated new NPC"}
+    end)
+end)
+check("17 conservative contract refuses even unrelated registered writer",
+    unrelatedCopy==nil and unrelatedError=="GATE08_SOURCE_GENERATION_CHANGED")
+
+initInventedSources()
+local denied,deniedError=versionedFixtureCapture(false)
+check("18 uncertified writer boundary explicitly denies starting capture",
+    denied==nil and deniedError=="GATE08_SOURCE_WRITERS_UNCERTIFIED")
+
+-- CRITICAL FALSIFICATION: the counter cannot see an unregistered write,
+-- even if a caller erroneously declares the writer set certified.
+initInventedSources()
+local bypass,bypassError=versionedFixtureCapture(true,function(_)
+    db.npcData[77101][db.npcKeys.name]="UNTRACKED LIVE B"
+    db.questData[77301][db.questKeys.name]="UNTRACKED LIVE B"
+end)
+local bypassStage=compileOwned(bypass)
+check("19 UNKNOWN-WRITER GAP: version-only capture falsely accepts torn input",
+    bypassError==nil and bypass~=nil
+    and readOwned(bypassStage,"npc","name",77101,nil)=="Witness A"
+    and readOwned(bypassStage,"quest","name",77301,nil)=="UNTRACKED LIVE B")
+
+-- Unsealed Lua tables remain writable after capture. A real owner must keep
+-- owned references private and supply immutable/safe reader contracts.
+initInventedSources()
+local unsealed=versionedFixtureCapture(true)
+local privateBefore=unsealed.base.npc[77101][db.npcKeys.name]
+unsealed.base.npc[77101][db.npcKeys.name]="Caller can mutate owned table"
+check("20 UNSEALED-ALIAS GAP: copied source can be mutated by its holder",
+    privateBefore=="Witness A"
+    and unsealed.base.npc[77101][db.npcKeys.name]~=
+        db.npcData[77101][db.npcKeys.name]
+    and unsealed.base.npc[77101][db.npcKeys.name]~="Witness A")
+
+assert(count==20,"expected twenty bounded snapshot-contract checks, got "..count)
+print("GATE08 OWNED SNAPSHOT: 20/20 BOUNDED CONTRACT CHECKS (NOT IMPLEMENTED)")
+print("BLOCKED SOURCE CAPTURE: unknown unregistered writers bypass epoch, unsealed copy, client RAM/GC and actual atomic publish")
