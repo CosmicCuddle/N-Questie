@@ -193,6 +193,12 @@ for _,faction in ipairs({"Alliance","Horde"}) do
         stats.empty,writes,autoWrites,factionWrites,overrideFields,nExtra))
     assert(stats.reordered==0 and stats.malformed==0,
         "PUBLIC_NPC_CORRECTION_ORDER_BLOCKER")
+    -- Frozen public source snapshot: count drift needs review, not silent PASS.
+    assert(rows==29615 and fields==6023 and stats.ordered==6023
+        and stats.empty==0 and writes==2627 and autoWrites==84
+        and factionWrites==((faction=="Alliance") and 25 or 24)
+        and overrideFields==0 and nExtra==0,
+        "PUBLIC_NPC_CORRECTION_LAYER_SNAPSHOT_CHANGED")
     collectgarbage("collect")
 end
 assert(seen.questStarts and seen.questEnds,
