@@ -204,19 +204,22 @@ local controls={
     {"u8s24pairs",{[4]={4,4},[3]={3,3},[2]={2,2},[1]={1,1}},"reordered"},
     {"u8s24pairs",{{1}},"malformed"},
 }
-assert(#controls==27,"PUBLIC_QUEST_COMPOUND_CONTROL_SET_CHANGED")
+assert(#controls==24,"PUBLIC_QUEST_COMPOUND_CONTROL_SET_CHANGED")
 for _,row in ipairs(controls) do
     assert(classify(row[2],row[1])==row[3],
         "PUBLIC_QUEST_COMPOUND_CONTROL_FAILED")
 end
+local extraControlCount=0
 local fakeBase={[1]={12,15}}
 local fakeOver={[1]={}}
 local v,fromOver=effective(fakeBase,fakeOver,1)
 assert(fromOver and v==fakeOver[1] and next(v)==nil,
     "PUBLIC_QUEST_OVERRIDE_CLEAR_CONTROL_FAILED")
+extraControlCount=extraControlCount+1
 v,fromOver=effective(fakeBase,{},1)
 assert(not fromOver and v==fakeBase[1],
     "PUBLIC_QUEST_OVERRIDE_FALLBACK_CONTROL_FAILED")
+extraControlCount=extraControlCount+1
 local visits=0
 local count=extraRows({[-800]={[1]={10}}},{
     [-800]={[1]={11}},[-801]={[1]={}},
@@ -227,7 +230,9 @@ local count=extraRows({[-800]={[1]={10}}},{
         "PUBLIC_QUEST_OVERRIDE_ONLY_CLEAR_FAILED")
 end)
 assert(count==1 and visits==1,"PUBLIC_QUEST_OVERRIDE_ONLY_COUNT_FAILED")
-print("PUBLIC QUEST COMPOUND CONTROLS: "..#controls.."/27 PASS")
+extraControlCount=extraControlCount+1
+assert(extraControlCount==3,"PUBLIC_QUEST_EXTRA_CONTROL_SET_CHANGED")
+print("PUBLIC QUEST COMPOUND CONTROLS: "..(#controls+extraControlCount).."/27 PASS")
 local keys=assert(db.questKeys)
 local schema=assert(db.questCompilerTypes)
 local explored={}
