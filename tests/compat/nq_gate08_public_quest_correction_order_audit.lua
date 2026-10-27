@@ -271,6 +271,18 @@ for _,faction in ipairs({"Alliance","Horde"}) do
         typeCounts.u8s24pairs))
     assert(stats.reordered==0 and stats.malformed==0,
         "PUBLIC_QUEST_COMPOUND_ORDER_BLOCKER")
+    -- Freeze the observed PUBLIC correction snapshot; any count drift is a
+    -- reviewable failure, not an automatic assertion of data corruption.
+    local horde=(faction=="Horde")
+    assert(rows==9158 and fields==(horde and 15267 or 15266)
+        and stats.ordered==(horde and 13361 or 13360)
+        and stats.empty==1906 and writes==7603
+        and reputationWrites==4254 and overrideWrites==(horde and 24 or 23)
+        and overrideFields==(horde and 1 or 0) and extra==0
+        and typeCounts.u8u24array==(horde and 7359 or 7358)
+        and typeCounts.u12pair==260 and typeCounts.s24pair==715
+        and typeCounts.u8s24pairs==6933,
+        "PUBLIC_QUEST_CORRECTION_LAYER_SNAPSHOT_CHANGED")
     db.questData=nil
     collectgarbage("collect")
 end
