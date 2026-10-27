@@ -83,6 +83,26 @@ local function classify(value, spec)
     if actualOrderWrong then return "reordered" end
     return "ordered"
 end
+-- Synthetic controls prove the classifier can reject actual hash-part
+-- reordering. No public record IDs or relationship values are used here.
+-- If a refactor drops key ~= count, these tests MUST fail, even when the
+-- read-only real base corpus has zero reordered fields.
+local controls = {
+    {"ordered dense array", {10,20}, specs.u8u24array, "ordered"},
+    {"reversed dense hash array", {[3]=30,[2]=20,[1]=10}, specs.u8u24array, "reordered"},
+    {"reversed dense hash pair-array", {[2]={3,4},[1]={1,2}}, specs.u8s24pairs, "reordered"},
+    {"sparse array", {[1]=10,[3]=30}, specs.u8u24array, "malformed"},
+    {"malformed pair", {[1]=3,[3]=4}, specs.u12pair, "malformed"},
+    {"intentional empty clear", {}, specs.u8u24array, "empty"},
+}
+for _,control in ipairs(controls) do
+    local actual=classify(control[2],control[3])
+    assert(actual==control[4],
+        "PUBLIC_ORDER_CONTROL_FAILED: "..control[1].." expected "
+            ..control[4].." got "..actual)
+end
+print("PUBLIC ORDER CLASSIFIER CONTROLS: 6/6 PASS (synthetic only)")
+
 local files = {
     {kind="npc", file="wotlkNpcDB.lua"},
     {kind="object", file="wotlkObjectDB.lua"},
@@ -103,9 +123,12 @@ for _,s in ipairs(files) do
     -- for later loadstring compilation. Decode the in-memory PUBLIC table
     -- before shape checking; never print any decoded IDs or associations.
     if type(dataset) == "string" then
-        local decode, decodeProblem = (loadstring or load)(dataset)
-        assert(decode, decodeProblem)
-        dataset = decode()
+        local decode = (loadstring or load)(dataset, "=nq_public_wotlk_base")
+        assert(decode, "PUBLIC_BASE_DECODE_FAILED: " .. s.kind)
+        local okDecoded, decoded = pcall(decode)
+        assert(okDecoded and type(decoded) == "table",
+            "PUBLIC_BASE_EVALUATION_FAILED: " .. s.kind)
+        dataset = decoded
     end
     assert(type(dataset) == "table", "public WotLK base table was not loaded: " .. s.kind)
     local stats = {ordered=0, reordered=0, malformed=0, empty=0}
