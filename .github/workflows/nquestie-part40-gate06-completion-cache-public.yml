@@ -1,0 +1,44 @@
+name: N-Questie Part40 public Gate06 completion-cache event order (read-only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  gate06-completion-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install actual Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Audit public Gate06 completion cache branches without real user data
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_gate06_public_completion_cache_order_audit.lua
+            else
+              luac5.4 -p tests/compat/nq_gate06_public_completion_cache_order_audit.lua
+            fi
+            log="$RUNNER_TEMP/public-g06-$lua.log"
+            timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate06_public_completion_cache_order_audit.lua | tee "$log"
+            grep -Fx 'PUBLIC G06 SOURCE BACKED COMPLETION CONTROLS: 14/14 PASS' "$log"
+            grep -Fx 'PUBLIC G06 SOURCE RISK: documented GetQuestsCompleted(table) additive writes may retain stale completion keys.' "$log"
+            grep -Fx 'PUBLIC G06 NOT ACCEPTED: native 3.3.5a API execution, uncorrelated event timing, daily/weekly timers, UI markers or private IP phase.' "$log"
+            test "$(grep -Ec '^PUBLIC G06 ' "$log")" -eq 3
+          done
+      - name: Confirm no release packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
