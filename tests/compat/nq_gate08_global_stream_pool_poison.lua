@@ -71,6 +71,33 @@ check("ambiguous double-finish duplicates a live pooled reference",
 callerA:WriteByte(41)
 check("two concurrent borrowed identities share the same storage",
     callerB:Save()==string.char(41) and callerA:Save()==string.char(41))
-assert(tested==6)
-print("GATE08 GLOBAL STREAM POOL WITNESS: 6/6 KNOWN UNSAFE")
+
+-- POSITIVE CONTROL: ordinary successful Finish must continue to benefit
+-- from the current normal pool recycling path. A blanket "disable pooling"
+-- hypothetical fix should fail this control, unlike targeted quarantine.
+local healthy=streamLib:GetStream("raw_assert")
+healthy:WriteByte(71)
+assert(healthy:Save()==string.char(71))
+healthy:finished()
+local healthyNext=streamLib:GetStream("raw_assert")
+check("normal unambiguous Finish reuses one reset stream",
+    healthyNext==healthy and healthyNext._pointer==1
+    and healthyNext:Save()=="")
+
+-- INDEPENDENT KNOWN UNSAFE: the same-mode fast path does not repopulate
+-- methods. A polluted method slot persists into an unrelated borrower.
+-- This is synthetic instrumentation, NOT a real addon exploit claim.
+local methodOwner=streamLib:GetStream("raw")
+local cleanSave=methodOwner.Save
+local function injectedSave() return "SYNTHETIC_POISONED_METHOD" end
+methodOwner.Save=injectedSave
+methodOwner:finished()
+local methodBorrower=streamLib:GetStream("raw")
+check("poisoned method slot leaks to next same-mode borrower",
+    methodBorrower==methodOwner and methodBorrower.Save==injectedSave
+    and methodBorrower.Save~=cleanSave
+    and methodBorrower:Save()=="SYNTHETIC_POISONED_METHOD")
+
+assert(tested==8)
+print("GATE08 GLOBAL STREAM POOL WITNESS: 8/8 KNOWN UNSAFE / POSITIVE CONTROL")
 print("DRAFT ONLY: global pool quarantine NOT fixed; no source epoch, atomic publish, SavedVariables recovery or native client QA")
