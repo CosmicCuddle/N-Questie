@@ -27,6 +27,15 @@
 
 **3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING.** Missing quest research = **439 RAW** records, NOT 439 approved additions (12 linked first-pass + 418 exploratory + 5 owner exclusions + 3 placeholders + 1 existing overlay). Eligible denominator unknown. Initial pilot quests 1207, 1208 and 1209 = **0/3 implemented**. Never invent or publicly reveal private NPC/GO/item/loot/IP links. Full 439-record coverage must be investigated, not replaced by a three-quest pilot.
 
+## Part39 opening checkpoint — independent GitHub recheck and public base audit (27 October 2026)
+
+- Protected `335` rechecked via GitHub branch endpoint at exactly `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`, unchanged. Draft #216–#221 heads match their handover ledger; no merge or review-head rewrite.
+- [#221](https://github.com/CosmicCuddle/N-Questie/pull/221) exact `5fd7aaf2e93b0032bc4db6b5f73c005314a63578`: **7/7 complete original-head workflows SUCCESS, 0/7 artifact endpoints**, newly verified in Part39. This does not demonstrate in-game QA.
+- Team [#42](https://github.com/CosmicCuddle/N-Questie/pull/42) rechecked through Part39 opening. Last observed CS02 allocations remain **undelivered/unverified** for real compiler-owned ambiguous Finish and per-witness RETRY map; CS02 #218 Q10 and #219 mutation/corpus verdicts not yet returned at this checkpoint.
+- New isolated TEST-ONLY [draft #222](https://github.com/CosmicCuddle/N-Questie/pull/222), **head `f742e1f69e841c28155e5be51a671485381bd553`**, exact parent frozen #219 `b2c0aa868f4b2aa53aa29b5dfdf0ea22b9b30522`. Two new files only: a **read-only PUBLIC WotLK base** numeric compound `pairs()` ordering audit over four source tables and no-artifact dual-Lua CI. It summarizes counts only; no item/NPC/GO/quest relationship values or private data printed.
+- #222 initial exact-head Actions: **10 original-head runs in progress**, including the new source-audit job; **NOT yet green**, no artifact closeout or result-based compatibility claim. Recheck after CI, including Lua 5.1/5.4 logs. The audit **does not** apply runtime Corrections/faction overrides/effective views or owner-private IP data; Stage1/corpus acceptance remains RED.
+- Global stream-pool quarantine, compiler-owned ambiguous Finish, source A→B→A generation, complex codec, four-kind atomic memory/durable disk, native client acceptance remain blocked. All twelve gates remain **3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING**; **439 RAW** records, 1207–1209 **0/3** implementation.
+
 ## 2. Mandatory fresh Part39 opening checks
 
 - [ ] Refresh protected 335 exact SHA. Stop and report any unexpected movement, rather than silently proceeding.
