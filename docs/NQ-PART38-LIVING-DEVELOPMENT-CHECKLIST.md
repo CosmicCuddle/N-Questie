@@ -29,8 +29,7 @@
 | PR | Exact frozen SHA | Source-backed/dedicated verification | Own original-branch Actions / artifacts |
 |---|---|---|---|
 | [#187](https://github.com/CosmicCuddle/N-Questie/pull/187) private scratch | `768ded74ecdad26a4398caa51bd36a2862cc2b3b` | 73/73 real Lua5.1 and Lua5.4 | 9/9 SUCCESS; 0 artifacts |
-| [#189](https://github.com/CosmicCuddle/N-Questie/pull/189) scalar stage bounds | `81ca757d8dc4d501bd36a2862cc2b3b` **DO NOT USE — incorrect SHA in this row; see correction below** | — | — |
-| [#189](https://github.com/CosmicCuddle/N-Questie/pull/189) **AUTHORITATIVE corrected scalar row** | `81ca757d8dc4d501af1fd9312a821ac36af82834` | 94/94 real Lua5.1 and Lua5.4 | 9/9 SUCCESS; 0 artifacts |
+| [#189](https://github.com/CosmicCuddle/N-Questie/pull/189) scalar stage bounds | `81ca757d8dc4d501af1fd9312a821ac36af82834` | 94/94 real Lua5.1 and Lua5.4 | 9/9 SUCCESS; 0 artifacts |
 | [#191](https://github.com/CosmicCuddle/N-Questie/pull/191) M1/M10 test-only | `d98dedcd876ebd2f844196e3f9b3ca0f439a3807` | 98/98 real Lua5.1 and Lua5.4 | 9/9 SUCCESS; 0 artifacts |
 | [#194](https://github.com/CosmicCuddle/N-Questie/pull/194) actual corrections, synthetic faction witness | `42c4ce89da5b449f08d06a04248c1cbd01f0ab02` | 11/11 real Lua5.1 and Lua5.4 — KNOWN UNSAFE, not fixed | 10/10 SUCCESS; 0 artifacts |
 | [#196](https://github.com/CosmicCuddle/N-Questie/pull/196) tiny owned-copy feasibility | `6449f59ad439fc16ed99a36b72112bf481df77a6` | 11/11 real Lua5.1 and Lua5.4 — bounded, mixed-epoch remains | 11/11 SUCCESS; 0 artifacts |
