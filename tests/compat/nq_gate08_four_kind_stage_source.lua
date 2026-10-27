@@ -1075,7 +1075,21 @@ check("CS02 M11 never-begun tokenless writer refuses forged token before Finish"
 -- These tests use the actual source-backed compiler, pooled QuestieStream,
 -- and real GetDBHandle reader, through scalarRealSourceProbe above.
 -- No real quest/NPC/item associations or owner-private evidence.
+-- Synthetic exact-boundary mutants; oversized lists generated without private data.
+local nqU16CountOverflow={}
+for i=1,65536 do nqU16CountOverflow[i]=1 end
+local nqU8PairCountOverflow={}
+for i=1,256 do nqU8PairCountOverflow[i]={1,1} end
 local compoundCases = {
+    {"quest","requiredMinRep",{1,8388608},false,"MUTANT s24pair upper edge plus one"},
+    {"quest","requiredSkill",{4096,1},false,"MUTANT u12pair upper edge plus one"},
+    {"quest","reputationReward",{{1,8388608}},false,"MUTANT u8s24pairs upper edge plus one"},
+    {"quest","reputationReward",{{-8388609,1}},false,"MUTANT u8s24pairs lower edge minus one"},
+    {"item","npcDrops",nqU16CountOverflow,false,"MUTANT u16u24array 65536 count"},
+    {"quest","reputationReward",nqU8PairCountOverflow,false,"MUTANT u8s24pairs 256 count"},
+    {"npc","questStarts",{0/0},false,"MUTANT u8u24array non-finite input"},
+    {"npc","questStarts",{"7"},false,"MUTANT u8u24array numeric string"},
+    {"quest","reputationReward",{5},false,"MUTANT u8s24pairs non-pair element"},
     {"quest","requiredSkill",{-1,0},false,"u12pair negative"},
     {"quest","requiredSkill",{5000,1},false,"u12pair overflow"},
     {"quest","requiredSkill",{1,1.5},false,"u12pair fractional"},
@@ -1142,6 +1156,6 @@ check("legacy u12pair wrap remains unchanged and is not staged acceptance",
     and saved.questPtrs==legacyBeforeQuestPtrs
     and saved.nQuestieDataRevision==57)
 
-assert(tests==123,"expected 123 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 123/123 PASS")
+assert(tests==132,"expected 132 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 132/132 PASS")
 print("DRAFT ONLY: simple compounds guarded; complex nested codec, source epoch, pool isolation, commit, relog recovery and client QA remain blocked")
