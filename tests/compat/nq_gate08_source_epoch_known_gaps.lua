@@ -303,6 +303,120 @@ check("E05 OPEN: opposite-view transient A-B-A leaves identical source output",
     and compiler:VerifyNQStagedGeneration(
         transientHStage,transientHStage._nqGenerationToken)==true)
 
-assert(count==11,"expected eleven known-gap witness checks, got "..count)
-print("GATE08 SOURCE EPOCH KNOWN-GAPS: 11/11 CHARACTERIZED (NOT FIXED)")
+-- CS02's independently reproduced stricter mid-compiler timing, now
+-- exercised in CI with *real* source rows and a real writer-owned stream.
+-- A full 120-row toy table is required so the first 49-entry batch finishes
+-- before a source edit changes the not-yet-encoded rows.
+local function inventedManyNPCs()
+    resetInvented()
+    db.npcData={}
+    for id=77101,77220 do
+        db.npcData[id]={[db.npcKeys.name]="Torn A"}
+    end
+end
+local function interleavedNpcAttempt(mutator)
+    local stage={}
+    local token=compiler:BeginNQStagedGeneration(stage)
+    local lease,finishCount=nil,0
+    local driverCleanupCount=0
+    local owner={}
+    function owner:Acquire(streamParent,mode)
+        assert(not lease)
+        lease={stream=streamParent:GetStream(mode)}
+        return lease
+    end
+    function owner:Finish(actual)
+        assert(actual==lease and finishCount==0)
+        finishCount=finishCount+1
+        actual.stream:finished()
+    end
+    stage._nqWriterLeaseOwner=owner
+    local thread=coroutine.create(function()
+        compiler:CompileNPCs(stage)
+    end)
+    local firstOk,firstReason=coroutine.resume(thread)
+    assert(firstOk and coroutine.status(thread)=="suspended",
+        "first NPC yield failed: "..tostring(firstReason))
+    local batchOk,batchReason=coroutine.resume(thread)
+    assert(batchOk and coroutine.status(thread)=="suspended",
+        "first actual NPC row batch did not suspend: "..tostring(batchReason))
+    mutator()
+    local ok,reason=true,nil
+    for _=1,256 do
+        ok,reason=coroutine.resume(thread)
+        if not ok or coroutine.status(thread)=="dead" then break end
+    end
+    local dead=coroutine.status(thread)=="dead"
+    if dead and lease and finishCount==0 then
+        lease.stream:finished() -- driver cleanup only after DEAD
+        driverCleanupCount=driverCleanupCount+1
+    end
+    if ok then
+        -- The remaining unrelated writers use their normal real streams;
+        -- this NPC lease's single-use owner has already finished.
+        stage._nqWriterLeaseOwner=nil
+        for _,method in ipairs({"CompileObjects","CompileQuests","CompileItems"}) do
+            drive(function()compiler[method](compiler,stage)end)
+        end
+    end
+    local verified=false
+    if ok then
+        verified=pcall(function()
+            assert(compiler:VerifyNQStagedGeneration(stage,token)==true)
+        end)
+    end
+    return {ok=ok,reason=tostring(reason),stage=stage,dead=dead,
+        writerFinishCount=finishCount,driverCleanupCount=driverCleanupCount,
+        verified=verified}
+end
+
+inventedManyNPCs()
+local torn=interleavedNpcAttempt(function()
+    for id=77101,77220 do
+        db.npcData[id][db.npcKeys.name]="Torn B"
+    end
+end)
+check("E01 STRONG MID-STREAM: already-encoded A and later B coexist",
+    torn.ok and torn.dead and torn.writerFinishCount==1
+    and torn.verified and
+    readName(torn.stage,"npc","npc","npcKeys",77101)=="Torn A"
+    and readName(torn.stage,"npc","npc","npcKeys",77220)=="Torn B")
+check("E02 MID-STREAM: receipts authenticate actual mixed bytes, no epoch",
+    torn.ok and torn.verified and
+    db.npcData[77101][db.npcKeys.name]=="Torn B" and
+    db.npcData[77220][db.npcKeys.name]=="Torn B"
+    and readName(torn.stage,"npc","npc","npcKeys",77101)~=
+        db.npcData[77101][db.npcKeys.name])
+
+inventedManyNPCs()
+local deleted=interleavedNpcAttempt(function()
+    db.npcData[77180]=nil -- recorded in indexLookup; not yet encoded
+end)
+check("E03 MID-STREAM deletion fails but with untyped Lua error",
+    not deleted.ok and deleted.dead and deleted.writerFinishCount==0
+    and deleted.driverCleanupCount==1 and not deleted.verified and
+    deleted.stage.npcBin==nil and deleted.stage.npcPtrs==nil
+    and deleted.reason:find("GATE08_",1,true)==nil
+    and deleted.reason:find("nil",1,true)~=nil)
+check("E03 deleted writer cleanup is only performed after coroutine DEAD",
+    not deleted.ok and deleted.dead and deleted.writerFinishCount==0
+    and deleted.stage._nqWriterLeaseOwner~=nil
+    and deleted.driverCleanupCount==1)
+
+inventedManyNPCs()
+local appended=interleavedNpcAttempt(function()
+    db.npcData[77999]={[db.npcKeys.name]="New live row"}
+end)
+check("E06 MID-STREAM appended id silently omitted by prebuilt index",
+    appended.ok and appended.dead and appended.verified
+    and appended.writerFinishCount==1
+    and db.npcData[77999]~=nil
+    and readName(appended.stage,"npc","npc","npcKeys",77999)==nil)
+check("E06 original rows remain readably encoded while late row omitted",
+    appended.ok and appended.verified
+    and readName(appended.stage,"npc","npc","npcKeys",77101)=="Torn A"
+    and readName(appended.stage,"npc","npc","npcKeys",77220)=="Torn A")
+
+assert(count==17,"expected seventeen known-gap witness checks, got "..count)
+print("GATE08 SOURCE EPOCH KNOWN-GAPS: 17/17 CHARACTERIZED (NOT FIXED)")
 print("BLOCKED E01-E08: no source-writer exclusion, no source A-B-A epoch, no guarded publication, no client QA")
