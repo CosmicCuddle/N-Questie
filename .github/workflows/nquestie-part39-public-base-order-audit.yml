@@ -27,8 +27,10 @@ jobs:
             "${lua/lua/luac}" -p tests/compat/nq_gate08_public_base_order_audit.lua
             output="$RUNNER_TEMP/order-$lua.log"
             timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate08_public_base_order_audit.lua | tee "$output"
+            test "$(grep -c '^PUBLIC ORDER CLASSIFIER CONTROLS: 6/6 PASS (synthetic only)$' "$output")" -eq 1
+            test "$(grep -E -c '^PUBLIC WOTLK BASE (npc|object|quest|item) rows=[0-9]+ simple_fields=[0-9]+ ordered=[0-9]+ reordered_dense=0 malformed=0 intentional_empty=0$' "$output")" -eq 4
             test "$(grep -c '^PUBLIC WOTLK BASE ' "$output")" -eq 5
-            grep -q '^PUBLIC WOTLK BASE AUDIT COMPLETE simple_fields=' "$output"
+            grep -E '^PUBLIC WOTLK BASE AUDIT COMPLETE simple_fields=[0-9]+ reordered_dense=0$' "$output"
             grep -Fx 'SCOPE LIMIT: BASE tables only; effective Corrections, faction overrides, late writers and client QA NOT AUDITED.' "$output"
             grep -Fx 'DRAFT AUDIT ONLY: discovering zero reordered base fields cannot certify Stage1 compatibility or source epoch.' "$output"
           done
