@@ -126,3 +126,16 @@ Independent reviewed exact-head findings:
 - [ ] Advance G04–G07 and G09 separately against public and owner-private evidence; G10 full 439 RAW triage remains required, no assumed eligible denominator or new quest additions. G11 client QA and G12 integration/release require separate owner approval.
 
 **Whole-programme state unchanged:** 3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING; 439 RAW (12 linked + 418 exploratory + 5 owner-excluded + 3 placeholders + 1 existing overlay), pilot 1207–1209 **0/3 implemented**. No merge, install, package, tag, release, protected-branch push or private source publication.
+
+
+## 9. Parallel public-code reconnaissance for G04–G07/G09 (no status promotion)
+
+**Source at protected `335`, verified 27 October 2026; findings are test plans, NOT owner-private eligibility facts or native client results.**
+
+- **G04 — loader manifest/provenance:** [Guarded custom-loader contract](NQ-CUSTOM-LOADER-SAFETY-DRAFT.md) documents public existing-quest safeguards: supported/unsupported fields, 255-entry reverse capacity and the `zoneOrSort` signed bound. Those are bounded source/fixture protections; full OPT-A provenance and real approved quest relationships are still missing.
+- **G05 — effective owners:** separate [synthetic available starter marker contract](../tests/compat/nq_available_starter_marker_contract.lua) deliberately distinguishes a resolvable NPC/GO from a locatable one. Real source-linked forward↔reverse owners, cross-faction override-only records, late writers and Individual Progression restrictions remain unverified. Do not make markers from invented coordinates.
+- **G06 — completion-cache CLEAR/ADD:** protected [`QuestieQuest.lua`](../Modules/Quest/QuestieQuest.lua) initialization sets `Questie.db.char.complete` to `QuestieCompat.GetQuestsCompleted()`; [`Compat.lua`](../Compat/Compat.lua) invokes `QueryQuestsCompleted()`, then the `QUEST_QUERY_COMPLETE` event updates the same cache and separately applies repeatable, daily and weekly rules. **Next test**: fictional delayed-event and repeatable/reset CLEAR/ADD sequences, with no false completion from stale entries. This is an asynchronous ordering boundary to test, **not a newly verified defect or an instruction to clear real SavedVariables**.
+- **G07 — actual item starters:** the existing [starter-marker fixture](../tests/compat/nq_available_starter_marker_contract.lua) explicitly expects no fabricated NPC/GO map pins/tooltips for an item-only source *in that renderer*. Item starter detection, real client interaction and item-only UI parity must be tested in the relevant path separately; absence of an NPC map pin does NOT prove the quest ineligible.
+- **G09 — historical/phase/loot/IP:** no owner-private eligibility evidence has been imported. Public source guesses are insufficient for real per-quest approval; keep all private proof offline and continue the full 439 RAW classification programme with owner decisions.
+
+All of G04–G09 remain UNDERWAY. No code changes to any of these paths, no automatic quest additions, and no change to native client/release gates.
