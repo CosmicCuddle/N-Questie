@@ -273,6 +273,9 @@ for _,faction in ipairs({"Alliance","Horde"}) do
         "PUBLIC_NPC_CORRECTION_LAYER_SNAPSHOT_CHANGED")
     local digest=valueDigest(base,overrides,{
         questStarts="u8u24array",questEnds="u8u24array"},keys)
+    local expectedDigest={Alliance="010975264-451717832",Horde="010975264-451717832"}
+    assert(digest==expectedDigest[faction],
+        "PUBLIC_NPC_VALUE_DIGEST_SNAPSHOT_CHANGED")
     print("PUBLIC WOTLK NPC VALUE DIGEST faction="..faction.." digest="..digest)
     collectgarbage("collect")
 end
