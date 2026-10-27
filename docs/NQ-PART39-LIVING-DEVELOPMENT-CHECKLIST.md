@@ -102,3 +102,16 @@ The five most recent #216–#220 contain **44/44 successful original-head Action
 
 **Part39 opening state:** Everything in this checklist is development evidence only. No protected-335 changes, no merges, no client installation, no ZIP upload, no tags and no release. Continue useful code/test work on bounded real blockers, not repeated status narration.
 
+
+## 9. Live Part39 checkpoint — 27 October 2026, 17:24–17:30 UTC
+
+**Newer than the Part39 opening ledger; all evidence is exact-head draft-only and not integration acceptance.**
+
+- [x] Protected `335` re-fetched unchanged at `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`. Existing #216–#221 reviewed heads remain unchanged on this check.
+- [x] Grok CS02's comment-only reviews received: [#218](https://github.com/CosmicCuddle/N-Questie/pull/218#issuecomment-6448363078) Q10 killed at positive raw reuse #1; [#219](https://github.com/CosmicCuddle/N-Questie/pull/219#issuecomment-6448363736) reversed-order tests #116/#117, M14, M17 verified with M07/M09 single-guard equivalence caveat; [#222](https://github.com/CosmicCuddle/N-Questie/pull/222#issuecomment-6448364387) base-only public WotLK corpus 47,084 simple fields, no reordered/malformed on Lua5.1/5.4. Never convert this into effective-corpus or client acceptance.
+- [x] #224 exact `dc3f21006ab97a27d51f0d2aa300ff0f4beaf035`: documented dedicated real Lua 5.1/5.4 21/21 KNOWN UNSAFE, 10/10 CI success, 0/10 artifacts. S7 non-name `minLevel` A→B→A torn reads still pass receipts: defect reproduced, NOT fixed.
+- [x] #226 exact `d8a83c2435f51c153ab8abf5cea572b4758a1670`: live GitHub Actions queried by exact HEAD, **10/10** completed-success (9 pull_request and 1 push) and every one of the **10/10 individual run artifact endpoints** directly queried, **zero artifacts**. Runs: `40548415801`, `40548415446`, `40548415949`, `40548415447`, `40548415473`, `40548415772`, `40548415627`, `40548415783`, `40548415547`, `40548407090`. Dedicated `40548415627` reports six fictional order controls on Lua 5.1 and 5.4; independent CS02 exact-head mutation review **still pending**. Preserve historical failed interim YAML head `960db1be`; do not rewrite.
+- [ ] CS02 delegated T1 actual compiler-owned Finish and T2 per-witness RETRY are **claimed but no delivered PR verified at this checkpoint**; see [coordination #42](https://github.com/CosmicCuddle/N-Questie/pull/42). Do not duplicate their scope without a fresh activity check.
+- [ ] Next engineering: audit *effective public Corrections/overrides*, not just generated base; S7/method-slot source witnesses and real all-writer epoch; targeted global pool quarantine with healthy reuse; four-kind atomic publication; disk restart recovery. All remain RED.
+
+**Programme unchanged:** gates **3 complete / 6 underway / 3 technically pending**; **439 raw** research records, eligible denominator unknown; pilot 1207–1209 **0/3 implemented**. No private server data, protected commits, merge, packaging, installation, tag or release.
