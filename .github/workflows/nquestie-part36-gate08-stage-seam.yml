@@ -28,8 +28,8 @@ jobs:
             "${lua/lua/luac}" -p tests/compat/nq_gate08_four_kind_stage_source.lua
             output="$RUNNER_TEMP/stage-$lua.log"
             timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate08_four_kind_stage_source.lua | tee "$output"
-            test "$(grep -c '^PASS GATE08 STAGE ' "$output")" -eq 157
-            grep -Fx 'GATE08 SOURCE STAGING RESULT: 157/157 PASS' "$output"
+            test "$(grep -c '^PASS GATE08 STAGE ' "$output")" -eq 169
+            grep -Fx 'GATE08 SOURCE STAGING RESULT: 169/169 PASS' "$output"
             grep -Fx 'DRAFT ONLY: simple compounds guarded; complex nested codec, source epoch, pool isolation, commit, relog recovery and client QA remain blocked' "$output"
           done
       - name: Reject test artifact packaging
