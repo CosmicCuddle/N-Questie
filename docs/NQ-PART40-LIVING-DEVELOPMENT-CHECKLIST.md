@@ -139,3 +139,18 @@ Independent reviewed exact-head findings:
 - **G09 — historical/phase/loot/IP:** no owner-private eligibility evidence has been imported. Public source guesses are insufficient for real per-quest approval; keep all private proof offline and continue the full 439 RAW classification programme with owner decisions.
 
 All of G04–G09 remain UNDERWAY. No code changes to any of these paths, no automatic quest additions, and no change to native client/release gates.
+
+
+## 10. Part40 pinned-digest CI addendum — 27 October 2026
+
+**Exact-current-head evidence at this check (not an all-green claim).**
+
+- [x] **[#246 NPC](https://github.com/CosmicCuddle/N-Questie/pull/246)** now pinned `47d57044a6c9cfe26268ad41d3676704a14672e3`. Actual original-head dedicated [run 40581684328](https://github.com/CosmicCuddle/N-Questie/actions/runs/40581684328) **SUCCESS**; both real **Lua 5.1.5 and 5.4.6**, same digest each faction `010975264-451717832`; fictional reverse through actual accumulation path FAILS as expected. Snapshot asserts enforce values, not just field counts.
+- [x] **[#247 QUEST](https://github.com/CosmicCuddle/N-Questie/pull/247)** now pinned `dc08cc608dedd192d9c882e649af6e180e431d99`. Actual original-head dedicated [run 40581697607](https://github.com/CosmicCuddle/N-Questie/actions/runs/40581697607) **SUCCESS**; both real Lua versions give Alliance digest `043054440-899980232` and Horde `429450508-289752222`; 20/20 fictional controls, including six boundary tests, PASS on each.
+- [x] Both PRs independently re-fetched as DRAFT with exactly **two changed paths each**, their source-reviewed parent heads unchanged; corrected workflow-file syntax checked and historical first-attempt errors preserved. CS02 independent *reverted* mutation review requested in [#42](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6453310407) for N2c/N3d/N3d+N2a and Q3c/Q8h/Q8i.
+- [x] All original-head uploaded artifact endpoints independently queried: **#246 0/13**, **#247 0/14** at this check; they may be rechecked after the last still-running workflow concludes.
+- [ ] **Do not mark entire CI green yet:** at interim snapshot #246 had **12/13** completed-success and #247 **13/14**, with one M2 framework workflow still executing on each. Need final exact-head results and all artifact endpoints after completion.
+- [ ] #248 documentation final HEAD is independently rechecked in GitHub after this append and then its exact-head CI/artifact endpoints checked; do not confuse its historical earlier heads with this addendum.
+- [x] Protected `335` re-verified **UNCHANGED** at `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`. All reviewed parents remain untouched. Full Gate08 production red boundaries unchanged; test-only digest witnesses cannot supply source A→B→A security.
+
+**Whole twelve-gate status:** 3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING; 439 RAW with unknown eligible denominator and 0/3 implemented pilot. No private source, merge, install, package, tag or release.
