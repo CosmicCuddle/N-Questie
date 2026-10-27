@@ -154,3 +154,18 @@ All of G04–G09 remain UNDERWAY. No code changes to any of these paths, no auto
 - [x] Protected `335` re-verified **UNCHANGED** at `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`. All reviewed parents remain untouched. Full Gate08 production red boundaries unchanged; test-only digest witnesses cannot supply source A→B→A security.
 
 **Whole twelve-gate status:** 3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING; 439 RAW with unknown eligible denominator and 0/3 implemented pilot. No private source, merge, install, package, tag or release.
+
+
+## 11. Later Part40 FULL NPC/QUEST Actions and artifact endpoint closeout — 27 October 2026
+
+**This later snapshot supersedes the PENDING full-run status in §10; do not delete that accurately dated interim observation.**
+
+- [x] Frozen original parent **#238 NPC** `6647437079757bb4a52e46528c66eb639862e56a`: **15/15** original-head workflow runs SUCCESS and **0/15** artifact endpoints individually fetched. Earlier 14/14 record remains accurate for its earlier moment.
+- [x] Frozen original parent **#243 QUEST** `547888b5932259892ddbc2fcbb63b9949f464b38`: **15/15** success and **0/15** artifacts. Earlier 14/14 record remains historical.
+- [x] Original Part40 handover **#245** `6011ad30234c1505dce15b166057d0a25b3bfd78`: **8/8** success and **0/8** artifacts. Initial seven-run pending/checkpoint remains historical.
+- [x] New Part40 **#246 NPC** exact `47d57044a6c9cfe26268ad41d3676704a14672e3`: **13/13** original-head Actions SUCCESS; **0/13** artifacts individually re-fetched **AFTER every workflow concluded**. Dedicated real Lua5.1.5/5.4.6 exact [40581684328](https://github.com/CosmicCuddle/N-Questie/actions/runs/40581684328) SUCCESS.
+- [x] New Part40 **#247 QUEST** exact `dc08cc608dedd192d9c882e649af6e180e431d99`: **14/14** original-head Actions SUCCESS; **0/14** artifacts individually re-fetched **AFTER every workflow concluded**. Dedicated real Lua5.1.5/5.4.6 exact [40581697607](https://github.com/CosmicCuddle/N-Questie/actions/runs/40581697607) SUCCESS, twenty invented controls.
+- [x] Later full-run confirmation posted to [coordination #42](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6453506288). Grok CS02's independent reverted N2c/N3d/N3d+N2a and Q3c/Q8h/Q8i review **PENDING**, not assumed passed.
+- [ ] This **#248 docs draft** remains separately subject to exact-final-head Actions and artifacts, which need verification after this addendum's source SHA is known. No publication or integration follows.
+
+**UNCHANGED HARD STOP:** all-writer source A→B→A, global stream quarantine, atomic full four-kind plus metadata publish, SaveVariables disk/relog recovery, native 3.3.5a/IP QA and independent mutation review. No private data or release authorisation; 3 COMPLETE/6 UNDERWAY/3 PENDING, 439 RAW, pilot 0/3.
