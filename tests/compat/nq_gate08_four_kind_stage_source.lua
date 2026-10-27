@@ -1002,6 +1002,75 @@ check("started stage cannot silently revert into tokenless legacy mode",
     tostring(tokenlessReuseReason):find("GATE08_STAGE_ATTEMPT_CHANGED",1,true)~=nil
     and previouslyBegun.npcBin==nil and previouslyBegun.npcPtrs==nil)
 
-assert(tests==98,"expected 98 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 98/98 PASS")
-print("DRAFT ONLY: test-only finish-order mutants; no compound bounds, source epoch, pool isolation, commit, relog recovery or client QA")
+-- CS02's independent #191 mutation retest verified that original M1/M10
+-- were killed, but three smaller diagnostic/defensive mutants survived.
+-- These tests pin only the REAL public compiler API and real pooled streams.
+local originallyValidPtr=reusedStage._nqGenerationReceipts.item.ptrs
+reusedStage._nqGenerationReceipts.item.ptrs="FORGED_DIAGNOSTIC_PTR_ONLY"
+local ptrDiagOK=pcall(function()
+    compiler:VerifyNQStagedGeneration(reusedStage,subsequent)
+end)
+reusedStage._nqGenerationReceipts.item.ptrs=originallyValidPtr
+check("CS02 M10b: public ptrs-only diagnostic edit is rejected and recoverable",
+    not ptrDiagOK
+    and compiler:VerifyNQStagedGeneration(reusedStage,subsequent)==true)
+
+local diagItem=reusedStage._nqGenerationReceipts.item
+local originalDiagToken=diagItem.token
+diagItem.token={}
+local tokenDiagOK=pcall(function()
+    compiler:VerifyNQStagedGeneration(reusedStage,subsequent)
+end)
+diagItem.token=originalDiagToken
+check("CS02 M10d token-only diagnostic edit is rejected and recoverable",
+    not tokenDiagOK and
+    compiler:VerifyNQStagedGeneration(reusedStage,subsequent)==true)
+
+local originalDiagSerial=diagItem.serial
+diagItem.serial=originalDiagSerial+1
+local serialDiagOK=pcall(function()
+    compiler:VerifyNQStagedGeneration(reusedStage,subsequent)
+end)
+diagItem.serial=originalDiagSerial
+check("CS02 M10d serial-only diagnostic edit is rejected and recoverable",
+    not serialDiagOK and
+    compiler:VerifyNQStagedGeneration(reusedStage,subsequent)==true)
+
+-- CS02 M11: a stage NEVER passed through Begin is suspended at the first
+-- compiler yield, then a caller forges a visible token. The stale writer
+-- must fail before its own lease Finish, leaving cleanup to the DEAD driver.
+local neverBegun={}
+local counterfeitFinishCount=0
+local counterfeitLease
+local counterfeitOwner={}
+function counterfeitOwner:Acquire(streamParent,mode)
+    assert(counterfeitLease==nil)
+    counterfeitLease={stream=streamParent:GetStream(mode)}
+    return counterfeitLease
+end
+function counterfeitOwner:Finish(lease)
+    assert(lease==counterfeitLease)
+    counterfeitFinishCount=counterfeitFinishCount+1
+    lease.stream:finished()
+end
+neverBegun._nqWriterLeaseOwner=counterfeitOwner
+local counterfeitThread=coroutine.create(function()
+    compiler:CompileNPCs(neverBegun)
+end)
+local firstCounterfeitResume=coroutine.resume(counterfeitThread)
+assert(firstCounterfeitResume and counterfeitLease and
+    coroutine.status(counterfeitThread)=="suspended")
+neverBegun._nqGenerationToken={}
+local counterfeitOK,counterfeitReason=coroutine.resume(counterfeitThread)
+local counterfeitDead=coroutine.status(counterfeitThread)=="dead"
+if counterfeitDead and counterfeitFinishCount==0 then
+    counterfeitLease.stream:finished()
+end
+check("CS02 M11 never-begun tokenless writer refuses forged token before Finish",
+    not counterfeitOK and counterfeitDead and counterfeitFinishCount==0
+    and tostring(counterfeitReason):find("GATE08_STAGE_ATTEMPT_CHANGED",1,true)~=nil
+    and neverBegun.npcBin==nil and neverBegun.npcPtrs==nil)
+
+assert(tests==102,"expected 102 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 102/102 PASS")
+print("DRAFT ONLY: diagnostic and tokenless mutant pins; no compound bounds, source epoch, pool isolation, commit, relog recovery or client QA")
