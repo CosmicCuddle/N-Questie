@@ -46,10 +46,26 @@ loadPublicEnums()
 assert(loadfile("Database/Constants.lua"))()
 assert(db.sortKeys and db.questFlags and db.factionIDs,
     "PUBLIC_QUEST_SCHEMA_ENUM_MISSING")
-assert(loadfile("Modules/QuestieProfessions.lua"))()
-local profession=QuestieLoader:ImportModule("QuestieProfessions")
-assert(profession.professionKeys and profession.specializationKeys,
-    "PUBLIC_QUEST_PROFESSION_ENUM_MISSING")
+-- QuestieProfessions.lua installs client hooks at top level; invoking it
+-- in headless CI is invalid. Extract JUST the genuine public enum tables.
+local function loadPublicProfessions()
+    local f=assert(io.open("Modules/QuestieProfessions.lua","rb"))
+    local source=assert(f:read("*a"));f:close()
+    local keys=assert(source:match("QuestieProfessions%.professionKeys%s*=%s*%b{}"),
+        "PUBLIC_QUEST_PROFESSION_ENUM_SOURCE_MISSING")
+    local specialization=assert(source:match(
+        "QuestieProfessions%.specializationKeys%s*=%s*%b{}"),
+        "PUBLIC_QUEST_SPECIALIZATION_ENUM_SOURCE_MISSING")
+    local sourceEnums="local QuestieProfessions=...\n"..keys.."\n"..specialization
+    local ctor=assert((loadstring or load)(sourceEnums,
+        "=public_quest_profession_enums"))
+    local prof=QuestieLoader:CreateModule("QuestieProfessions")
+    ctor(prof)
+    assert(prof.professionKeys and prof.specializationKeys
+        and prof.professionKeys.MINING==186,
+        "PUBLIC_QUEST_PROFESSION_ENUM_MISSING")
+end
+loadPublicProfessions()
 local sources={
     {"Database/Corrections/classicQuestFixes.lua","QuestieQuestFixes"},
     {"Database/Corrections/tbcQuestFixes.lua","QuestieTBCQuestFixes"},
