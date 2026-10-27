@@ -49,7 +49,7 @@ All these are draft/unmerged and **not based on `335` for merging**. Freshly ver
 - [x] Review CS02's actual exact-head #183–#186 findings, including non-throwing error, pointer, stream and stage mutants.
 - [x] **Draft implementation in #187 (review pending):** isolated child of #186 with private scratch generation and receipts, forged receipt/full public token+serial rollback tests; CS02 mutation review and all CI still required.
 - [x] **Draft implementation in #187 (review pending):** post-Finish guard moved **before Bin/Ptrs writes**, tokenless suspended writer and re-entrant Begin probes, plus Q1–Q6-inspired 73/73 dual Lua source-backed checks; exact-head peer review and full CI pending.
-- [ ] Source-backed negative tests for #184 silent raw numeric u16 wrap (70000→4464), fractional u8 Lua-version divergence, empty category semantics and incomplete stage abort; avoid prematurely changing normal legacy compiler.
+- [x] **Partially engineered as draft #189:** scalar u16 wrap, fractional u8, u24/u32/signed bounds fail closed in staged mode with 94/94 dedicated dual-Lua source-backed tests; **still pending**: independent review, entire CI, compound numeric bounds, empty-source semantics and failure-stage invalidation. Original legacy compiler is unchanged.
 - [ ] New test-only child reviews of #183 reader lease shape, decoded pointer error phase, handle.stream identity and duplicate stream pool returns; #185 pointer/empty/token-receipt mutants.
 - [ ] **Separate Gate08 hard stop:** scratch serial still does NOT protect original Questie source tables A→B→A. E01–E08, stream-pool isolation, atomic publication, relog recovery and real WoW3.3.5a/IP profiling remain pending. No merge or Stage1 integration.
 
@@ -66,6 +66,21 @@ All these are draft/unmerged and **not based on `335` for merging**. Freshly ver
 - [ ] **Still blocked:** full raw/effective source epoch E01–E08 and source A→B→A, global Questie shared pool poison isolation, real transaction driver and eight-field atomic publication/revision, crash/relog SavedVariables recovery, genuine client 3.3.5a/Individual Progression RAM/frame QA.
 
 **Public safety / whole scope:** no private owner SQL, real NPC/GO/item/loot/IP mappings. No Stage1 integration, merge, install, package, tag or release. Twelve gates remain **3 complete / 6 underway / 3 technically pending**. Gate10 still owns all **439 raw records**, not 439 approved quests; first pilot 1207–1209 **0/3**.
+
+## 2C. 27 October 2026 — staged scalar numeric-range guard #189 (Part37 active)
+
+**Code remains DRAFT / UNMERGED.** [#187](https://github.com/CosmicCuddle/N-Questie/pull/187) is frozen at `768ded74ecdad26a4398caa51bd36a2862cc2b3b`: 9/9 original exact-head PR/push Actions **SUCCESS** and **zero artifacts over all nine endpoints**; actual Lua5.1 + 5.4 **73/73** source-backed tests. Independent CS02 review is still outstanding.
+
+**New isolated [PR #189](https://github.com/CosmicCuddle/N-Questie/pull/189)** is stacked directly on #187 (unchanged parent), current source head `81ca757d8dc4d501af1fd9312a821ac36af82834`. Only `Database/compiler.lua`, `tests/compat/nq_gate08_four_kind_stage_source.lua`, and its no-upload dual-Lua workflow changed. The protected `335` branch is unchanged.
+
+- [x] **Real staged scalar safety:** `s8/u8/s16/u16/s24/u24/u32` require integral values within the exact reversible bounds of their actual public QuestieStream codecs, including historical signed offsets (not assumed two's complement). Lua-version-specific fractional truncation and wrapped values cause `GATE08_STAGE_NUMERIC_RANGE` before a raw encoder write.
+- [x] **Strict legacy isolation:** guard is scoped to optional `stage ~= nil`. Legacy no-stage/raw and SoD source are untouched. A source-backed negative-control test confirms legacy `u16` 70000→4464 continues on the unmodified legacy path; not an endorsement of that lossy behaviour.
+- [x] **Actual dedicated [Actions 40500843829](https://github.com/CosmicCuddle/N-Questie/actions/runs/40500843829) SUCCESS:** Lua 5.1 and Lua 5.4 each pass **94/94**, retaining 73 and adding 21 authentic public-source writer/reader fixtures. New negatives cover fractional/negative/overflow u8/u16/u24/u32 and offset s16/s24; positive exact readback boundaries, no scratch publish on invalid values, unchanged live binary fields/revision and DEAD-only synthetic lease cleanup. Dedicated run's artifact endpoint returned **0**.
+- [ ] **Whole #189 exact-head CI**: only 4/9 original PR/push runs completed SUCCESS at the initial review point; five still processing. All nine artifacts endpoints individually checked, 0 at that checkpoint. Requery before updating success counts.
+- [ ] **CS02 mutation challenge:** delete scalar range guard, invert signed offsets, weaken integer test, check u8 fractional on both Lua runtimes, high integer positive boundary, exact legacy no-stage/SoD byte identities, and malformed compound numeric paths. Separate #187 private-stage review still pending.
+- [ ] **Separate, NOT covered by #189:** nested numeric table/list bounds, waypoints, spawns and pointer identities; E01–E08 full raw/effective **source** writer epoch and source A→B→A; global stream pool poison isolation; transaction owner, atomic all-eight+metadata publication, SavedVariables crash/relog recovery; native WoW 3.3.5a/IP and memory QA.
+
+**Policy/whole scope:** All code and docs are stacked drafts. No Stage1 installation, merge, package, tag or release. PUBLIC repo contains only invented fixtures, never private SQL or NPC/GO/item/loot/IP source mappings. Twelve gates unchanged: **3 complete / 6 underway / 3 technically pending**. Full Gate10 investigation still **439 raw research records**, 1207–1209 pilot **0/3**.
 
 ## 3. PRIORITY A — CI closure and CS02 review
 
