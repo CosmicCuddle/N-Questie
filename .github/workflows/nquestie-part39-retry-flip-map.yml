@@ -1,0 +1,46 @@
+name: N-Questie Part39 per-witness RETRY flip-map (no publish)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  retry-flip-map:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install and prove Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -E '^Lua 5\.1'
+          lua5.4 -v 2>&1 | grep -E '^Lua 5\.4'
+      - name: Record per-witness RETRY outcomes and the declared flip-map
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            "${lua/lua/luac}" -p Database/compiler.lua
+            "${lua/lua/luac}" -p Database/Corrections/QuestieCorrections.lua
+            "${lua/lua/luac}" -p tests/compat/nq_gate08_source_epoch_known_gaps.lua
+            output="$RUNNER_TEMP/retry-flip-map-$lua.log"
+            timeout --signal=TERM --kill-after=5s 120s "$lua" tests/compat/nq_gate08_source_epoch_known_gaps.lua | tee "$output"
+            test "$(grep -c '^PASS KNOWN-GAP GATE08 SOURCE EPOCH WITNESS ' "$output")" -eq 19
+            test "$(grep -c '^WITNESS ' "$output")" -eq 95
+            grep -Fx 'GATE08 SOURCE EPOCH KNOWN-GAPS: 19/19 CHARACTERIZED (NOT FIXED)' "$output"
+            grep -Fx 'BLOCKED E01-E08: no source-writer exclusion, no source A-B-A epoch, no guarded publication, no client QA' "$output"
+            grep -Fx 'GATE08 RETRY FLIP-MAP: mismatches=0 witnesses=19 candidates=4 pinFlips=start_end_typed:7,start_end_clean:8,per_row_typed:4,per_row_clean:4 outcomeChanges=start_end_typed:9,start_end_clean:9,per_row_typed:4,per_row_clean:4' "$output"
+            grep -Fx 'PRODUCTION COMPILER UNMODIFIED: VERIFIED' "$output"
+            grep -Fx 'CANDIDATE SHIMS RESTORED: VERIFIED' "$output"
+            grep -Fx "GATE08 RETRY FLIP-MAP RUNTIME: Lua ${lua#lua}" "$output"
+          done
+      - name: Reject artifacts and package files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
