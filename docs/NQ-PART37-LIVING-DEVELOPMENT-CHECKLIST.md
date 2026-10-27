@@ -82,6 +82,17 @@ All these are draft/unmerged and **not based on `335` for merging**. Freshly ver
 
 **Policy/whole scope:** All code and docs are stacked drafts. No Stage1 installation, merge, package, tag or release. PUBLIC repo contains only invented fixtures, never private SQL or NPC/GO/item/loot/IP source mappings. Twelve gates unchanged: **3 complete / 6 underway / 3 technically pending**. Full Gate10 investigation still **439 raw research records**, 1207–1209 pilot **0/3**.
 
+## 2D. 27 October 2026 — independent CS02 #187 review and TEST-ONLY #191
+
+- [x] **Independent CS02 exact-head review of #187 received:** [comment 6441339456](https://github.com/CosmicCuddle/N-Questie/pull/187#issuecomment-6441339456), confirms 73/73 dual Lua and 9/9 CI/zero artifacts, and identifies surviving fixture mutants **M1** (remove per-resume stale-writer guard: writer may call `Finish` before eventual refusal), **M10** (diagnostic-only receipt tampering), plus intentional begun-stage→tokenless fail-closed policy. #187 remains frozen, DRAFT and unmerged, not merge approval.
+- [x] **Source draft #189 full original-head CI closure:** 9/9 completed SUCCESS, including M2 run `40500843802`; all nine individual artifact endpoints rechecked after completion returned 0. Real compiler stage tests **94/94 Lua 5.1 and Lua 5.4**. No peer mutation approval implied.
+- [x] **Fresh TEST-ONLY [PR #191](https://github.com/CosmicCuddle/N-Questie/pull/191)** at `d98dedcd876ebd2f844196e3f9b3ca0f439a3807` stacks on immutable #189; **two changed paths only** (source-backed fixture and no-upload workflow; no production compiler implementation changed). Adds independent `writerFinishCount` vs external DEAD cleanup and new assertions for M1 plain reset/full visible ABA, M10 diagnostic-only receipt edit, and begun-stage tokenless downgrade. 94→**98** checks.
+- [x] **Dedicated exact-head [Actions 40502134255](https://github.com/CosmicCuddle/N-Questie/actions/runs/40502134255) SUCCESS**, real Lua5.1 and 5.4 **98/98 each** including new #95–98. Full nine-workflow CI still processing at first checkpoint; do not label all green until requery. No release artifacts expected/authorised.
+- [ ] **CS02 independently rerun M1 and M10 against #191**, show both mutants KILLED on Lua5.1 and Lua5.4, test unchanged parent production compiler. Task recorded on [team PR #42](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6441613965).
+- [ ] **Hard stops unchanged:** E01–E08 genuine full source writer epoch and A→B→A, owner/faction visibility through yields, compound numeric fields, actual global stream pool poison isolation, production four-kind transaction/publish/revision, SavedVariables relog/crash recovery, native WoW 3.3.5a/IP and RAM/frame testing.
+
+**Preservation:** all code PRs #187, #189 and #191 are DRAFT/unmerged. Protected 335 untouched. Public fictional fixtures only, no private SQL or real NPC/GO/item/loot/IP mapping. Project status 3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING, full 439-record programme still open, initial pilot 1207–1209 0/3. No Stage1 rollout, package, install, tag or release.
+
 ## 3. PRIORITY A — CI closure and CS02 review
 
 - [x] #186 exact `f325a780`: M2 PR run `40345916004` **SUCCESS**, full **9/9** original branch workflows SUCCESS, **0 artifacts** independently rechecked. Recheck only if new commits/workflows appear.
