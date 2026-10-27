@@ -1,0 +1,41 @@
+name: N-Questie Part39 compiler-owned ambiguous Finish witness (no publish)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  compiler-owned-ambiguous-finish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Lua 5.1 and Lua 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -E '^Lua 5\.1'
+          lua5.4 -v 2>&1 | grep -E '^Lua 5\.4'
+      - name: Witness real CompileTableCoroutine ambiguous Finish on both Lua versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            "${lua/lua/luac}" -p Database/compiler.lua
+            "${lua/lua/luac}" -p Modules/QuestieStream.lua
+            "${lua/lua/luac}" -p tests/compat/nq_gate08_compiler_owned_ambiguous_finish.lua
+            out="$RUNNER_TEMP/compiler-finish-$lua.log"
+            timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate08_compiler_owned_ambiguous_finish.lua | tee "$out"
+            test "$(grep -c '^PASS GATE08 COMPILER FINISH ' "$out")" -eq 20
+            grep -Fx "GATE08 COMPILER-OWNED AMBIGUOUS FINISH: 20/20 KNOWN UNSAFE / POSITIVE CONTROL" "$out"
+            grep -Fx "DRAFT ONLY: compiler lease Finish quarantine is NOT proven; no production fix, source epoch, atomic publish, SavedVariables recovery or native client QA" "$out"
+          done
+      - name: Reject packaging/artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
