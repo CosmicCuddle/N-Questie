@@ -221,5 +221,5 @@ local controls={
 assert(#controls==14,"G06_CONTROL_INVENTORY_CHANGED")
 for _,control in ipairs(controls) do control() end
 print("PUBLIC G06 SOURCE BACKED COMPLETION CONTROLS: "..#controls.."/14 PASS")
-print("PUBLIC G06 KNOWN LIMIT: hypothetical ADD_ONLY retains stale entries; uncorrelated delayed event can restore old data.")
-print("PUBLIC G06 NOT ACCEPTED: real Query/GetQuestsCompleted API CLEAR+ADD behaviour, actual event scheduling, daily/weekly timer, native 3.3.5a client or IP phase.")
+print("PUBLIC G06 SOURCE RISK: documented GetQuestsCompleted(table) additive writes may retain stale completion keys.")
+print("PUBLIC G06 NOT ACCEPTED: native 3.3.5a API execution, uncorrelated event timing, daily/weekly timers, UI markers or private IP phase.")
