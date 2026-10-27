@@ -1,0 +1,47 @@
+name: N-Questie Part39 public WotLK object correction-order audit (read-only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  public-object-order:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install both real Lua versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Check public WotLK object correction-order projection
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_gate08_public_object_correction_order_audit.lua
+            else
+              luac5.4 -p tests/compat/nq_gate08_public_object_correction_order_audit.lua
+            fi
+            output="$RUNNER_TEMP/public-object-$lua.log"
+            timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate08_public_object_correction_order_audit.lua | tee "$output"
+            test "$(grep -c '^PUBLIC OBJECT CORRECTION CONTROLS: 10/10 PASS$' "$output")" -eq 1
+            test "$(grep -E -c '^PUBLIC WOTLK OBJECT CORRECTED faction=(Alliance|Horde) rows=[0-9]+ simple_fields=[0-9]+ ordered=[0-9]+ reordered_dense=0 malformed=0 intentional_empty=[0-9]+ patch_writes=[0-9]+ faction_writes=[0-9]+ override_fields=[0-9]+ override_only_rows=[0-9]+$' "$output")" -eq 2
+            test "$(grep -c '^PUBLIC WOTLK OBJECT CORRECTED faction=Alliance ' "$output")" -eq 1
+            test "$(grep -c '^PUBLIC WOTLK OBJECT CORRECTED faction=Horde ' "$output")" -eq 1
+            grep -Fx 'PUBLIC OBJECT CORRECTION AUDIT COMPLETE (both factions)' "$output"
+            grep -Fx 'SCOPE LIMIT: public WotLK objects and Classic/TBC/WotLK fixes/faction override projections only.' "$output"
+            grep -Fx 'NOT ACCEPTED: 4-kind effective source, Compat custom/late writers, pool quarantine, Stage1 or client.' "$output"
+          done
+      - name: No package or uploaded artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
