@@ -28,9 +28,9 @@ jobs:
             "${lua/lua/luac}" -p tests/compat/nq_gate08_four_kind_stage_source.lua
             output="$RUNNER_TEMP/stage-$lua.log"
             timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate08_four_kind_stage_source.lua | tee "$output"
-            test "$(grep -c '^PASS GATE08 STAGE ' "$output")" -eq 73
-            grep -Fx 'GATE08 SOURCE STAGING RESULT: 73/73 PASS' "$output"
-            grep -Fx 'DRAFT ONLY: no source writer epoch/ABA, global pool isolation, atomic commit, disk recovery or client QA' "$output"
+            test "$(grep -c '^PASS GATE08 STAGE ' "$output")" -eq 94
+            grep -Fx 'GATE08 SOURCE STAGING RESULT: 94/94 PASS' "$output"
+            grep -Fx 'DRAFT ONLY: no compound numeric bounds, source writer epoch/ABA, global pool isolation, atomic commit, disk recovery or client QA' "$output"
           done
       - name: Reject test artifact packaging
         shell: bash

@@ -920,6 +920,17 @@ end
 -- A fresh identity token prevents an A→B→A of *scratch contents* from being
 -- mistaken for the same completed attempt; source A→B→A remains unprotected.
 local NQ_STAGE_KINDS = {"npc", "obj", "quest", "item"}
+-- Opt-in staged scalar validation. Bounds mirror the actual reversible
+-- WriteByte/Short/Int24/Int encodings above (including the existing signed
+-- offsets 127, 32767 and 8388607), NOT two's-complement signed assumptions.
+-- Compound/array writer validation remains a separate open gate.
+local NQ_STAGE_SCALAR_LIMITS = {
+    s8 = {-127, 128}, u8 = {0, 255},
+    s16 = {-32767, 32768}, u16 = {0, 65535},
+    s24 = {-8388607, 8388608}, u24 = {0, 16777215},
+    u32 = {0, 4294967295},
+}
+
 -- Only this compilation unit can issue genuine scratch-generation receipts.
 -- Weak stage keys avoid retaining dead scratch tables. Caller-readable stage
 -- fields remain diagnostics/compatibility, NEVER the authority for Verify().
@@ -1142,6 +1153,18 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
                 end
                 if not writers[t] then
                     Questie:Error("Invalid datatype: " .. key .. " " .. tostring(t))
+                end
+                -- The raw stream codec may wrap out-of-range integers or
+                -- silently truncate fractions, depending on the Lua version.
+                -- Stage mode must never authenticate lossy numeric values.
+                -- No-stage/SoD routing deliberately retains legacy semantics.
+                if stage ~= nil and v ~= nil then
+                    local bounds = NQ_STAGE_SCALAR_LIMITS[t]
+                    if bounds and (type(v) ~= "number" or v ~= v or
+                            v < bounds[1] or v > bounds[2] or v % 1 ~= 0) then
+                        error("GATE08_STAGE_NUMERIC_RANGE: "..kind.."s["..
+                            tostring(id).."]."..tostring(key).." ["..t.."]", 0)
+                    end
                 end
                 --print(key .. "s[" .. tostring(id) .. "]."..key..": \"" .. type(v) .. "\"")
                 local result, errorMessage = pcall(writers[t], stream, v)

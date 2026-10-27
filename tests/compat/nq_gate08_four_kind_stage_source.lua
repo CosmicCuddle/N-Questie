@@ -836,6 +836,131 @@ check("legacy tokenless scratch stage retains successful byte staging",
     and type(unchangedTokenless.npcPtrs)=="string"
     and unchangedTokenless._nqGenerationReceipts==nil)
 
-assert(tests==73,"expected 73 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 73/73 PASS")
-print("DRAFT ONLY: no source writer epoch/ABA, global pool isolation, atomic commit, disk recovery or client QA")
+-- Part37 independent staged scalar-encoding audit. These are not mock
+-- codecs: each test invokes the actual Lua5.1-era Questie wrapper and stream.
+-- The source data/IDs are invented. Prior 73 cases remain unchanged.
+local scalarCases = {
+    {"npc", "zoneID", 70000, false, "u16 overflow"},
+    {"npc", "zoneID", -1, false, "u16 negative"},
+    {"npc", "zoneID", 65535, true, "u16 boundary"},
+    {"npc", "minLevel", 1.5, false, "u8 fractional"},
+    {"npc", "minLevel", 256, false, "u8 overflow"},
+    {"npc", "minLevel", 255, true, "u8 boundary"},
+    {"quest", "sourceItemId", 16777216, false, "u24 overflow"},
+    {"quest", "sourceItemId", -1, false, "u24 negative"},
+    {"quest", "sourceItemId", 16777215, true, "u24 boundary"},
+    {"npc", "npcFlags", 4294967296, false, "u32 overflow"},
+    {"npc", "npcFlags", -1, false, "u32 negative"},
+    {"npc", "npcFlags", 4294967295, true, "u32 boundary"},
+    {"quest", "questLevel", -32768, false, "s16 lower overflow"},
+    {"quest", "questLevel", 32769, false, "s16 upper overflow"},
+    {"quest", "questLevel", -32767, true, "s16 signed-offset boundary"},
+    {"quest", "requiredSpell", -8388608, false, "s24 lower overflow"},
+    {"quest", "requiredSpell", 8388609, false, "s24 upper overflow"},
+    {"quest", "requiredSpell", -8388607, true, "s24 signed-offset boundary"},
+    {"npc", "minLevel", false, false, "false cannot silently encode as zero"},
+}
+local preScalarLive = {}
+for _,entry in ipairs(categories) do
+    preScalarLive[entry.kind.."Bin"] = saved[entry.kind.."Bin"]
+    preScalarLive[entry.kind.."Ptrs"] = saved[entry.kind.."Ptrs"]
+end
+local function scalarRealSourceProbe(spec)
+    local k,field,value,valid = spec[1],spec[2],spec[3],spec[4]
+    local entry
+    for _,row in ipairs(categories) do if row.kind==k then entry=row end end
+    assert(entry)
+    local dataField = entry.schema.."Data"
+    local originalData = db[dataField]
+    local row = {[db[entry.tableKeys].name]=entry.name}
+    row[db[entry.tableKeys][field]] = value
+    db[dataField] = {[entry.id]=row}
+    local st = {}
+    local lease,finishCount=nil,0
+    local leaseOwner={}
+    function leaseOwner:Acquire(streamParent,mode)
+        assert(not lease)
+        lease={stream=streamParent:GetStream(mode)}
+        return lease
+    end
+    function leaseOwner:Finish(got)
+        assert(got==lease and finishCount==0)
+        finishCount=finishCount+1
+        got.stream:finished()
+    end
+    st._nqWriterLeaseOwner=leaseOwner
+    local thread=coroutine.create(function()
+        compiler[entry.fn](compiler,st)
+    end)
+    local ok,err=true,nil
+    for _=1,256 do
+        ok,err=coroutine.resume(thread)
+        if not ok or coroutine.status(thread)=="dead" then break end
+    end
+    assert(coroutine.status(thread)=="dead","source probe unexpectedly suspended")
+    if lease and finishCount==0 then
+        lease.stream:finished() -- external owner cleans only AFTER DEAD
+        finishCount=finishCount+1
+    end
+    local observed=nil
+    if ok and valid then
+        local handle=drive(function()
+            return compiler:GetDBHandle(st[k.."Bin"],st[k.."Ptrs"],
+                compiler:BuildSkipMap(db[entry.schema.."CompilerTypes"],
+                    db[entry.schema.."CompilerOrder"]),db[entry.tableKeys],nil)
+        end)
+        observed=handle.QuerySingle(entry.id,field)
+        handle.stream:finished()
+    end
+    db[dataField]=originalData
+    return ok,tostring(err),st,finishCount,observed
+end
+
+for _,spec in ipairs(scalarCases) do
+    local ok,reason,st,finished,readBack=scalarRealSourceProbe(spec)
+    local accepted=spec[4]
+    check("stage numeric "..spec[5].." preserves exact encoding or refuses",
+        finished==1 and (
+            (accepted and ok and readBack==spec[3] and
+                type(st[spec[1].."Bin"])=="string" and
+                type(st[spec[1].."Ptrs"])=="string") or
+            (not accepted and not ok and
+                reason:find("GATE08_STAGE_NUMERIC_RANGE",1,true)~=nil and
+                st[spec[1].."Bin"]==nil and
+                st[spec[1].."Ptrs"]==nil)
+        ))
+end
+local allLiveStillOriginal=saved.nQuestieDataRevision==57 and
+    saved.dbCompiledCount==9
+for _,entry in ipairs(categories) do
+    if saved[entry.kind.."Bin"]~=preScalarLive[entry.kind.."Bin"] or
+        saved[entry.kind.."Ptrs"]~=preScalarLive[entry.kind.."Ptrs"] then
+        allLiveStillOriginal=false
+    end
+end
+check("invalid staged scalars never published or advanced live revision",
+    allLiveStillOriginal)
+
+-- Stage-only safety: no-stage compiler deliberately retains the old raw
+-- encoder's historical behaviour at this development stage.
+local beforeLegacyBin,beforeLegacyPtrs=saved.npcBin,saved.npcPtrs
+local originalNPCs=db.npcData
+db.npcData={[77101]={[db.npcKeys.name]="Invented NPC",
+    [db.npcKeys.zoneID]=70000}}
+drive(function()compiler:CompileNPCs()end)
+local legacyHandle=drive(function()
+    return compiler:GetDBHandle(saved.npcBin,saved.npcPtrs,
+        compiler:BuildSkipMap(db.npcCompilerTypes,db.npcCompilerOrder),
+        db.npcKeys,nil)
+end)
+local legacyWrapped=legacyHandle.QuerySingle(77101,"zoneID")
+legacyHandle.stream:finished()
+db.npcData=originalNPCs
+saved.npcBin,saved.npcPtrs=beforeLegacyBin,beforeLegacyPtrs
+check("legacy raw u16 path retains existing wrap, without endorsing it",
+    legacyWrapped==4464 and saved.npcBin==beforeLegacyBin and
+    saved.npcPtrs==beforeLegacyPtrs and saved.nQuestieDataRevision==57)
+
+assert(tests==94,"expected 94 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 94/94 PASS")
+print("DRAFT ONLY: no compound numeric bounds, source writer epoch/ABA, global pool isolation, atomic commit, disk recovery or client QA")
