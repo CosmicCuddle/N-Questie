@@ -31,7 +31,7 @@ jobs:
             fi
             output="$RUNNER_TEMP/nq-quest-public-$lua.log"
             timeout --signal=TERM --kill-after=5s 100s "$lua" tests/compat/nq_gate08_public_quest_correction_order_audit.lua | tee "$output"
-            grep -Fx 'PUBLIC QUEST COMPOUND CONTROLS: 20/20 PASS' "$output"
+            grep -Fx 'PUBLIC QUEST COMPOUND CONTROLS: 27/27 PASS' "$output"
             test "$(grep -E -c '^PUBLIC WOTLK QUEST VALUE DIGEST faction=(Alliance|Horde) digest=[0-9]{9}-[0-9]{9}$' "$output")" -eq 2
             grep -Fx 'PUBLIC WOTLK QUEST VALUE DIGEST faction=Alliance digest=043054440-899980232' "$output"
             grep -Fx 'PUBLIC WOTLK QUEST VALUE DIGEST faction=Horde digest=429450508-289752222' "$output"

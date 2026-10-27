@@ -180,12 +180,15 @@ end
 -- must be sensitive on both 5.1 and 5.4 before surveying actual public tables.
 local controls={
     {"u8u24array",{1,2,3},"ordered"},
+    {"u8u24array",{16777215},"ordered"},
+    {"u8u24array",{16777216},"malformed"},
     {"u8u24array",{[4]=4,[3]=3,[2]=2,[1]=1},"reordered"},
     {"u8u24array",{[1]=1,[3]=3},"malformed"},
     {"u8u24array",{},"empty"},
     {"u12pair",{12,200},"ordered"},
     {"u12pair",{4095,0},"ordered"},
     {"u12pair",{4096,0},"malformed"},
+    {"u12pair",{-1,0},"malformed"},
     {"s24pair",{-8388608,0},"ordered"},
     {"s24pair",{-8388609,0},"malformed"},
     {"s24pair",{8388607,0},"ordered"},
@@ -194,21 +197,29 @@ local controls={
     {"s24pair",{1090,-500},"ordered"},
     {"s24pair",{1090,8388608},"malformed"},
     {"u8s24pairs",{{1,40},{2,-30}},"ordered"},
+    {"u8s24pairs",{{-8388608,0}},"ordered"},
+    {"u8s24pairs",{{-8388609,0}},"malformed"},
+    {"u8s24pairs",{{8388607,0}},"ordered"},
+    {"u8s24pairs",{{8388608,0}},"malformed"},
     {"u8s24pairs",{[4]={4,4},[3]={3,3},[2]={2,2},[1]={1,1}},"reordered"},
     {"u8s24pairs",{{1}},"malformed"},
 }
+assert(#controls==24,"PUBLIC_QUEST_COMPOUND_CONTROL_SET_CHANGED")
 for _,row in ipairs(controls) do
     assert(classify(row[2],row[1])==row[3],
         "PUBLIC_QUEST_COMPOUND_CONTROL_FAILED")
 end
+local extraControlCount=0
 local fakeBase={[1]={12,15}}
 local fakeOver={[1]={}}
 local v,fromOver=effective(fakeBase,fakeOver,1)
 assert(fromOver and v==fakeOver[1] and next(v)==nil,
     "PUBLIC_QUEST_OVERRIDE_CLEAR_CONTROL_FAILED")
+extraControlCount=extraControlCount+1
 v,fromOver=effective(fakeBase,{},1)
 assert(not fromOver and v==fakeBase[1],
     "PUBLIC_QUEST_OVERRIDE_FALLBACK_CONTROL_FAILED")
+extraControlCount=extraControlCount+1
 local visits=0
 local count=extraRows({[-800]={[1]={10}}},{
     [-800]={[1]={11}},[-801]={[1]={}},
@@ -219,7 +230,9 @@ local count=extraRows({[-800]={[1]={10}}},{
         "PUBLIC_QUEST_OVERRIDE_ONLY_CLEAR_FAILED")
 end)
 assert(count==1 and visits==1,"PUBLIC_QUEST_OVERRIDE_ONLY_COUNT_FAILED")
-print("PUBLIC QUEST COMPOUND CONTROLS: 20/20 PASS")
+extraControlCount=extraControlCount+1
+assert(extraControlCount==3,"PUBLIC_QUEST_EXTRA_CONTROL_SET_CHANGED")
+print("PUBLIC QUEST COMPOUND CONTROLS: "..(#controls+extraControlCount).."/27 PASS")
 local keys=assert(db.questKeys)
 local schema=assert(db.questCompilerTypes)
 local explored={}
