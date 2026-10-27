@@ -626,6 +626,7 @@ local function interruptedScratchAttempt(restorePriorToken, restorePriorSerial, 
     local oldToken=compiler:BeginNQStagedGeneration(scratch)
     local oldSerial=scratch._nqGenerationSerial
     local acquired,finished=nil,0
+    local writerFinishCount=0
     local externalOwner={}
     function externalOwner:Acquire(streamParent,mode)
         assert(acquired==nil and streamParent==owner)
@@ -634,6 +635,7 @@ local function interruptedScratchAttempt(restorePriorToken, restorePriorSerial, 
     end
     function externalOwner:Finish(lease)
         assert(lease==acquired and finished==0)
+        writerFinishCount=writerFinishCount+1
         finished=finished+1
         lease.stream:finished()
     end
@@ -661,7 +663,7 @@ local function interruptedScratchAttempt(restorePriorToken, restorePriorSerial, 
     return {ok=ok,reason=tostring(reason),dead=dead,
         stage=scratch,oldToken=oldToken,newToken=newToken,
         oldSerial=oldSerial,newSerial=newSerial,
-        cleanupCount=finished}
+        cleanupCount=finished,writerFinishCount=writerFinishCount}
 end
 local resetAttempt=interruptedScratchAttempt(false)
 check("suspended writer cannot stamp a newer scratch attempt",
@@ -961,6 +963,45 @@ check("legacy raw u16 path retains existing wrap, without endorsing it",
     legacyWrapped==4464 and saved.npcBin==beforeLegacyBin and
     saved.npcPtrs==beforeLegacyPtrs and saved.nQuestieDataRevision==57)
 
-assert(tests==94,"expected 94 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 94/94 PASS")
-print("DRAFT ONLY: no compound numeric bounds, source writer epoch/ABA, global pool isolation, atomic commit, disk recovery or client QA")
+-- Part37 CS02 independent #187 mutation follow-up, TEST-ONLY child.
+-- The stale writer must NOT invoke its own Finish: only the external driver
+-- may return the lease after observing DEAD. This specifically kills M1
+-- (removing per-resume NQAssertStageAttempt) rather than relying on final
+-- scratch-byte refusal, which could still occur after Finish.
+check("CS02 M1 reset writer must not call Finish before stale-resume refusal",
+    resetAttempt.writerFinishCount==0 and resetAttempt.cleanupCount==1
+    and resetAttempt.dead and not resetAttempt.ok)
+check("CS02 M1 full public ABA writer must not Finish a stale lease",
+    fullABA.writerFinishCount==0 and fullABA.cleanupCount==1
+    and fullABA.dead and not fullABA.ok)
+
+-- CS02 M10: public receipt diagnostics are part of the current candidate's
+-- explicit validation. Mutating them alone must be observable and rejected.
+local itemDiagnostic=reusedStage._nqGenerationReceipts.item.bin
+reusedStage._nqGenerationReceipts.item.bin="CORRUPTED_DIAGNOSTIC_ONLY"
+local diagnosticAccepted=pcall(function()
+    compiler:VerifyNQStagedGeneration(reusedStage,subsequent)
+end)
+reusedStage._nqGenerationReceipts.item.bin=itemDiagnostic
+check("CS02 M10 diagnostic-only receipt tampering is rejected and recoverable",
+    not diagnosticAccepted
+    and compiler:VerifyNQStagedGeneration(reusedStage,subsequent)==true)
+
+-- Policy pin: a stage that has already been begun may not be converted into
+-- a tokenless stage by deleting public fields. It retains private ownership.
+local previouslyBegun={}
+compiler:BeginNQStagedGeneration(previouslyBegun)
+previouslyBegun._nqGenerationToken=nil
+previouslyBegun._nqGenerationSerial=nil
+previouslyBegun._nqGenerationReceipts=nil
+local tokenlessReuseOK,tokenlessReuseReason=pcall(function()
+    drive(function()compiler:CompileNPCs(previouslyBegun)end)
+end)
+check("started stage cannot silently revert into tokenless legacy mode",
+    not tokenlessReuseOK and
+    tostring(tokenlessReuseReason):find("GATE08_STAGE_ATTEMPT_CHANGED",1,true)~=nil
+    and previouslyBegun.npcBin==nil and previouslyBegun.npcPtrs==nil)
+
+assert(tests==98,"expected 98 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 98/98 PASS")
+print("DRAFT ONLY: test-only finish-order mutants; no compound bounds, source epoch, pool isolation, commit, relog recovery or client QA")
