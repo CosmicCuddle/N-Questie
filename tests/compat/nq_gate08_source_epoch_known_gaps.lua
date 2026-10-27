@@ -456,6 +456,46 @@ check("E02m OPEN: true mid-stream source A-B-A leaves verified torn middle",
     and readName(middleABA.stage,"npc","npc","npcKeys",77160)=="Torn B"
     and readName(middleABA.stage,"npc","npc","npcKeys",77220)=="Torn A")
 
-assert(count==18,"expected eighteen known-gap witness checks, got "..count)
-print("GATE08 SOURCE EPOCH KNOWN-GAPS: 18/18 CHARACTERIZED (NOT FIXED)")
+-- E02m audit hardening: CS02 found that testing only three source rows
+-- lets an un-restored B (for example row 77180) pass the previous witness.
+-- Exhaustively compare ALL 120 live source rows to A and ALL 120 values
+-- decoded through the REAL GetDBHandle reader to the exact 49/49/22 map.
+-- Separate check retained so the original #18 remains an historical witness.
+local allSourceRowsAreA=true
+local allReadbackRowsMatch=true
+local sourceRowCount=0
+for id,record in pairs(db.npcData) do
+    sourceRowCount=sourceRowCount+1
+    if type(id)~="number" or id<77101 or id>77220 or
+            type(record)~="table" or
+            record[db.npcKeys.name]~="Torn A" then
+        allSourceRowsAreA=false
+    end
+end
+for id=77101,77220 do
+    local live=db.npcData[id]
+    if type(live)~="table" or
+            live[db.npcKeys.name]~="Torn A" then
+        allSourceRowsAreA=false
+    end
+    local expected
+    if id<=77149 then
+        expected="Torn A"
+    elseif id<=77198 then
+        expected="Torn B"
+    else
+        expected="Torn A"
+    end
+    if readName(middleABA.stage,"npc","npc","npcKeys",id)~=expected then
+        allReadbackRowsMatch=false
+    end
+end
+check("E02m EXHAUSTIVE: all 120 source A, reader 49 A / 49 B / 22 A",
+    middleABA.ok and middleABA.verified
+    and sourceRowCount==120
+    and allSourceRowsAreA and allReadbackRowsMatch
+    and middleABA.stage.npcBin~=coherentA.npcBin)
+
+assert(count==19,"expected nineteen known-gap witness checks, got "..count)
+print("GATE08 SOURCE EPOCH KNOWN-GAPS: 19/19 CHARACTERIZED (NOT FIXED)")
 print("BLOCKED E01-E08: no source-writer exclusion, no source A-B-A epoch, no guarded publication, no client QA")
