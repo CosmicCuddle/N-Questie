@@ -105,43 +105,53 @@ end
 -- unrelated existing keys in the supplied table are left unchanged. ADD_ONLY
 -- models that documented behavior; CLEAR_ADD is a counterfactual control.
 -- Actual owner 3.3.5a/AzerothCore client and event ordering remain UNTESTED.
+-- Count only assertions actually reached and passed inside each fictional case.
+-- The expected per-case vector is independent of the printed headline; a
+-- no-op control or removed execution loop must fail in Lua, not just CI.
+local nativeAssert=assert
+local successfulAssertions=0
+local function countedAssert(condition,reason)
+    nativeAssert(condition,reason)
+    successfulAssertions=successfulAssertions+1
+    return condition
+end
 local controls={
     function()
         local f=makeFixture({missingCache=true})
         local got=f.refresh()
-        assert(type(got)=="table" and got==f.cache(),
+        countedAssert(type(got)=="table" and got==f.cache(),
             "G06_MISSING_CACHE_CREATION_CONTROL")
         local queries=f.counts()
-        assert(queries==1,"G06_INITIAL_QUERY_CONTROL")
+        countedAssert(queries==1,"G06_INITIAL_QUERY_CONTROL")
     end,
     function()
         local f=makeFixture({cache={[A]=true},server={[B]=true}})
         local cache=f.refresh()
-        assert(cache[A]==true and cache[B]==nil,
+        countedAssert(cache[A]==true and cache[B]==nil,
             "G06_DELAYED_QUERY_NOT_CHARACTERIZED")
         f.deliver()
-        assert(cache[A]==nil and cache[B]==true,
+        countedAssert(cache[A]==nil and cache[B]==true,
             "G06_CLEAR_ADD_EVENT_CONTROL")
     end,
     function()
         local f=makeFixture({cache={[A]=true},server={[B]=true},
             api="ADD_ONLY"})
         f.refresh();f.deliver()
-        assert(f.cache()[A]==true and f.cache()[B]==true,
+        countedAssert(f.cache()[A]==true and f.cache()[B]==true,
             "G06_HYPOTHETICAL_ADD_ONLY_UNSAFE_CONTROL")
     end,
     function()
         local f=makeFixture({server={[R]=true,[B]=true},
             repeatable={[R]=true}})
         f.refresh();f.deliver()
-        assert(f.cache()[R]==nil and f.cache()[B]==true,
+        countedAssert(f.cache()[R]==nil and f.cache()[B]==true,
             "G06_REPEATABLE_FILTER_CONTROL")
     end,
     function()
         local f=makeFixture({server={[A]=true}})
         f.refresh();f.deliver()
         f.setServer({[B]=true});f.deliver()
-        assert(f.cache()[A]==nil and f.cache()[B]==true,
+        countedAssert(f.cache()[A]==nil and f.cache()[B]==true,
             "G06_SEQUENTIAL_REPLACE_CONTROL")
     end,
     function()
@@ -149,28 +159,28 @@ local controls={
         f.refresh();f.deliver()
         f.setServer({[B]=true});f.deliver()
         f.setServer({[A]=true});f.deliver()
-        assert(f.cache()[A]==true and f.cache()[B]==nil,
+        countedAssert(f.cache()[A]==true and f.cache()[B]==nil,
             "G06_UNCORRELATED_OLD_REPLY_WITNESS")
         local queries,deliveries=f.counts()
-        assert(queries==1 and deliveries==3,
+        countedAssert(queries==1 and deliveries==3,
             "G06_UNCORRELATED_EVENT_COUNT_CONTROL")
     end,
     function()
         makeFixture()
         QuestieCompat.SetQuestComplete(A)
-        assert(Questie.db.char.complete[A]==true,
+        countedAssert(Questie.db.char.complete[A]==true,
             "G06_NONREPEATABLE_COMPLETION_CONTROL")
     end,
     function()
         makeFixture({repeatable={[R]=true}})
         QuestieCompat.SetQuestComplete(R)
-        assert(Questie.db.char.complete[R]==nil,
+        countedAssert(Questie.db.char.complete[R]==nil,
             "G06_REPEATABLE_LOCAL_COMPLETION_CONTROL")
     end,
     function()
         makeFixture({repeatable={[D]=true},dailyIds={[D]=true}})
         QuestieCompat.SetQuestComplete(D)
-        assert(Questie.db.char.complete[D]==nil
+        countedAssert(Questie.db.char.complete[D]==nil
             and Questie.db.char.daily[D]==nil,
             "G06_DAILY_WITH_RESET_DISABLED_CONTROL")
     end,
@@ -178,7 +188,7 @@ local controls={
         makeFixture({repeatable={[D]=true},dailyIds={[D]=true},
             resetDaily=true})
         QuestieCompat.SetQuestComplete(D)
-        assert(Questie.db.char.complete[D]==true
+        countedAssert(Questie.db.char.complete[D]==true
             and Questie.db.char.daily[D]==true,
             "G06_DAILY_CACHE_ADD_CONTROL")
     end,
@@ -186,7 +196,7 @@ local controls={
         makeFixture({repeatable={[W]=true},weeklyIds={[W]=true},
             resetDaily=true})
         QuestieCompat.SetQuestComplete(W)
-        assert(Questie.db.char.complete[W]==true
+        countedAssert(Questie.db.char.complete[W]==true
             and Questie.db.char.weekly[W]==true,
             "G06_WEEKLY_CACHE_ADD_CONTROL")
     end,
@@ -196,7 +206,7 @@ local controls={
             resetDaily=true,resetTime=100,now=101,started=true})
         f.refresh();f.deliver()
         local _,_,resets,redraws=f.counts()
-        assert(f.cache()[D]==nil and Questie.db.char.daily[D]==nil
+        countedAssert(f.cache()[D]==nil and Questie.db.char.daily[D]==nil
             and resets==1 and redraws==1,
             "G06_RESET_DAILY_CLEAR_CONTROL")
     end,
@@ -206,7 +216,7 @@ local controls={
             resetDaily=true,resetTime=100,now=50})
         f.refresh();f.deliver()
         local _,_,resets=f.counts()
-        assert(f.cache()[D]==true and resets==0,
+        countedAssert(f.cache()[D]==true and resets==0,
             "G06_DAILY_NOT_YET_RESET_MERGE_CONTROL")
     end,
     function()
@@ -214,12 +224,53 @@ local controls={
             repeatable={[W]=true},weeklyIds={[W]=true},
             resetDaily=true,wotlk=true,level=79})
         f.refresh();f.deliver()
-        assert(f.cache()[W]==true,
+        countedAssert(f.cache()[W]==true,
             "G06_WRATH_WEEKLY_MERGE_CONTROL")
     end,
+    -- M4c: non-repeatable daily clearing belongs to ResetDailyQuests itself,
+    -- not the event repeatable filter.
+    function()
+        local f=makeFixture({cache={[D]=true},daily={[D]=true},
+            dailyIds={[D]=true},api="ADD_ONLY",resetDaily=true,
+            now=101,resetTime=100})
+        f.refresh(); f.deliver()
+        local _,_,resets=f.counts()
+        countedAssert(f.cache()[D]==nil and Questie.db.char.daily[D]==nil
+            and resets==1,"G06_RESET_OWNS_COMPLETE_CLEAR_CONTROL")
+    end,
+    -- M4d: source uses >, not >=; at the exact deadline don't reset.
+    function()
+        local f=makeFixture({cache={[D]=true},daily={[D]=true},
+            dailyIds={[D]=true},api="ADD_ONLY",resetDaily=true,
+            now=100,resetTime=100})
+        f.refresh(); f.deliver()
+        local _,_,resets=f.counts()
+        countedAssert(f.cache()[D]==true and Questie.db.char.daily[D]==true
+            and resets==0,"G06_EXACT_RESET_BOUNDARY_CONTROL")
+    end,
+    -- M9: no daily/weekly overlay with reset option disabled.
+    function()
+        local f=makeFixture({daily={[D]=true},weekly={[W]=true},
+            resetDaily=false,wotlk=true,level=79,api="CLEAR_ADD"})
+        f.refresh(); f.deliver()
+        local _,_,resets=f.counts()
+        countedAssert(f.cache()[D]==nil and f.cache()[W]==nil
+            and resets==0,"G06_DISABLED_RESET_OPTION_GATE_CONTROL")
+    end,
 }
-assert(#controls==14,"G06_CONTROL_INVENTORY_CHANGED")
-for _,control in ipairs(controls) do control() end
-print("PUBLIC G06 SOURCE BACKED COMPLETION CONTROLS: "..#controls.."/14 PASS")
+local expectedAssertions={2,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1}
+nativeAssert(#controls==17 and #expectedAssertions==17,
+    "G06_CONTROL_INVENTORY_CHANGED")
+local executed=0
+for i,control in ipairs(controls) do
+    local before=successfulAssertions
+    control()
+    nativeAssert(successfulAssertions-before==expectedAssertions[i],
+        "G06_CONTROL_ASSERTION_BODY_NOT_EXECUTED")
+    executed=executed+1
+end
+nativeAssert(executed==17 and successfulAssertions==20,
+    "G06_CONTROL_EXECUTION_TALLY_CHANGED")
+print("PUBLIC G06 SOURCE BACKED COMPLETION CONTROLS: "..executed.."/17 PASS assertions="..successfulAssertions)
 print("PUBLIC G06 SOURCE RISK: documented GetQuestsCompleted(table) additive writes may retain stale completion keys.")
 print("PUBLIC G06 NOT ACCEPTED: native 3.3.5a API execution, uncorrelated event timing, daily/weekly timers, UI markers or private IP phase.")
