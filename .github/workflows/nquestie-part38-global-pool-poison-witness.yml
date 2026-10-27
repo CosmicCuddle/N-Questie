@@ -1,0 +1,37 @@
+name: N-Questie Part38 shared stream-pool poison witness (no publish)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  gate08-global-poison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Lua 5.1 and Lua 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+      - name: Demonstrate REAL pooled-stream alias weakness on both Lua versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            "${lua/lua/luac}" -p Modules/QuestieStream.lua
+            "${lua/lua/luac}" -p tests/compat/nq_gate08_global_stream_pool_poison.lua
+            out="$RUNNER_TEMP/global-pool-$lua.log"
+            timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate08_global_stream_pool_poison.lua | tee "$out"
+            test "$(grep -c '^PASS GATE08 GLOBAL POOL ' "$out")" -eq 6
+            grep -Fx "GATE08 GLOBAL STREAM POOL WITNESS: 6/6 KNOWN UNSAFE" "$out"
+            grep -Fx "DRAFT ONLY: global pool quarantine NOT fixed; no source epoch, atomic publish, SavedVariables recovery or native client QA" "$out"
+          done
+      - name: Reject packaging/artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
