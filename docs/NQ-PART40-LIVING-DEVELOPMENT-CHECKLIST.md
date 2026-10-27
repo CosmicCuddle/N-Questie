@@ -108,3 +108,21 @@ Independent reviewed exact-head findings:
 6. Owner is not required to perform routine synthetic public-safe draft work. For separately authorised owner-side installation/testing, give short dyslexia-friendly steps and insist on addon, SavedVariables and appropriate database backups FIRST, stored PRIVATE.
 
 **Part40 beginning state:** Public four-kind limited simple-codec surveys independently reviewed with targeted mutation gaps; G08 still RED; score 3/6/3; 439 RAW, pilot 0/3; protected 335 unchanged; no production release consent. Independently refresh GitHub LIVE before engineering.
+
+
+## 8. Live Part40 engineering checkpoint — 27 October 2026 (after startup)
+
+**This is an additive snapshot, not a revision of Part39 evidence and not production acceptance.**
+
+- [x] Both mandatory handover/checklist documents inspected; the 12-gate master, 439-record programme, historical Part39 ledger, TX01–TX18 blueprint, E01–E08 source-writer audit, owned-generation decision and latest Grok reviews consulted.
+- [x] Protected `335` independently read unchanged at `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`.
+- [x] Frozen peer-reviewed parents preserved: #238 NPC `6647437079757bb4a52e46528c66eb639862e56a`; #243 QUEST `547888b5932259892ddbc2fcbb63b9949f464b38`.
+- [x] New **test-only DRAFT #246**, separate child of #238, adds sorted, length-delimited public aggregate value digest for both faction effective simple arrays plus **one injected reversed constructor through the same effective→classify→stats→ORDER_BLOCKER path**. CS02 targets N2c, N3d and N3d+real-reversal; no production change.
+- [x] New **test-only DRAFT #247**, separate child of #243, adds sorted public value digest across four simple compound families; six invented boundary controls for u12 4095/4096 and signed s24 −8388608/−8388609, 8388607/8388608 (20 total). CS02 targets Q3c, Q8h, Q8i; no production change.
+- [x] CS02 coordination request posted in [#42](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6453160696): wait for finalized digest pins and original-head dual-Lua CI before independent *reverted* mutation review. Do not overwrite source branches.
+- [x] Initial CI-file edit on each NEW child produced **historical invalid workflow** first attempt (GitHub push checks: NPC run `40580944817` FAIL; quest run `40580951574` FAIL). Corrected *only new test-only branches*, preserving both failed runs in history. Repaired heads: NPC `b2325fa84d2275acab57b03c6e2ea8956f639059`; quest `4bc9dcc1c1cd91854d531ba7681aa4bbaa3ab87c`. Corrected workflow syntax re-read; their original-head complete CI/results/artifacts **still PENDING at this dated checkpoint**, not green.
+- [ ] Require observed Lua5.1/5.4 identical per-faction hash outputs, then **pin exact expected hashes** in both Lua audits and CI, prove each named mutation fails, re-query all run/artifact endpoints and have CS02 independently review at final exact heads. Aggregate dual polynomial hashes are deterministic test witnesses subject to collisions, **never** an authenticated all-writer epoch or source snapshot proof.
+- [ ] Keep G08 source-writer A→B→A/E01–E08, global QuestieStream lifetime quarantine, verified four-kind atomic eight-field + metadata publish, real SavedVariables crash/restart recovery and actual 3.3.5a client/Individual Progression measurements **RED**.
+- [ ] Advance G04–G07 and G09 separately against public and owner-private evidence; G10 full 439 RAW triage remains required, no assumed eligible denominator or new quest additions. G11 client QA and G12 integration/release require separate owner approval.
+
+**Whole-programme state unchanged:** 3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING; 439 RAW (12 linked + 418 exploratory + 5 owner-excluded + 3 placeholders + 1 existing overlay), pilot 1207–1209 **0/3 implemented**. No merge, install, package, tag, release, protected-branch push or private source publication.
