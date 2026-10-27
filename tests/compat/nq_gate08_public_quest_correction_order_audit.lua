@@ -23,7 +23,14 @@ local zone=QuestieLoader:CreateModule("ZoneDB")
 local corrections=QuestieLoader:CreateModule("QuestieCorrections")
 corrections.killCreditObjectiveFirst={}
 QuestieLoader:CreateModule("QuestieQuest")
-QuestieLoader:CreateModule("l10n")
+-- Questie quest fixes call l10n() for *excluded complex extraObjectives*.
+-- Keep the caller's public text unchanged in this headless audit, without
+-- importing client locale systems; no strings are inspected or printed.
+local l10n=QuestieLoader:CreateModule("l10n")
+setmetatable(l10n,{__call=function(_,publicText)
+    assert(type(publicText)=="string","PUBLIC_QUEST_L10N_ARG_CHANGED")
+    return publicText
+end})
 assert(loadfile("Database/questDB.lua"))()
 assert(loadfile("Database/Zones/zoneTables.lua"))()
 zone.zoneIDs=assert(zone.private.zoneIDs)
