@@ -931,6 +931,54 @@ local NQ_STAGE_SCALAR_LIMITS = {
     u32 = {0, 4294967295},
 }
 
+-- These are the simple, directly numeric compound writer shapes only.
+-- Other complex types (spawnlist, waypointlist, questgivers, objectives,
+-- etc.) remain separate acceptance blockers. The writer's own signed
+-- offsets are authoritative: s24pair/u8s24pairs use +8388608, while the
+-- plain s24 scalar uses +8388607.
+local NQ_STAGE_SIMPLE_COMPOUNDS = {
+    u12pair = {"pair", 0, 4095},
+    u24pair = {"pair", 0, 16777215},
+    s24pair = {"pair", -8388608, 8388607},
+    u8u16array = {"array", 0, 65535, 255},
+    u8s16pairs = {"pairArray", -32767, 32768, 255},
+    u16u16array = {"array", 0, 65535, 65535},
+    u8s24pairs = {"pairArray", -8388608, 8388607, 255},
+    u8u24array = {"array", 0, 16777215, 255},
+    u16u24array = {"array", 0, 16777215, 65535},
+}
+local function NQStageNumberInRange(number, low, high)
+    return type(number) == "number" and number == number and
+        number >= low and number <= high and number % 1 == 0
+end
+local function NQValidateStageSimpleCompound(typename, value)
+    local shape = NQ_STAGE_SIMPLE_COMPOUNDS[typename]
+    if not shape or value == nil then return true end
+    if type(value) ~= "table" then return false end
+    local how,low,high,maximum = shape[1],shape[2],shape[3],shape[4]
+    if how == "pair" then
+        return NQStageNumberInRange(value[1] == nil and 0 or value[1],low,high)
+            and NQStageNumberInRange(value[2] == nil and 0 or value[2],low,high)
+    end
+    local count = 0
+    for _,element in pairs(value) do
+        count = count+1
+        if count > maximum then return false end
+        if how == "array" then
+            if not NQStageNumberInRange(element,low,high) then return false end
+        else
+            if type(element) ~= "table" or
+                    not NQStageNumberInRange(
+                        element[1] == nil and 0 or element[1],low,high) or
+                    not NQStageNumberInRange(
+                        element[2] == nil and 0 or element[2],low,high) then
+                return false
+            end
+        end
+    end
+    return true
+end
+
 -- Only this compilation unit can issue genuine scratch-generation receipts.
 -- Weak stage keys avoid retaining dead scratch tables. Caller-readable stage
 -- fields remain diagnostics/compatibility, NEVER the authority for Verify().
@@ -1165,6 +1213,13 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
                         error("GATE08_STAGE_NUMERIC_RANGE: "..kind.."s["..
                             tostring(id).."]."..tostring(key).." ["..t.."]", 0)
                     end
+                end
+                -- Reject the reversible bounds of known pair/list codecs
+                -- BEFORE calling a writer that may truncate or wrap them.
+                -- Non-staged/SoD writer behaviour is deliberately untouched.
+                if stage ~= nil and not NQValidateStageSimpleCompound(t,v) then
+                    error("GATE08_STAGE_COMPOUND_NUMERIC_RANGE: "..kind.."s["..
+                        tostring(id).."]."..tostring(key).." ["..t.."]",0)
                 end
                 --print(key .. "s[" .. tostring(id) .. "]."..key..": \"" .. type(v) .. "\"")
                 local result, errorMessage = pcall(writers[t], stream, v)
