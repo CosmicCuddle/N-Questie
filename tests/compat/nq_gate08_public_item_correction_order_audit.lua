@@ -102,10 +102,60 @@ local controls = {
     {{[1]=3,[3]=4},specs.u12pair,"malformed"},
     {{},specs.u8u24array,"empty"},
 }
+-- Use one resolver for the fictional guard cases AND the public survey,
+-- so a base-first or empty-override regression cannot silently survive.
+local function effectiveValue(record, override, key)
+    if override and override[key] ~= nil then
+        return override[key], true
+    end
+    return record and record[key], false
+end
+-- Do not count an override row again when it already exists in base.
+-- Returning the visited count also gives us a synthetic branch witness.
+local function visitExtraOverrideRows(base, overrides, visit)
+    local n=0
+    for id, fields in pairs(overrides) do
+        if base[id] == nil then
+            n=n+1
+            visit(fields)
+        end
+    end
+    return n
+end
 for _, t in ipairs(controls) do
     assert(classify(t[1],t[2])==t[3], "PUBLIC_ITEM_CLASSIFIER_CONTROL_FAILED")
 end
-print("PUBLIC ITEM EFFECTIVE CONTROLS: 6/6 PASS")
+local baseControl={[1]={10,20}}
+local overrideControl={[1]={30,40}}
+local clearControl={[1]={}}
+local chosen,fromOverride=effectiveValue(baseControl,overrideControl,1)
+assert(chosen==overrideControl[1] and fromOverride,
+    "PUBLIC_ITEM_OVERRIDE_FIRST_CONTROL_FAILED")
+chosen,fromOverride=effectiveValue(baseControl,clearControl,1)
+assert(chosen==clearControl[1] and fromOverride and next(chosen)==nil,
+    "PUBLIC_ITEM_INTENTIONAL_CLEAR_CONTROL_FAILED")
+chosen,fromOverride=effectiveValue(baseControl,{},1)
+assert(chosen==baseControl[1] and not fromOverride,
+    "PUBLIC_ITEM_BASE_FALLBACK_CONTROL_FAILED")
+chosen,fromOverride=effectiveValue(nil,{},1)
+assert(chosen==nil and not fromOverride,
+    "PUBLIC_ITEM_MISSING_ROW_CONTROL_FAILED")
+local extraVisits,extraClears=0,0
+local extraBase={[-701]={[1]={10,20}}}
+local extraOverrides={
+    [-701]={[1]={30,40}}, -- existing row must not be double-counted
+    [-702]={[1]={}},     -- wholly fictional override-only clear
+}
+local extraCount=visitExtraOverrideRows(extraBase,extraOverrides,function(fields)
+    extraVisits=extraVisits+1
+    local val,yes=effectiveValue(nil,fields,1)
+    if yes and type(val)=="table" and next(val)==nil then
+        extraClears=extraClears+1
+    end
+end)
+assert(extraCount==1 and extraVisits==1 and extraClears==1,
+    "PUBLIC_ITEM_OVERRIDE_ONLY_CONTROL_FAILED")
+print("PUBLIC ITEM EFFECTIVE CONTROLS: 11/11 PASS")
 local function apply(main,changes,noOverwrite,noNew)
     assert(type(changes)=="table", "PUBLIC_ITEM_CORRECTION_SOURCE_INVALID")
     local n=0
@@ -167,9 +217,8 @@ for _, faction in ipairs({"Alliance","Horde"}) do
             local key=keys[field]
             local spec=specs[typ]
             if key and spec then
-                local value=over and over[key]
-                if value~=nil then overrideFields=overrideFields+1
-                else value=record[key] end
+                local value, fromOverride=effectiveValue(record,over,key)
+                if fromOverride then overrideFields=overrideFields+1 end
                 if value~=nil then
                     fields=fields+1
                     local result=classify(value,spec)
@@ -178,25 +227,35 @@ for _, faction in ipairs({"Alliance","Horde"}) do
             end
         end
     end
-    -- Also account for override-only rows not represented in base.
-    for id,over in pairs(overrides) do
-        if db.itemData[id]==nil then
-            rows=rows+1
-            for field,typ in pairs(compilerTypes) do
-                local key=keys[field]
-                local spec=specs[typ]
-                if key and spec and over[key]~=nil then
-                    overrideFields=overrideFields+1
-                    fields=fields+1
-                    stats[classify(over[key],spec)]=stats[classify(over[key],spec)]+1
-                end
+    -- Faction-specific extra records must only be visited when base lacks
+    -- them. Our synthetic test covers this branch even if public data has 0.
+    local extraRows=visitExtraOverrideRows(db.itemData,overrides,function(over)
+        for field,typ in pairs(compilerTypes) do
+            local key=keys[field]
+            local spec=specs[typ]
+            if key and spec and over[key]~=nil then
+                overrideFields=overrideFields+1
+                fields=fields+1
+                local classification=classify(over[key],spec)
+                stats[classification]=stats[classification]+1
             end
         end
-    end
+    end)
+    rows=rows+extraRows
     assert(patchWrites>0 and factionWrites>0,
         "PUBLIC_ITEM_CORRECTION_LAYERS_NOT_EXERCISED")
     assert(fields>0 and fields==stats.ordered+stats.reordered
         +stats.malformed+stats.empty, "PUBLIC_ITEM_AUDIT_ACCOUNTING_FAILED")
+    -- This is an exact-public-HEAD snapshot, not a permanent claim about
+    -- future Questie data. Any count movement requires independent review.
+    assert(stats.reordered==0 and stats.malformed==0,
+        "PUBLIC_ITEM_CORRECTION_ORDER_BLOCKER")
+    local expectedFactionWrites=(faction=="Alliance") and 12 or 11
+    assert(rows==36767 and extraRows==0 and fields==28755
+        and stats.ordered==28409 and stats.empty==346
+        and patchWrites==1432 and factionWrites==expectedFactionWrites
+        and overrideFields==11,
+        "PUBLIC_ITEM_CORRECTION_LAYER_REGRESSION")
     print(string.format(
         "PUBLIC WOTLK ITEM CORRECTED faction=%s rows=%d simple_fields=%d ordered=%d reordered_dense=%d malformed=%d intentional_empty=%d patch_writes=%d faction_writes=%d override_fields=%d",
         faction,rows,fields,stats.ordered,stats.reordered,stats.malformed,
