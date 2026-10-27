@@ -1071,6 +1071,77 @@ check("CS02 M11 never-begun tokenless writer refuses forged token before Finish"
     and tostring(counterfeitReason):find("GATE08_STAGE_ATTEMPT_CHANGED",1,true)~=nil
     and neverBegun.npcBin==nil and neverBegun.npcPtrs==nil)
 
-assert(tests==102,"expected 102 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 102/102 PASS")
-print("DRAFT ONLY: diagnostic and tokenless mutant pins; no compound bounds, source epoch, pool isolation, commit, relog recovery or client QA")
+-- Compound-number safety (simple pair and array codecs only).
+-- These tests use the actual source-backed compiler, pooled QuestieStream,
+-- and real GetDBHandle reader, through scalarRealSourceProbe above.
+-- No real quest/NPC/item associations or owner-private evidence.
+local compoundCases = {
+    {"quest","requiredSkill",{-1,0},false,"u12pair negative"},
+    {"quest","requiredSkill",{5000,1},false,"u12pair overflow"},
+    {"quest","requiredSkill",{1,1.5},false,"u12pair fractional"},
+    {"quest","requiredSkill",{4095,4095},true,"u12pair exact boundary"},
+    {"quest","requiredMinRep",{1,9000000},false,"s24pair sign wrap"},
+    {"quest","requiredMinRep",{-8388609,1},false,"s24pair negative overflow"},
+    {"quest","requiredMinRep",{-8388608,8388607},true,"s24pair exact boundaries"},
+    {"quest","requiredMinRep",{1,1.5},false,"s24pair fractional"},
+    {"npc","questStarts",{16777216},false,"u8u24array 24bit overflow"},
+    {"npc","questStarts",{1.5},false,"u8u24array fractional"},
+    {"npc","questStarts",{16777215},true,"u8u24array exact boundary"},
+    {"npc","questStarts",{-1},false,"u8u24array negative"},
+    {"npc","questStarts",{1,2,3},true,"u8u24array good list"},
+    {"item","npcDrops",{16777216},false,"u16u24array overflow"},
+    {"item","npcDrops",{-1},false,"u16u24array negative"},
+    {"item","npcDrops",{16777215},true,"u16u24array boundary"},
+    {"quest","reputationReward",{{1,9000000}},false,"u8s24pairs signed overflow"},
+    {"quest","reputationReward",{{1,8388607}},true,"u8s24pairs boundary"},
+    {"quest","reputationReward",{{-8388608,1}},true,"u8s24pairs lower boundary"},
+    {"npc","questStarts",{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},false,"u8 array count overflow"},
+}
+local function sameCompound(a,b)
+    if type(a)~="table" or type(b)~="table" then return a==b end
+    for k,v in pairs(a) do
+        if not sameCompound(v,b[k]) then return false end
+    end
+    for k,v in pairs(b) do
+        if not sameCompound(v,a[k]) then return false end
+    end
+    return true
+end
+for _,case in ipairs(compoundCases) do
+    local kind,field,val,accept,label=case[1],case[2],case[3],case[4],case[5]
+    local ok,reason,stage,finished,result=scalarRealSourceProbe(case)
+    check("stage simple compound "..label.." exact or fail-closed",
+        finished==1 and (
+            (accept and ok and type(stage[kind.."Bin"])=="string"
+                and sameCompound(result,val)) or
+            (not accept and not ok and
+                reason:find("GATE08_STAGE_COMPOUND_NUMERIC_RANGE",1,true)~=nil
+                and stage[kind.."Bin"]==nil and stage[kind.."Ptrs"]==nil)
+        ))
+end
+
+-- The no-stage legacy encoding is intentionally byte/semantic compatible
+-- with the parent on malformed compound inputs, not implicitly approved.
+local legacyBeforeQuestBin,legacyBeforeQuestPtrs=saved.questBin,saved.questPtrs
+local legacyBeforeQuestData=db.questData
+db.questData={[77101]={[db.questKeys.name]="Legacy fictional quest",
+    [db.questKeys.requiredSkill]={-1,0}}}
+drive(function()compiler:CompileQuests()end)
+local legacyQuestHandle=drive(function()
+    return compiler:GetDBHandle(saved.questBin,saved.questPtrs,
+        compiler:BuildSkipMap(db.questCompilerTypes,db.questCompilerOrder),
+        db.questKeys,nil)
+end)
+local legacySkill=legacyQuestHandle.QuerySingle(77101,"requiredSkill")
+legacyQuestHandle.stream:finished()
+db.questData=legacyBeforeQuestData
+saved.questBin,saved.questPtrs=legacyBeforeQuestBin,legacyBeforeQuestPtrs
+check("legacy u12pair wrap remains unchanged and is not staged acceptance",
+    legacySkill and legacySkill[1]==4095 and legacySkill[2]==0
+    and saved.questBin==legacyBeforeQuestBin
+    and saved.questPtrs==legacyBeforeQuestPtrs
+    and saved.nQuestieDataRevision==57)
+
+assert(tests==123,"expected 123 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 123/123 PASS")
+print("DRAFT ONLY: simple compounds guarded; complex nested codec, source epoch, pool isolation, commit, relog recovery and client QA remain blocked")
