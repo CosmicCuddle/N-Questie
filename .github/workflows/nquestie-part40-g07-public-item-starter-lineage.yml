@@ -1,0 +1,44 @@
+name: N-Questie Part40 public Gate07 item-start source lineage (test-only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  public-g07-item-starter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Lua 5.1 and Lua 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Verify public source lineage and real available renderer with imaginary IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_gate07_public_item_starter_lineage.lua
+            else
+              luac5.4 -p tests/compat/nq_gate07_public_item_starter_lineage.lua
+            fi
+            output="$RUNNER_TEMP/g07-public-$lua.log"
+            timeout --signal=TERM --kill-after=5s 100s "$lua" tests/compat/nq_gate07_public_item_starter_lineage.lua | tee "$output"
+            grep -Fx 'PUBLIC G07 ITEM STARTER LINEAGE CONTROLS: 15/15 PASS' "$output"
+            grep -Fx 'PUBLIC G07 LIMIT: item-only source creates no NPC/GO map pin in the tested renderer, NOT an eligibility verdict.' "$output"
+            grep -Fx 'PUBLIC G07 NOT ACCEPTED: complete GetQuest execution, actual item use/start, server IP phase, source integrity, native WoW 3.3.5a UI or SavedVariables.' "$output"
+            test "$(grep -Ec '^PUBLIC G07 ' "$output")" -eq 3
+          done
+      - name: No release or packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
