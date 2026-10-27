@@ -496,6 +496,76 @@ check("E02m EXHAUSTIVE: all 120 source A, reader 49 A / 49 B / 22 A",
     and allSourceRowsAreA and allReadbackRowsMatch
     and middleABA.stage.npcBin~=coherentA.npcBin)
 
-assert(count==19,"expected nineteen known-gap witness checks, got "..count)
-print("GATE08 SOURCE EPOCH KNOWN-GAPS: 19/19 CHARACTERIZED (NOT FIXED)")
+-- Part39 CS02 S7 gap: names are insufficient to prove source coherence.
+-- A non-name fixed-width field (minLevel) alone is edited A->B->A after
+-- the first 49 rows, while all 120 names remain "Torn A" throughout.
+-- Verify every live field and every decoded field with the real reader.
+-- This is a KNOWN UNSAFE witness, never a successful source epoch fix.
+inventedManyNPCs()
+for id=77101,77220 do
+    db.npcData[id][db.npcKeys.minLevel]=11
+end
+local coherentNonNameStage=compileStage()
+local nonNameABA=interleavedNpcAttempt(function()
+    for id=77101,77220 do
+        assert(db.npcData[id][db.npcKeys.name]=="Torn A")
+        db.npcData[id][db.npcKeys.minLevel]=22
+    end
+end,function()
+    for id=77101,77220 do
+        assert(db.npcData[id][db.npcKeys.name]=="Torn A")
+        assert(db.npcData[id][db.npcKeys.minLevel]==22)
+        db.npcData[id][db.npcKeys.minLevel]=11
+    end
+end)
+local nonNameSourceCount=0
+local nonNameSourceRestored=true
+for id,record in pairs(db.npcData) do
+    nonNameSourceCount=nonNameSourceCount+1
+    if type(id)~="number" or id<77101 or id>77220
+        or type(record)~="table"
+        or record[db.npcKeys.name]~="Torn A"
+        or record[db.npcKeys.minLevel]~=11 then
+        nonNameSourceRestored=false
+    end
+end
+for id=77101,77220 do
+    local row=db.npcData[id]
+    if type(row)~="table" or row[db.npcKeys.name]~="Torn A"
+        or row[db.npcKeys.minLevel]~=11 then
+        nonNameSourceRestored=false
+    end
+end
+check("E02m S7 non-name-only: all 120 live source rows restored to A",
+    nonNameABA.ok and nonNameABA.dead and nonNameABA.verified
+    and nonNameABA.secondBatchHookCalled
+    and nonNameABA.writerFinishCount==1
+    and nonNameABA.driverCleanupCount==0
+    and nonNameSourceCount==120 and nonNameSourceRestored
+    and nonNameABA.stage.npcBin~=coherentNonNameStage.npcBin
+    and nonNameABA.stage.npcPtrs==coherentNonNameStage.npcPtrs)
+
+local nonNameReaderExact=true
+for id=77101,77220 do
+    local h=drive(function()
+        return compiler:GetDBHandle(nonNameABA.stage.npcBin,
+            nonNameABA.stage.npcPtrs,
+            compiler:BuildSkipMap(db.npcCompilerTypes,
+                db.npcCompilerOrder),db.npcKeys,nil)
+    end)
+    local actualMinLevel=h.QuerySingle(id,"minLevel")
+    local actualName=h.QuerySingle(id,"name")
+    h.stream:finished()
+    local expectedLevel=(id<=77149 or id>=77199) and 11 or 22
+    if actualName~="Torn A" or actualMinLevel~=expectedLevel then
+        nonNameReaderExact=false
+    end
+end
+check("E02m S7 reader: 49 A / 49 B / 22 A on non-name minLevel",
+    nonNameABA.ok and nonNameABA.verified
+    and nonNameReaderExact and nonNameSourceRestored
+    and nonNameABA.stage._nqStatus==nil)
+
+assert(count==21,"expected twenty-one known-gap witness checks, got "..count)
+print("GATE08 SOURCE EPOCH KNOWN-GAPS: 21/21 CHARACTERIZED (NOT FIXED)")
 print("BLOCKED E01-E08: no source-writer exclusion, no source A-B-A epoch, no guarded publication, no client QA")
