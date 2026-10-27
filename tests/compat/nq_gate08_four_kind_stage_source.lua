@@ -1080,6 +1080,8 @@ local nqU16CountOverflow={}
 for i=1,65536 do nqU16CountOverflow[i]=1 end
 local nqU8PairCountOverflow={}
 for i=1,256 do nqU8PairCountOverflow[i]={1,1} end
+local nqU8CountOverflow={}
+for i=1,256 do nqU8CountOverflow[i]=1 end
 local compoundCases = {
     {"quest","requiredMinRep",{1,8388608},false,"MUTANT s24pair upper edge plus one"},
     {"quest","requiredSkill",{4096,1},false,"MUTANT u12pair upper edge plus one"},
@@ -1094,7 +1096,6 @@ local compoundCases = {
     {"npc","questStarts",{[1]=10,extra=30},false,"SHAPE mixed hash key"},
     {"npc","questStarts",{[0]=10,[1]=20},false,"SHAPE zero-based index"},
     {"npc","questStarts",{[1]=10,[2.5]=20},false,"SHAPE fractional table key"},
-    {"npc","questStarts",{},false,"SHAPE explicit empty array sentinel"},
     {"npc","questStarts",{10,30},true,"SHAPE valid dense array"},
     {"quest","requiredSkill",{10,20,30},false,"SHAPE standalone pair third entry"},
     {"quest","requiredSkill",{10,20,extra=30},false,"SHAPE standalone pair hash entry"},
@@ -1108,7 +1109,6 @@ local compoundCases = {
     {"quest","reputationReward",{{1,2,3}},false,"SHAPE pair-array third entry"},
     {"quest","reputationReward",{{[1]=1,[2]=2,x=3}},false,"SHAPE pair-array hash key"},
     {"quest","reputationReward",{{0,0}},true,"SHAPE nested zero pair is not standalone sentinel"},
-    {"quest","reputationReward",{},false,"SHAPE explicit empty pair array"},
     {"item","npcDrops",{[2]=1},false,"SHAPE sparse u16 count array"},
     {"item","npcDrops",{1,2},true,"SHAPE valid dense u16 count array"},
     {"quest","reputationReward",{[1]={1,2},extra={3,4}},false,"SHAPE pair-array outer hash key"},
@@ -1131,7 +1131,7 @@ local compoundCases = {
     {"quest","reputationReward",{{1,9000000}},false,"u8s24pairs signed overflow"},
     {"quest","reputationReward",{{1,8388607}},true,"u8s24pairs boundary"},
     {"quest","reputationReward",{{-8388608,1}},true,"u8s24pairs lower boundary"},
-    {"npc","questStarts",{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},false,"u8 array count overflow"},
+    {"npc","questStarts",nqU8CountOverflow,false,"u8 array count overflow"},
 }
 local function sameCompound(a,b)
     if type(a)~="table" or type(b)~="table" then return a==b end
@@ -1156,6 +1156,28 @@ for _,case in ipairs(compoundCases) do
         ))
 end
 
+-- Verified public source compatibility: Questie Corrections deliberately
+-- uses {} as a "clear" for simple numeric compounds. Historical writers
+-- serialize that intentional clear as a nil sentinel, so the staged path
+-- must accept it, without accepting sparse/nonempty ambiguous shapes.
+local nqIntentionalClearCases={
+    {"npc","questStarts","u8u24array"},
+    {"item","npcDrops","u16u24array"},
+    {"quest","reputationReward","u8s24pairs"},
+    {"quest","requiredSkill","u12pair"},
+    {"quest","requiredMinRep","s24pair"},
+}
+for _,spec in ipairs(nqIntentionalClearCases) do
+    local kind,field,label=spec[1],spec[2],spec[3]
+    local ok,reason,stage,finished,readback=scalarRealSourceProbe(
+        {kind,field,{},true})
+    check("stage intentional empty-table clear "..label.." remains nil",
+        ok and finished==1 and readback==nil
+        and type(stage[kind.."Bin"])=="string"
+        and type(stage[kind.."Ptrs"])=="string"
+        and not tostring(reason):find("GATE08_STAGE_COMPOUND",1,true))
+end
+
 -- The no-stage legacy encoding is intentionally byte/semantic compatible
 -- with the parent on malformed compound inputs, not implicitly approved.
 local legacyBeforeQuestBin,legacyBeforeQuestPtrs=saved.questBin,saved.questPtrs
@@ -1178,6 +1200,6 @@ check("legacy u12pair wrap remains unchanged and is not staged acceptance",
     and saved.questPtrs==legacyBeforeQuestPtrs
     and saved.nQuestieDataRevision==57)
 
-assert(tests==154,"expected 154 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 154/154 PASS")
+assert(tests==157,"expected 157 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 157/157 PASS")
 print("DRAFT ONLY: simple compounds guarded; complex nested codec, source epoch, pool isolation, commit, relog recovery and client QA remain blocked")

@@ -955,7 +955,9 @@ end
 -- codecs. Writers enumerate arrays with pairs(), so sparse/hash/zero-based
 -- keys silently change the decoded sequence. Missing pair elements default
 -- to zero; top-level {0,0} decodes as nil (including signed s24pair).
--- Refuse those ambiguities rather than authenticating modified source data.
+-- Empty {} is DIFFERENT: public Questie Corrections uses it deliberately to
+-- CLEAR a value, so its nil readback is intentional and must remain legal.
+-- Refuse ambiguous non-empty shapes without breaking explicit clears.
 -- This does NOT establish source immutability, reader order on every Lua VM,
 -- nor safety of compound types with nested/polymorphic fields.
 local function NQStageExactNumericPair(value, low, high, topLevel)
@@ -976,11 +978,14 @@ end
 local function NQValidateStageSimpleCompound(typename, value)
     local shape = NQ_STAGE_SIMPLE_COMPOUNDS[typename]
     if not shape or value == nil then return true end
+    if type(value) ~= "table" then return false end
+    -- Intentional Questie "clear" corrections are represented as {}.
+    -- Standalone pair/array writers serialize this as their nil sentinel.
+    if next(value) == nil then return true end
     local how,low,high,maximum = shape[1],shape[2],shape[3],shape[4]
     if how == "pair" then
         return NQStageExactNumericPair(value,low,high,true)
     end
-    if type(value) ~= "table" then return false end
     local count,highest = 0,0
     for key,element in pairs(value) do
         -- Exactly dense 1..n keys: no hash keys, holes, key zero, fractions,
@@ -998,7 +1003,8 @@ local function NQValidateStageSimpleCompound(typename, value)
             return false
         end
     end
-    -- Empty explicit tables decode as nil; nil itself is still legal.
+    -- Empty tables were accepted above as intentional clears; non-empty
+    -- sequences must have exactly contiguous 1..count numeric keys.
     return count > 0 and highest == count
 end
 
