@@ -1,0 +1,47 @@
+name: N-Questie Part39 public WotLK NPC correction-order audit (read-only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  public-npc-order:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install actual Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Validate public NPC correction order for both faction projections
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_gate08_public_npc_correction_order_audit.lua
+            else
+              luac5.4 -p tests/compat/nq_gate08_public_npc_correction_order_audit.lua
+            fi
+            output="$RUNNER_TEMP/public-npc-$lua.log"
+            timeout --signal=TERM --kill-after=5s 100s "$lua" tests/compat/nq_gate08_public_npc_correction_order_audit.lua | tee "$output"
+            grep -Fx 'PUBLIC NPC CORRECTION CONTROLS: 10/10 PASS' "$output"
+            test "$(grep -E -c '^PUBLIC WOTLK NPC CORRECTED faction=(Alliance|Horde) rows=[0-9]+ simple_fields=[0-9]+ ordered=[0-9]+ reordered_dense=0 malformed=0 intentional_empty=[0-9]+ patch_writes=[0-9]+ auto_writes=[0-9]+ faction_writes=[0-9]+ override_fields=[0-9]+ override_only_rows=[0-9]+$' "$output")" -eq 2
+            test "$(grep -c '^PUBLIC WOTLK NPC CORRECTED faction=Alliance ' "$output")" -eq 1
+            test "$(grep -c '^PUBLIC WOTLK NPC CORRECTED faction=Horde ' "$output")" -eq 1
+            grep -Fx 'PUBLIC NPC CORRECTION AUDIT COMPLETE (both factions)' "$output"
+            grep -Fx 'SCOPE LIMIT: WotLK NPC public base plus Classic/TBC/WotLK manual and WotLK automatic NPC fixes; simple questStarts/questEnds only.' "$output"
+            grep -Fx 'NOT ACCEPTED: full effective four-kind sources, waypoint/spawnlist, derived faction updates, Compat/unknown writers, Stage1 or client.' "$output"
+          done
+      - name: No artifact or release packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
