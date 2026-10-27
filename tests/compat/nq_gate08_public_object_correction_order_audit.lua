@@ -186,6 +186,12 @@ for _,faction in ipairs({"Alliance","Horde"}) do
     -- to investigate and DOES NOT permit a stage or production change.
     assert(stats.reordered==0 and stats.malformed==0,
         "PUBLIC_OBJECT_CORRECTION_ORDER_BLOCKER")
+    -- Exact public-source snapshot only: fail on future drift until the
+    -- changed public source is reviewed. This is NOT a universal promise.
+    assert(rows==13043 and fields==803 and stats.ordered==789
+        and stats.empty==14 and patchWrites==904 and overlayWrites==8
+        and overridden==0 and extraRows==0,
+        "PUBLIC_OBJECT_CORRECTION_LAYER_SNAPSHOT_CHANGED")
     collectgarbage("collect")
 end
 assert(audited.questStarts and audited.questEnds,
