@@ -31,7 +31,7 @@ jobs:
             fi
             output="$RUNNER_TEMP/nq-tx17-$lua.log"
             timeout --signal=TERM --kill-after=5s 100s "$lua" tests/compat/nq_gate08_tx17_savedvariables_restart_model.lua | tee "$output"
-            grep -Fx 'PUBLIC TX17 FICTIONAL RECOVERY CONTROLS: 39 PASS' "$output"
+            grep -Fx 'PUBLIC TX17 FICTIONAL RECOVERY CONTROLS: 44 PASS' "$output"
             grep -Fx 'PUBLIC TX17 KNOWN LIMIT: checksums are not writer authentication.' "$output"
             grep -Fx 'PUBLIC TX17 NOT ACCEPTED: WoW client disk serialization, crash atomicity, SavedVariables provenance, full source epoch, real relog or production integration.' "$output"
             test "$(grep -Ec '^PUBLIC TX17 ' "$output")" -eq 3
