@@ -54,6 +54,11 @@ unrelated:WriteByte(23)
 check("unrelated writes alter original owner-visible bytes",
     unrelated:Save()==string.char(23) and writer:Save()==string.char(23))
 
+-- GetStream's same-mode fast path returns the pooled table without reinitialising
+-- its method slots. Restore our synthetic method wrapper so the second witness
+-- exercises the REAL finished() method (not the injected exception again).
+unrelated.finished=trueFinish
+
 -- A driver that interprets the exception as NOT yet returned and calls
 -- finished() again duplicates the same reference in the global pool.
 -- Two unrelated live callers then receive one mutable stream object.
