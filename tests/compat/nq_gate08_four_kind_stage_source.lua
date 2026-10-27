@@ -1080,6 +1080,8 @@ local nqU16CountOverflow={}
 for i=1,65536 do nqU16CountOverflow[i]=1 end
 local nqU8PairCountOverflow={}
 for i=1,256 do nqU8PairCountOverflow[i]={1,1} end
+local nqU8CountOverflow={}
+for i=1,256 do nqU8CountOverflow[i]=1 end
 local compoundCases = {
     {"quest","requiredMinRep",{1,8388608},false,"MUTANT s24pair upper edge plus one"},
     {"quest","requiredSkill",{4096,1},false,"MUTANT u12pair upper edge plus one"},
@@ -1129,7 +1131,7 @@ local compoundCases = {
     {"quest","reputationReward",{{1,9000000}},false,"u8s24pairs signed overflow"},
     {"quest","reputationReward",{{1,8388607}},true,"u8s24pairs boundary"},
     {"quest","reputationReward",{{-8388608,1}},true,"u8s24pairs lower boundary"},
-    {"npc","questStarts",{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},false,"u8 array count overflow"},
+    {"npc","questStarts",nqU8CountOverflow,false,"u8 array count overflow"},
 }
 local function sameCompound(a,b)
     if type(a)~="table" or type(b)~="table" then return a==b end
