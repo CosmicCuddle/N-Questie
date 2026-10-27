@@ -31,6 +31,24 @@ local function check(label,predicate)
     print("PASS GATE08 GLOBAL POOL "..tested.." "..label)
 end
 
+-- Positive control in the ACTUAL production non-debug "raw" mode,
+-- BEFORE any deliberately poisoned or doubly-pooled stream exists. This
+-- independently rejects a "quarantine fix" that disables ALL raw pooling.
+-- Use a fresh single borrower; do not rely on the later raw_assert control.
+local cleanRaw=streamLib:GetStream("raw")
+local originalRawSave=cleanRaw.Save
+local originalRawWrite=cleanRaw.WriteByte
+cleanRaw:WriteByte(11)
+assert(cleanRaw:Save()==string.char(11))
+cleanRaw:finished()
+local cleanRawNext=streamLib:GetStream("raw")
+check("healthy raw mode remains pooled and method slots are pristine",
+    cleanRawNext==cleanRaw and cleanRawNext._pointer==1
+    and cleanRawNext:Save()==""
+    and cleanRawNext.Save==originalRawSave
+    and cleanRawNext.WriteByte==originalRawWrite)
+cleanRawNext:finished() -- Return once before the separate poison scenario.
+
 -- A suspended/owner caller may observe an ambiguous failure after the
 -- genuine finished() has already reset and returned its object to StreamPool.
 -- The exception is synthetic; the shared pool and methods are REAL.
@@ -98,6 +116,6 @@ check("poisoned method slot leaks to next same-mode borrower",
     and methodBorrower.Save~=cleanSave
     and methodBorrower:Save()=="SYNTHETIC_POISONED_METHOD")
 
-assert(tested==8)
-print("GATE08 GLOBAL STREAM POOL WITNESS: 8/8 KNOWN UNSAFE / POSITIVE CONTROL")
+assert(tested==9)
+print("GATE08 GLOBAL STREAM POOL WITNESS: 9/9 KNOWN UNSAFE / POSITIVE CONTROL")
 print("DRAFT ONLY: global pool quarantine NOT fixed; no source epoch, atomic publish, SavedVariables recovery or native client QA")
