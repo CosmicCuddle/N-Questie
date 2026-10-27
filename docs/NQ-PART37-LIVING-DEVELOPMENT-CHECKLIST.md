@@ -47,11 +47,25 @@ All these are draft/unmerged and **not based on `335` for merging**. Freshly ver
 **Verified reviews:** [#183](https://github.com/CosmicCuddle/N-Questie/pull/183#issuecomment-6419675853), [#184](https://github.com/CosmicCuddle/N-Questie/pull/184#issuecomment-6419677184), [#185](https://github.com/CosmicCuddle/N-Questie/pull/185#issuecomment-6419635928), [#186](https://github.com/CosmicCuddle/N-Questie/pull/186#issuecomment-6419662316). All **APPROVE-WITH-FOLLOW-UP / DRAFT ONLY**. Historic “review pending” entries above are superseded.
 
 - [x] Review CS02's actual exact-head #183–#186 findings, including non-throwing error, pointer, stream and stage mutants.
-- [ ] **Highest priority:** new isolated child of #186; make scratch generation identity and receipts truly compiler-private or explicitly describe them as untrusted; kill forged receipt and full token+serial rollback.
-- [ ] Move the resumed/finish-time stale-attempt guard **before Bin/Ptrs writes**; handle tokenless suspended writer and re-entrant Begin inside lease Finish. Cover #186 Q1–Q6 on Lua5.1 + Lua5.4.
+- [x] **Draft implementation in #187 (review pending):** isolated child of #186 with private scratch generation and receipts, forged receipt/full public token+serial rollback tests; CS02 mutation review and all CI still required.
+- [x] **Draft implementation in #187 (review pending):** post-Finish guard moved **before Bin/Ptrs writes**, tokenless suspended writer and re-entrant Begin probes, plus Q1–Q6-inspired 73/73 dual Lua source-backed checks; exact-head peer review and full CI pending.
 - [ ] Source-backed negative tests for #184 silent raw numeric u16 wrap (70000→4464), fractional u8 Lua-version divergence, empty category semantics and incomplete stage abort; avoid prematurely changing normal legacy compiler.
 - [ ] New test-only child reviews of #183 reader lease shape, decoded pointer error phase, handle.stream identity and duplicate stream pool returns; #185 pointer/empty/token-receipt mutants.
 - [ ] **Separate Gate08 hard stop:** scratch serial still does NOT protect original Questie source tables A→B→A. E01–E08, stream-pool isolation, atomic publication, relog recovery and real WoW3.3.5a/IP profiling remain pending. No merge or Stage1 integration.
+
+## 2B. 27 October 2026 — isolated private scratch-stage fix #187 (Part37 active)
+
+**DRAFT ENGINEERING, NOT MERGE OR CLIENT ACCEPTANCE.** [PR #187](https://github.com/CosmicCuddle/N-Questie/pull/187) is a fresh isolated child of frozen #186 `f325a78022e28f1ce48c82885d0b3e3ff129c5e6`, exact initial head `768ded74ecdad26a4398caa51bd36a2862cc2b3b`. Protected `335` reverified unchanged at `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`. Three paths vs #186: real `Database/compiler.lua`, source-backed synthetic test suite and no-upload dual-Lua workflow.
+
+- [x] **Draft code:** weak-keyed module-private per-stage token, monotonic attempt serial and private receipt registry. Visible stage token/serial/receipts are compatibility/diagnostics, not receipt authority. An attacker editing public stage fields cannot create private writer receipts.
+- [x] **Draft code:** resume check and post-`Finish` **pre-Bin/pre-Ptrs** check confirm private identity, including a suspended tokenless writer and a `Begin` re-entered from lease `Finish`.
+- [x] **Dedicated exact-head [Actions run 40496621925](https://github.com/CosmicCuddle/N-Questie/actions/runs/40496621925) SUCCESS:** source-backed **73/73 Lua 5.1 and 73/73 Lua 5.4** checks (previous 63 retained plus ten new adversarial probes); Lua parse steps passed; its artifact endpoint returned zero artifacts. Other exact-head CI was still running when this note was authored; audit all own PR/push runs separately before marking broad CI green.
+- [x] **CS02 independent review assignment** issued in [team PR #42](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6440827736) to challenge private registry integrity, full visible ABA, nil serial reset, tokenless/re-entrant stale writes, pool/lease safety and legacy byte identity.
+- [ ] Receive exact-head CS02 independent mutations and close all original-branch workflow/artifact endpoints, preserving failed-run truth if any.
+- [ ] Independently validate test specificity (including explicit mutant kills). Lua success alone does **not** prove all 73 test assertions reject each independent broken implementation.
+- [ ] **Still blocked:** full raw/effective source epoch E01–E08 and source A→B→A, global Questie shared pool poison isolation, real transaction driver and eight-field atomic publication/revision, crash/relog SavedVariables recovery, genuine client 3.3.5a/Individual Progression RAM/frame QA.
+
+**Public safety / whole scope:** no private owner SQL, real NPC/GO/item/loot/IP mappings. No Stage1 integration, merge, install, package, tag or release. Twelve gates remain **3 complete / 6 underway / 3 technically pending**. Gate10 still owns all **439 raw records**, not 439 approved quests; first pilot 1207–1209 **0/3**.
 
 ## 3. PRIORITY A — CI closure and CS02 review
 
