@@ -621,7 +621,7 @@ check("foreign receipt token cannot authenticate staged bytes",
 -- Source-backed concurrency counterexample: a writer may be suspended
 -- while the same SCRATCH stage is reused. Only an external coroutine driver
 -- resumes threads and returns their leases AFTER coroutine status is DEAD.
-local function interruptedScratchAttempt(restorePriorToken)
+local function interruptedScratchAttempt(restorePriorToken, restorePriorSerial, nilSerialBeforeBegin)
     local scratch={}
     local oldToken=compiler:BeginNQStagedGeneration(scratch)
     local oldSerial=scratch._nqGenerationSerial
@@ -643,12 +643,14 @@ local function interruptedScratchAttempt(restorePriorToken)
     end)
     local resumed=coroutine.resume(thread)
     assert(resumed and coroutine.status(thread)=="suspended" and acquired)
+    if nilSerialBeforeBegin then scratch._nqGenerationSerial=nil end
     local newToken=compiler:BeginNQStagedGeneration(scratch)
     local newSerial=scratch._nqGenerationSerial
     if restorePriorToken then
-        -- A→B→A of the visible token is NOT equivalent to no Begin().
+        -- Caller-visible diagnostic rollback must not roll back private state.
         scratch._nqGenerationToken=oldToken
     end
+    if restorePriorSerial then scratch._nqGenerationSerial=oldSerial end
     local ok,reason=coroutine.resume(thread)
     local dead=coroutine.status(thread)=="dead"
     if dead and finished==0 then
@@ -698,6 +700,142 @@ check("invalid generation serial is rejected instead of silently resetting",
     not serialOk and tostring(serialErr):find("GATE08_STAGE_BAD_SERIAL",1,true)~=nil
     and badSerial._nqGenerationToken==nil)
 
-assert(tests==63,"expected 63 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 63/63 PASS")
-print("DRAFT ONLY: no writer epoch/ABA, lease recovery, atomic commit, disk recovery or client QA")
+-- Part37: preserve all 63 earlier source-backed cases, then attack CS02's
+-- real Q1–Q6 counterexamples. Genuine compiler methods and real stream pool
+-- exercise invented fixture data only; no Stage1 or SavedVariables writes.
+local priorSerial=reusedStage._nqGenerationSerial
+reusedStage._nqGenerationSerial=priorSerial+1
+local alteredSerialOk=pcall(function()
+    compiler:VerifyNQStagedGeneration(reusedStage,subsequent)
+end)
+reusedStage._nqGenerationSerial=priorSerial
+check("Q1 changing visible serial after receipts refuses verification",
+    not alteredSerialOk and compiler:VerifyNQStagedGeneration(reusedStage,subsequent)==true)
+
+check("Q2 visible-token ABA must stop before either scratch field write",
+    abaAttempt.stage.npcBin==nil and abaAttempt.stage.npcPtrs==nil
+    and next(abaAttempt.stage._nqGenerationReceipts)==nil)
+
+local fullABA=interruptedScratchAttempt(true,true,false)
+check("Q5 full public token and serial ABA cannot authenticate stale writer",
+    not fullABA.ok and fullABA.dead and fullABA.cleanupCount==1
+    and fullABA.reason:find("GATE08_STAGE_ATTEMPT_CHANGED",1,true)~=nil
+    and fullABA.stage.npcBin==nil and fullABA.stage.npcPtrs==nil)
+
+local nilReset=interruptedScratchAttempt(true,false,true)
+check("Q6 nil-reset public serial cannot restart private generation identity",
+    not nilReset.ok and nilReset.dead and nilReset.cleanupCount==1
+    and nilReset.newSerial==nilReset.oldSerial+1
+    and nilReset.stage.npcBin==nil and nilReset.stage.npcPtrs==nil)
+
+local forgedStage={_nqGenerationToken={},_nqGenerationSerial=1,
+    _nqGenerationReceipts={}}
+for _,entry in ipairs(categories) do
+    local k=entry.kind
+    forgedStage[k.."Bin"]="GARBAGE_"..k
+    forgedStage[k.."Ptrs"]="X_"..k
+    forgedStage._nqGenerationReceipts[k]={
+        token=forgedStage._nqGenerationToken,serial=1,
+        bin=forgedStage[k.."Bin"],ptrs=forgedStage[k.."Ptrs"]}
+end
+local forgedNoBegin=pcall(function()
+    compiler:VerifyNQStagedGeneration(forgedStage,forgedStage._nqGenerationToken)
+end)
+check("compiler refuses hand-made token and four receipt pairs without Begin",
+    not forgedNoBegin)
+
+local precompiledForge={}
+local forgeToken=compiler:BeginNQStagedGeneration(precompiledForge)
+for _,entry in ipairs(categories) do
+    local k=entry.kind
+    precompiledForge[k.."Bin"]="GARBAGE_"..k
+    precompiledForge[k.."Ptrs"]="X_"..k
+    precompiledForge._nqGenerationReceipts[k]={
+        token=forgeToken,serial=precompiledForge._nqGenerationSerial,
+        bin=precompiledForge[k.."Bin"],ptrs=precompiledForge[k.."Ptrs"]}
+end
+local forgedWithBegin=pcall(function()
+    compiler:VerifyNQStagedGeneration(precompiledForge,forgeToken)
+end)
+check("public receipt forgery after real Begin has no private writer proof",
+    not forgedWithBegin)
+
+local originalBin=reusedStage.npcBin
+local originalDiagnosticBin=reusedStage._nqGenerationReceipts.npc.bin
+reusedStage.npcBin="FORGED_AFTER_VALID_WRITE"
+reusedStage._nqGenerationReceipts.npc.bin=reusedStage.npcBin
+local forgedAfterWriter=pcall(function()
+    compiler:VerifyNQStagedGeneration(reusedStage,subsequent)
+end)
+reusedStage.npcBin=originalBin
+reusedStage._nqGenerationReceipts.npc.bin=originalDiagnosticBin
+check("editing bytes plus public receipt cannot forge compiler provenance",
+    not forgedAfterWriter
+    and compiler:VerifyNQStagedGeneration(reusedStage,subsequent)==true)
+
+local reentrantStage={}
+local beforeReentrant=compiler:BeginNQStagedGeneration(reentrantStage)
+local reentrantDone,reentrantLease=0,nil
+local reentrantOwner={}
+function reentrantOwner:Acquire(streamParent,mode)
+    reentrantLease={stream=streamParent:GetStream(mode)}
+    return reentrantLease
+end
+function reentrantOwner:Finish(lease)
+    assert(lease==reentrantLease and reentrantDone==0)
+    reentrantDone=reentrantDone+1
+    lease.stream:finished()
+    compiler:BeginNQStagedGeneration(reentrantStage)
+end
+reentrantStage._nqWriterLeaseOwner=reentrantOwner
+local reentrantOK,reentrantErr=pcall(function()
+    drive(function()compiler:CompileNPCs(reentrantStage)end)
+end)
+check("Q3 Begin re-entrant during Finish cannot write stale Bin or Ptrs",
+    not reentrantOK and tostring(reentrantErr):find("GATE08_STAGE_ATTEMPT_CHANGED",1,true)~=nil
+    and reentrantDone==1 and reentrantStage.npcBin==nil
+    and reentrantStage.npcPtrs==nil
+    and not pcall(function()
+        compiler:VerifyNQStagedGeneration(reentrantStage,beforeReentrant)
+    end))
+
+local tokenlessStage={}
+local tokenlessLease=nil
+local tokenlessOwner={}
+function tokenlessOwner:Acquire(streamParent,mode)
+    assert(tokenlessLease==nil)
+    tokenlessLease={stream=streamParent:GetStream(mode)}
+    return tokenlessLease
+end
+function tokenlessOwner:Finish(lease)
+    assert(lease==tokenlessLease)
+    lease.stream:finished()
+end
+tokenlessStage._nqWriterLeaseOwner=tokenlessOwner
+local staleThread=coroutine.create(function()
+    compiler:CompileNPCs(tokenlessStage)
+end)
+local firstResume=coroutine.resume(staleThread)
+assert(firstResume and coroutine.status(staleThread)=="suspended")
+local begunToken=compiler:BeginNQStagedGeneration(tokenlessStage)
+local tokenlessOK,tokenlessReason=coroutine.resume(staleThread)
+local tokenlessDead=coroutine.status(staleThread)=="dead"
+if tokenlessDead then tokenlessLease.stream:finished() end
+check("Q4 suspended tokenless writer cannot contaminate freshly begun stage",
+    not tokenlessOK and tokenlessDead
+    and tostring(tokenlessReason):find("GATE08_STAGE_ATTEMPT_CHANGED",1,true)~=nil
+    and tokenlessStage.npcBin==nil and tokenlessStage.npcPtrs==nil
+    and not pcall(function()
+        compiler:VerifyNQStagedGeneration(tokenlessStage,begunToken)
+    end))
+
+local unchangedTokenless={}
+drive(function()compiler:CompileNPCs(unchangedTokenless)end)
+check("legacy tokenless scratch stage retains successful byte staging",
+    type(unchangedTokenless.npcBin)=="string"
+    and type(unchangedTokenless.npcPtrs)=="string"
+    and unchangedTokenless._nqGenerationReceipts==nil)
+
+assert(tests==73,"expected 73 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 73/73 PASS")
+print("DRAFT ONLY: no source writer epoch/ABA, global pool isolation, atomic commit, disk recovery or client QA")
