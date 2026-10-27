@@ -42,11 +42,22 @@ All these are draft/unmerged and **not based on `335` for merging**. Freshly ver
 
 **#186 CI caveat:** the earlier experimental head `0860dacb41d7a3bdaf5ca3e6adfea30a26ea73f6` **FAILED** the dedicated runner because the fixture accidentally kept an old lease owner for a new recovered attempt; fixture corrected on `f325a780`, then dual-Lua **63/63 PASS**. Do not claim the old commit passed. The corrected head is now confirmed 9/9 CI SUCCESS and 0 artifacts; check only for newer activity or changed head.
 
+## 2A. 27 October 2026 — new CS02 reviews and immediate safety work
+
+**Verified reviews:** [#183](https://github.com/CosmicCuddle/N-Questie/pull/183#issuecomment-6419675853), [#184](https://github.com/CosmicCuddle/N-Questie/pull/184#issuecomment-6419677184), [#185](https://github.com/CosmicCuddle/N-Questie/pull/185#issuecomment-6419635928), [#186](https://github.com/CosmicCuddle/N-Questie/pull/186#issuecomment-6419662316). All **APPROVE-WITH-FOLLOW-UP / DRAFT ONLY**. Historic “review pending” entries above are superseded.
+
+- [x] Review CS02's actual exact-head #183–#186 findings, including non-throwing error, pointer, stream and stage mutants.
+- [ ] **Highest priority:** new isolated child of #186; make scratch generation identity and receipts truly compiler-private or explicitly describe them as untrusted; kill forged receipt and full token+serial rollback.
+- [ ] Move the resumed/finish-time stale-attempt guard **before Bin/Ptrs writes**; handle tokenless suspended writer and re-entrant Begin inside lease Finish. Cover #186 Q1–Q6 on Lua5.1 + Lua5.4.
+- [ ] Source-backed negative tests for #184 silent raw numeric u16 wrap (70000→4464), fractional u8 Lua-version divergence, empty category semantics and incomplete stage abort; avoid prematurely changing normal legacy compiler.
+- [ ] New test-only child reviews of #183 reader lease shape, decoded pointer error phase, handle.stream identity and duplicate stream pool returns; #185 pointer/empty/token-receipt mutants.
+- [ ] **Separate Gate08 hard stop:** scratch serial still does NOT protect original Questie source tables A→B→A. E01–E08, stream-pool isolation, atomic publication, relog recovery and real WoW3.3.5a/IP profiling remain pending. No merge or Stage1 integration.
+
 ## 3. PRIORITY A — CI closure and CS02 review
 
 - [x] #186 exact `f325a780`: M2 PR run `40345916004` **SUCCESS**, full **9/9** original branch workflows SUCCESS, **0 artifacts** independently rechecked. Recheck only if new commits/workflows appear.
 - [x] #185 exact 13/13 successful/zero artifacts rechecked at Part37 handover. Recheck again if PR head changes.
-- [ ] Read new CS02 comments in [#42](https://github.com/CosmicCuddle/N-Questie/pull/42) and PRs #183–#186; obtain **independent exact-head reviews**, not inherited approvals.
+- [x] Exact-head CS02 reviews for #183–#186 received and incorporated in the 27 October addendum; further reviewer follow-ups required.
 - [ ] Request typed mutation challenge of #185 missing/forged/stale receipts, #186 suspended writer and scratch A→B→A, #184 nonthrowing error, #183 pointer errors before handle.
 - [ ] Keep **all prior peer-approved heads immutable**. Changes must stack on fresh isolated drafts; no merge.
 - [ ] Verify `335` remains at `8b23c6e2...` and check exact-head Actions/artifact endpoints before closing a checkpoint.
