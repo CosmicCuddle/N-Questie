@@ -1,0 +1,40 @@
+name: N-Questie Part39 public WotLK base compound order audit (read-only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  public-base-order:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install both real Lua interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Aggregate public base tables, never print IDs or association values
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            "${lua/lua/luac}" -p tests/compat/nq_gate08_public_base_order_audit.lua
+            output="$RUNNER_TEMP/order-$lua.log"
+            timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate08_public_base_order_audit.lua | tee "$output"
+            test "$(grep -c '^PUBLIC WOTLK BASE ' "$output")" -eq 5
+            grep -q '^PUBLIC WOTLK BASE AUDIT COMPLETE simple_fields=' "$output"
+            grep -Fx 'SCOPE LIMIT: BASE tables only; effective Corrections, faction overrides, late writers and client QA NOT AUDITED.' "$output"
+            grep -Fx 'DRAFT AUDIT ONLY: discovering zero reordered base fields cannot certify Stage1 compatibility or source epoch.' "$output"
+          done
+      - name: No packaging or workflow artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
