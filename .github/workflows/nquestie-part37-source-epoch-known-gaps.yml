@@ -19,7 +19,7 @@ jobs:
           timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
           lua5.1 -v 2>&1 | grep -E '^Lua 5\.1'
           lua5.4 -v 2>&1 | grep -E '^Lua 5\.4'
-      - name: Characterize eleven open source-epoch and synthetic faction override weaknesses
+      - name: Characterize seventeen unsafe source-epoch, faction and mid-stream row behaviours
         shell: bash
         run: |
           set -euo pipefail
@@ -29,8 +29,8 @@ jobs:
             "${lua/lua/luac}" -p tests/compat/nq_gate08_source_epoch_known_gaps.lua
             output="$RUNNER_TEMP/known-gaps-$lua.log"
             timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate08_source_epoch_known_gaps.lua | tee "$output"
-            test "$(grep -c '^PASS KNOWN-GAP GATE08 SOURCE EPOCH WITNESS ' "$output")" -eq 11
-            grep -Fx 'GATE08 SOURCE EPOCH KNOWN-GAPS: 11/11 CHARACTERIZED (NOT FIXED)' "$output"
+            test "$(grep -c '^PASS KNOWN-GAP GATE08 SOURCE EPOCH WITNESS ' "$output")" -eq 17
+            grep -Fx 'GATE08 SOURCE EPOCH KNOWN-GAPS: 17/17 CHARACTERIZED (NOT FIXED)' "$output"
             grep -Fx 'BLOCKED E01-E08: no source-writer exclusion, no source A-B-A epoch, no guarded publication, no client QA' "$output"
           done
       - name: Reject artifacts and package files
