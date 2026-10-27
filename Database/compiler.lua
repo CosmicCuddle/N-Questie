@@ -920,47 +920,80 @@ end
 -- A fresh identity token prevents an A→B→A of *scratch contents* from being
 -- mistaken for the same completed attempt; source A→B→A remains unprotected.
 local NQ_STAGE_KINDS = {"npc", "obj", "quest", "item"}
+-- Only this compilation unit can issue genuine scratch-generation receipts.
+-- Weak stage keys avoid retaining dead scratch tables. Caller-readable stage
+-- fields remain diagnostics/compatibility, NEVER the authority for Verify().
+local NQ_PRIVATE_STAGES = setmetatable({}, {__mode = "k"})
+
+local function NQAssertStageAttempt(stage, expected)
+    if NQ_PRIVATE_STAGES[stage] ~= expected then
+        error("GATE08_STAGE_ATTEMPT_CHANGED", 0)
+    end
+    if expected then
+        if stage._nqGenerationToken ~= expected.token or
+                stage._nqGenerationSerial ~= expected.serial or
+                stage._nqGenerationReceipts ~= expected.publicReceipts then
+            error("GATE08_STAGE_ATTEMPT_CHANGED", 0)
+        end
+    elseif stage._nqGenerationToken ~= nil then
+        -- A tokenless Stage1-style stage may have been freshly begun while its
+        -- earlier writer was suspended; it must not write into that generation.
+        error("GATE08_STAGE_ATTEMPT_CHANGED", 0)
+    end
+end
 
 function QuestieDBCompiler:BeginNQStagedGeneration(stage)
     if type(stage) ~= "table" then
         error("GATE08_STAGE_BAD_DESTINATION", 0)
     end
-    -- Each call owns a fresh table identity AND an incremented attempt serial.
-    -- Even if an external caller restores a previous token (A→B→A), a
-    -- suspended old coroutine cannot stamp the newly started generation.
-    -- This serial tracks SCRATCH ATTEMPTS only, NOT source table mutations.
-    local serial = stage._nqGenerationSerial
-    if serial == nil then
-        serial = 0
-    elseif type(serial) ~= "number" or serial % 1 ~= 0 or
-            serial < 0 or serial >= 9007199254740991 then
+    -- Keep rejecting malformed caller diagnostics without ever trusting them
+    -- as the monotonic authority. Nil/reset/rollback cannot restart our serial.
+    local visibleSerial = stage._nqGenerationSerial
+    if visibleSerial ~= nil and (type(visibleSerial) ~= "number" or
+            visibleSerial % 1 ~= 0 or visibleSerial < 0 or
+            visibleSerial >= 9007199254740991) then
         error("GATE08_STAGE_BAD_SERIAL", 0)
     end
-    stage._nqGenerationSerial = serial + 1
-    stage._nqGenerationToken = {}
-    stage._nqGenerationReceipts = {}
+    local prior = NQ_PRIVATE_STAGES[stage]
+    local serial = (prior and prior.serial or 0) + 1
+    if serial >= 9007199254740991 then
+        error("GATE08_STAGE_BAD_SERIAL", 0)
+    end
+    local state = {token = {}, serial = serial, receipts = {},
+        publicReceipts = {}}
+    NQ_PRIVATE_STAGES[stage] = state
+    stage._nqGenerationSerial = serial
+    stage._nqGenerationToken = state.token
+    stage._nqGenerationReceipts = state.publicReceipts
     for _, databaseKey in ipairs(NQ_STAGE_KINDS) do
         stage[databaseKey.."Bin"] = nil
         stage[databaseKey.."Ptrs"] = nil
     end
-    return stage._nqGenerationToken
+    return state.token
 end
 
 function QuestieDBCompiler:VerifyNQStagedGeneration(stage, expectedToken)
-    if type(stage) ~= "table" or type(expectedToken) ~= "table" or
-            stage._nqGenerationToken ~= expectedToken or
-            type(stage._nqGenerationReceipts) ~= "table" then
+    local state = type(stage) == "table" and NQ_PRIVATE_STAGES[stage]
+    if not state or type(expectedToken) ~= "table" or
+            state.token ~= expectedToken or
+            stage._nqGenerationToken ~= state.token or
+            stage._nqGenerationSerial ~= state.serial or
+            stage._nqGenerationReceipts ~= state.publicReceipts then
         error("GATE08_STAGE_GENERATION_MISMATCH", 0)
     end
     for _, databaseKey in ipairs(NQ_STAGE_KINDS) do
-        local receipt = stage._nqGenerationReceipts[databaseKey]
+        local receipt = state.receipts[databaseKey]
+        local diagnostic = state.publicReceipts[databaseKey]
         local bin = stage[databaseKey.."Bin"]
         local ptrs = stage[databaseKey.."Ptrs"]
-        if type(receipt) ~= "table" or receipt.token ~= expectedToken or
-                receipt.serial ~= stage._nqGenerationSerial or
+        if type(receipt) ~= "table" or
+                type(diagnostic) ~= "table" or
+                diagnostic.token ~= expectedToken or
+                diagnostic.serial ~= state.serial or
                 type(bin) ~= "string" or #bin == 0 or
                 type(ptrs) ~= "string" or #ptrs == 0 or
-                receipt.bin ~= bin or receipt.ptrs ~= ptrs then
+                receipt.bin ~= bin or receipt.ptrs ~= ptrs or
+                diagnostic.bin ~= bin or diagnostic.ptrs ~= ptrs then
             error("GATE08_STAGE_INCOMPLETE_OR_STALE: "..databaseKey, 0)
         end
     end
@@ -975,9 +1008,11 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
         error("CompileTableCoroutine stage must be a caller-owned table")
     end
     local expectedToken = stage and stage._nqGenerationToken
-    local expectedSerial = stage and stage._nqGenerationSerial
-    if expectedToken ~= nil and (type(expectedToken) ~= "table" or
-            type(expectedSerial) ~= "number") then
+    local expectedState = stage and NQ_PRIVATE_STAGES[stage]
+    if expectedToken ~= nil and (not expectedState or
+            expectedToken ~= expectedState.token or
+            stage._nqGenerationSerial ~= expectedState.serial or
+            stage._nqGenerationReceipts ~= expectedState.publicReceipts) then
         error("GATE08_STAGE_BAD_GENERATION", 0)
     end
     local count = 0
@@ -1035,11 +1070,7 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
         -- The coroutine may have been suspended before a newer attempt
         -- began on the same scratch stage. Refuse BEFORE any old writes,
         -- rather than stamping them with the new attempt's token.
-        if expectedToken ~= nil and
-                (stage._nqGenerationToken ~= expectedToken or
-                 stage._nqGenerationSerial ~= expectedSerial) then
-            error("GATE08_STAGE_ATTEMPT_CHANGED", 0)
-        end
+        if stage ~= nil then NQAssertStageAttempt(stage, expectedState) end
         for _=0,Questie.db.profile.debugEnabled and TICKS_PER_YIELD_DEBUG or (entriesPerTick or TICKS_PER_YIELD) do
             index = index + 1
             if index == count then
@@ -1058,23 +1089,21 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
                     else
                         stream:finished()
                     end
+                    -- Finish may synchronously re-enter Begin(). Verify private
+                    -- ownership AFTER Finish, BEFORE writing either scratch field.
+                    NQAssertStageAttempt(stage, expectedState)
                     stage[databaseKey.."Bin"] = bin
                     stage[databaseKey.."Ptrs"] = ptrs
-                    -- A receipt is assigned only AFTER successful stream
-                    -- completion and both immutable encoded values exist.
-                    -- The opt-in generation check refuses stale/missing pairs.
-                    if stage._nqGenerationToken ~= nil then
-                        if type(stage._nqGenerationToken) ~= "table" or
-                                type(stage._nqGenerationReceipts) ~= "table" then
-                            error("GATE08_STAGE_BAD_GENERATION", 0)
-                        end
-                        if stage._nqGenerationToken ~= expectedToken or
-                                stage._nqGenerationSerial ~= expectedSerial then
-                            error("GATE08_STAGE_ATTEMPT_CHANGED", 0)
-                        end
-                        stage._nqGenerationReceipts[databaseKey] = {
-                            token = expectedToken,
-                            serial = expectedSerial,
+                    if expectedState then
+                        -- Public diagnostics are deliberately separate from
+                        -- private compiler-issued receipts: callers cannot
+                        -- authenticate forged bytes by editing diagnostics.
+                        expectedState.receipts[databaseKey] = {
+                            bin = bin, ptrs = ptrs,
+                        }
+                        expectedState.publicReceipts[databaseKey] = {
+                            token = expectedState.token,
+                            serial = expectedState.serial,
                             bin = bin, ptrs = ptrs,
                         }
                     end
