@@ -314,7 +314,7 @@ local function inventedManyNPCs()
         db.npcData[id]={[db.npcKeys.name]="Torn A"}
     end
 end
-local function interleavedNpcAttempt(mutator)
+local function interleavedNpcAttempt(mutator,afterSecondBatch)
     local stage={}
     local token=compiler:BeginNQStagedGeneration(stage)
     local lease,finishCount=nil,0
@@ -342,8 +342,16 @@ local function interleavedNpcAttempt(mutator)
         "first actual NPC row batch did not suspend: "..tostring(batchReason))
     mutator()
     local ok,reason=true,nil
+    local secondBatchHookCalled=false
     for _=1,256 do
         ok,reason=coroutine.resume(thread)
+        if afterSecondBatch and not secondBatchHookCalled
+            and ok and coroutine.status(thread)=="suspended" then
+            -- The second batch encoded live B while this thread ran.
+            -- Restore A only AFTER that actual suspended writer interval.
+            afterSecondBatch()
+            secondBatchHookCalled=true
+        end
         if not ok or coroutine.status(thread)=="dead" then break end
     end
     local dead=coroutine.status(thread)=="dead"
@@ -367,7 +375,7 @@ local function interleavedNpcAttempt(mutator)
     end
     return {ok=ok,reason=tostring(reason),stage=stage,dead=dead,
         writerFinishCount=finishCount,driverCleanupCount=driverCleanupCount,
-        verified=verified}
+        secondBatchHookCalled=secondBatchHookCalled,verified=verified}
 end
 
 inventedManyNPCs()
@@ -417,6 +425,37 @@ check("E06 original rows remain readably encoded while late row omitted",
     and readName(appended.stage,"npc","npc","npcKeys",77101)=="Torn A"
     and readName(appended.stage,"npc","npc","npcKeys",77220)=="Torn A")
 
-assert(count==17,"expected seventeen known-gap witness checks, got "..count)
-print("GATE08 SOURCE EPOCH KNOWN-GAPS: 17/17 CHARACTERIZED (NOT FIXED)")
+-- E02m is a stronger source A->B->A witness: mutate AFTER first
+-- 49 rows, let the real coroutine encode one 49-row B batch, then restore
+-- every live row to A before its final batch. Source equality at Begin/End
+-- and private scratch receipts cannot detect the torn middle of the Bin.
+inventedManyNPCs()
+local coherentA=compileStage()
+local middleABA=interleavedNpcAttempt(function()
+    for id=77101,77220 do
+        db.npcData[id][db.npcKeys.name]="Torn B"
+    end
+end,function()
+    for id=77101,77220 do
+        assert(db.npcData[id][db.npcKeys.name]=="Torn B")
+        db.npcData[id][db.npcKeys.name]="Torn A"
+    end
+end)
+check("E02m OPEN: true mid-stream source A-B-A leaves verified torn middle",
+    middleABA.ok and middleABA.dead and middleABA.verified
+    and middleABA.secondBatchHookCalled
+    and middleABA.writerFinishCount==1
+    and middleABA.driverCleanupCount==0
+    and middleABA.stage._nqStatus==nil
+    and middleABA.stage.npcBin~=coherentA.npcBin
+    and middleABA.stage.npcPtrs==coherentA.npcPtrs
+    and db.npcData[77101][db.npcKeys.name]=="Torn A"
+    and db.npcData[77160][db.npcKeys.name]=="Torn A"
+    and db.npcData[77220][db.npcKeys.name]=="Torn A"
+    and readName(middleABA.stage,"npc","npc","npcKeys",77101)=="Torn A"
+    and readName(middleABA.stage,"npc","npc","npcKeys",77160)=="Torn B"
+    and readName(middleABA.stage,"npc","npc","npcKeys",77220)=="Torn A")
+
+assert(count==18,"expected eighteen known-gap witness checks, got "..count)
+print("GATE08 SOURCE EPOCH KNOWN-GAPS: 18/18 CHARACTERIZED (NOT FIXED)")
 print("BLOCKED E01-E08: no source-writer exclusion, no source A-B-A epoch, no guarded publication, no client QA")
