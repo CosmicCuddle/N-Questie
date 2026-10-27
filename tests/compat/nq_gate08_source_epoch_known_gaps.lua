@@ -165,6 +165,143 @@ check("E08 FIXTURE: unchanged legacy NPC raw encoding equals staged bytes",
     current.npcBin==saved.npcBin and current.npcPtrs==saved.npcPtrs
     and saved.nQuestieDataRevision==57 and saved.dbCompiledCount==9)
 
-assert(count==6,"expected exactly six known-gap witness checks, got "..count)
-print("GATE08 SOURCE EPOCH KNOWN-GAPS: 6/6 CHARACTERIZED (NOT FIXED)")
+-- Part37 E04/E05: use the REAL QuestieCorrections:MinimalInit/addOverride
+-- merge and the REAL compiler:GetDBHandle overlay reader. Only the FIX
+-- loader's records and synthetic faction label are test doubles; no WoW
+-- player-faction API, owner source, or private realm data is accessed.
+local dependencies={
+    "ZoneDB", "RamerDouglasPeucker", "QuestieEvent",
+    "QuestieQuestBlacklist", "QuestieNPCBlacklist", "QuestieItemBlacklist",
+    "HardcoreBlacklist", "SeasonOfDiscovery", "QuestieQuestFixes",
+    "QuestieClassicQuestReputationFixes", "QuestieNPCFixes",
+    "QuestieItemFixes", "QuestieObjectFixes",
+    "QuestieTBCQuestFixes", "QuestieTBCNpcFixes",
+    "QuestieTBCItemFixes", "QuestieTBCObjectFixes",
+    "QuestieWotlkQuestFixes", "QuestieWotlkNpcFixes",
+    "QuestieWotlkItemFixes", "QuestieWotlkObjectFixes",
+    "IsleOfQuelDanas", "QuestieItemStartFixes",
+}
+for _,name in ipairs(dependencies) do QuestieLoader:CreateModule(name) end
+modules.ZoneDB.zoneIDs={
+    STORMWIND_CITY=1, IRONFORGE=2, TELDRASSIL=3,
+    ORGRIMMAR=4, THUNDER_BLUFF=5, UNDERCITY=6,
+}
+modules.IsleOfQuelDanas.MAX_ISLE_OF_QUEL_DANAS_PHASES=5
+modules.IsleOfQuelDanas.quests={}
+saved.isleOfQuelDanasPhase=0
+QuestieCompat.LoadBlacklists=function()end
+for _,name in ipairs({
+    "QuestieItemFixes", "QuestieNPCFixes", "QuestieObjectFixes",
+    "QuestieTBCItemFixes", "QuestieTBCNpcFixes", "QuestieTBCObjectFixes",
+    "QuestieTBCQuestFixes", "QuestieWotlkNpcFixes",
+    "QuestieWotlkItemFixes", "SeasonOfDiscovery"
+}) do
+    modules[name].LoadFactionFixes=function()return {}end
+end
+for _,name in ipairs({
+    "QuestieItemBlacklist", "QuestieNPCBlacklist", "QuestieQuestBlacklist"
+}) do
+    modules[name].Load=function()return {}end
+end
+modules.QuestieQuestBlacklist.LoadAutoBlacklistWotlk=function()return {}end
+local syntheticFaction="A"
+modules.QuestieQuestFixes.LoadFactionFixes=function()
+    local prefix=syntheticFaction=="A" and "Invented A" or "Invented H"
+    return {
+        [77301]={[db.questKeys.name]=prefix.." base override"},
+        [77501]={[db.questKeys.name]=prefix.." override-only quest"},
+    }
+end
+assert(loadfile("Database/Corrections/QuestieCorrections.lua"))()
+local corrections=QuestieLoader:ImportModule("QuestieCorrections")
+local function clearedOverrides()
+    db.npcDataOverrides={}
+    db.itemDataOverrides={}
+    db.objectDataOverrides={}
+    db.questDataOverrides={}
+end
+local function effectiveQuestName(stage,view,id)
+    local handle=drive(function()
+        return compiler:GetDBHandle(stage.questBin,stage.questPtrs,
+            compiler:BuildSkipMap(db.questCompilerTypes,db.questCompilerOrder),
+            db.questKeys,view)
+    end)
+    local value=handle.QuerySingle(id,"name")
+    handle.stream:finished()
+    return value
+end
+resetInvented()
+clearedOverrides()
+local canonicalStage=compileStage()
+check("E04 PRECONDITION: invented override-only quest has no base pointer",
+    db.questData[77501]==nil and
+    effectiveQuestName(canonicalStage,db.questDataOverrides,77501)==nil)
+-- The actual MinimalInit code merges all four kinds of loader-supplied
+-- overrides. It has no awareness of the already staged four-kind generation.
+local fixtureMergeStage=compileStage(function()
+    corrections:MinimalInit()
+end,"CompileQuests")
+check("E04 OPEN: real MinimalInit adds override-only quest after stage Begin",
+    db.questData[77501]==nil and
+    effectiveQuestName(fixtureMergeStage,db.questDataOverrides,77501)
+        =="Invented A override-only quest"
+    and fixtureMergeStage.questBin==canonicalStage.questBin
+    and compiler:VerifyNQStagedGeneration(
+        fixtureMergeStage,fixtureMergeStage._nqGenerationToken)==true)
+
+-- Real local addOverride merges keys into an already-present table, without
+-- replacing its root. This is an in-place mutation of effective source state.
+local sameOverrideRecord=db.questDataOverrides[77501]
+modules.QuestieTBCQuestFixes.LoadFactionFixes=function()
+    return {[77501]={[db.questKeys.name]="Invented replacement"}}
+end
+local fixtureNestedMergeStage=compileStage(function()
+    corrections:MinimalInit()
+end,"CompileQuests")
+check("E04 OPEN: actual addOverride merges into pre-existing nested entry",
+    db.questDataOverrides[77501]==sameOverrideRecord and
+    effectiveQuestName(fixtureNestedMergeStage,db.questDataOverrides,77501)
+        =="Invented replacement"
+    and fixtureNestedMergeStage.questBin==canonicalStage.questBin)
+modules.QuestieTBCQuestFixes.LoadFactionFixes=function()return {}end
+
+-- E05 models two separately selected effective views. The synthetic loader
+-- chooses the data here; this is NOT a test of live faction selection, nor
+-- an approved cross-faction ownership relation from the real server.
+syntheticFaction="A"
+clearedOverrides()
+corrections:MinimalInit()
+local viewA=db.questDataOverrides
+local acceptedA=effectiveQuestName(canonicalStage,viewA,77301)
+syntheticFaction="H"
+clearedOverrides()
+corrections:MinimalInit()
+local viewH=db.questDataOverrides
+local originalH=effectiveQuestName(canonicalStage,viewH,77301)
+local alteredHStage=compileStage(function()
+    viewH[77301][db.questKeys.name]="Invented H changed after A check"
+end,"CompileQuests")
+check("E05 OPEN: A-only preflight cannot certify changed opposite view",
+    acceptedA=="Invented A base override" and
+    effectiveQuestName(alteredHStage,viewA,77301)==acceptedA and
+    originalH=="Invented H base override" and
+    effectiveQuestName(alteredHStage,viewH,77301)
+        =="Invented H changed after A check"
+    and alteredHStage.questBin==canonicalStage.questBin and
+    compiler:VerifyNQStagedGeneration(
+        alteredHStage,alteredHStage._nqGenerationToken)==true)
+local hAfter=effectiveQuestName(alteredHStage,viewH,77301)
+local transientHStage=compileStage(function()
+    viewH[77301][db.questKeys.name]="Invented transient H"
+    viewH[77301][db.questKeys.name]=hAfter
+end,"CompileQuests")
+check("E05 OPEN: opposite-view transient A-B-A leaves identical source output",
+    effectiveQuestName(transientHStage,viewH,77301)==hAfter
+    and transientHStage.questBin==canonicalStage.questBin
+    and transientHStage.questPtrs==canonicalStage.questPtrs
+    and compiler:VerifyNQStagedGeneration(
+        transientHStage,transientHStage._nqGenerationToken)==true)
+
+assert(count==11,"expected eleven known-gap witness checks, got "..count)
+print("GATE08 SOURCE EPOCH KNOWN-GAPS: 11/11 CHARACTERIZED (NOT FIXED)")
 print("BLOCKED E01-E08: no source-writer exclusion, no source A-B-A epoch, no guarded publication, no client QA")
