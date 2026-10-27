@@ -32,6 +32,10 @@ jobs:
             output="$RUNNER_TEMP/public-npc-$lua.log"
             timeout --signal=TERM --kill-after=5s 100s "$lua" tests/compat/nq_gate08_public_npc_correction_order_audit.lua | tee "$output"
             grep -Fx 'PUBLIC NPC CORRECTION CONTROLS: 10/10 PASS' "$output"
+            grep -Fx 'PUBLIC NPC CALLSITE REORDER CONTROL: PASS' "$output"
+            test "$(grep -E -c '^PUBLIC WOTLK NPC VALUE DIGEST faction=(Alliance|Horde) digest=[0-9]{9}-[0-9]{9}$' "$output")" -eq 2
+            grep -Fx 'PUBLIC WOTLK NPC VALUE DIGEST faction=Alliance digest=010975264-451717832' "$output"
+            grep -Fx 'PUBLIC WOTLK NPC VALUE DIGEST faction=Horde digest=010975264-451717832' "$output"
             test "$(grep -E -c '^PUBLIC WOTLK NPC CORRECTED faction=(Alliance|Horde) rows=29615 simple_fields=6023 ordered=6023 reordered_dense=0 malformed=0 intentional_empty=0 patch_writes=2627 auto_writes=84 faction_writes=(24|25) override_fields=0 override_only_rows=0$' "$output")" -eq 2
             grep -Fx 'PUBLIC WOTLK NPC CORRECTED faction=Alliance rows=29615 simple_fields=6023 ordered=6023 reordered_dense=0 malformed=0 intentional_empty=0 patch_writes=2627 auto_writes=84 faction_writes=25 override_fields=0 override_only_rows=0' "$output"
             grep -Fx 'PUBLIC WOTLK NPC CORRECTED faction=Horde rows=29615 simple_fields=6023 ordered=6023 reordered_dense=0 malformed=0 intentional_empty=0 patch_writes=2627 auto_writes=84 faction_writes=24 override_fields=0 override_only_rows=0' "$output"
