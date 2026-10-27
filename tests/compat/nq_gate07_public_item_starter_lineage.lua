@@ -2,8 +2,13 @@
 -- Execute the actual public itemDB schema, extract the exact public GetQuest
 -- Starts assignment, and load the real AvailableQuests.lua renderer.
 -- Fictional source IDs only; not server/Individual Progression eligibility.
+local sourceRoot=assert(os.getenv("NQ_G07_SOURCE_ROOT"),
+    "G07_EXACT_PROTECTED_335_SOURCE_DIRECTORY_REQUIRED")
+local function sourcePath(path)
+    return sourceRoot.."/"..path
+end
 local function read(path)
-    local f=assert(io.open(path,"rb"),"G07_REQUIRED_PUBLIC_FILE_MISSING")
+    local f=assert(io.open(sourcePath(path),"rb"),"G07_REQUIRED_PUBLIC_FILE_MISSING")
     local body=assert(f:read("*a"))
     f:close()
     return body
@@ -42,7 +47,7 @@ QuestieLoader={
         return QuestieDB
     end,
 }
-assert(loadfile("Database/itemDB.lua"))()
+assert(loadfile(sourcePath("Database/itemDB.lua")))()
 assert(QuestieDB.itemKeys.startQuest==5 and
     QuestieDB.itemCompilerTypes.startQuest=="u24",
     "G07_ITEM_REVERSE_FIELD_SCHEMA_DRIFT")
@@ -124,7 +129,7 @@ modules.QuestieLib={
     end,
 }
 GetQuestGreenRange=function() return 5 end
-assert(loadfile("Modules/Quest/AvailableQuests.lua"))()
+assert(loadfile(sourcePath("Modules/Quest/AvailableQuests.lua")))()
 local renderer=assert(modules.AvailableQuests.DrawAvailableQuest,
     "G07_REAL_AVAILABLE_RENDERER_NOT_LOADED")
 local I,N,G=920901,920902,920903
