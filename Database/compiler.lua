@@ -995,7 +995,12 @@ local function NQValidateStageSimpleCompound(typename, value)
             return false
         end
         count = count + 1
-        if count > maximum then return false end
+        -- Raw writers serialize array and pair-array elements with pairs().
+        -- A dense 1..n key SET is insufficient: keys in the hash part can be
+        -- yielded out of order (and differently under Lua 5.1 versus 5.4).
+        -- Stage mode must refuse whenever the ACTUAL writer traversal would
+        -- silently permute positional meaning. Legacy/SoD untouched.
+        if count > maximum or key ~= count then return false end
         if key > highest then highest = key end
         if how == "array" then
             if not NQStageNumberInRange(element,low,high) then return false end
