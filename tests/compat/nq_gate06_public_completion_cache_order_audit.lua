@@ -56,6 +56,7 @@ local function makeFixture(options)
                 weeklyResetTime=9999, weeklyResetDay=3}
         }
     }
+    if options.missingCache then Questie.db.char.complete=nil end
     QuestieDB={
         IsRepeatable=function(id) return options.repeatable and
             options.repeatable[id] or false end,
