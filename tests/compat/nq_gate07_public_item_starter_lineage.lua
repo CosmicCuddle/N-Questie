@@ -34,6 +34,14 @@ assert(questSchema:find("['startedBy'] = \"questgivers\"",1,true),
     "G07_QUEST_STARTS_CODEC_DRIFT")
 -- Run the actual ItemDB metadata-only schema, not real item records.
 QuestieDB={}
+-- The real itemDB.lua imports the DB module through QuestieLoader;
+-- install the minimum schema-only stub before executing that source.
+QuestieLoader={
+    ImportModule=function(_,name)
+        assert(name=="QuestieDB","G07_UNEXPECTED_ITEM_SCHEMA_IMPORT")
+        return QuestieDB
+    end,
+}
 assert(loadfile("Database/itemDB.lua"))()
 assert(QuestieDB.itemKeys.startQuest==5 and
     QuestieDB.itemCompilerTypes.startQuest=="u24",
