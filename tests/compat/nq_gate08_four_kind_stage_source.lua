@@ -1200,6 +1200,80 @@ check("legacy u12pair wrap remains unchanged and is not staged acceptance",
     and saved.questPtrs==legacyBeforeQuestPtrs
     and saved.nQuestieDataRevision==57)
 
-assert(tests==157,"expected 157 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 157/157 PASS")
+-- Part38 compatibility: exactly the same in-memory fictional source is
+-- compiled by REAL optional stage, ordinary no-stage and SoD no-stage paths.
+-- On invalid nonempty numeric compounds, only STAGED mode must fail closed;
+-- the two historical no-stage paths must keep their existing byte identity.
+-- This is *within-head* binary parity, not independently comparing #204's
+-- historical blob bytes, nor a validation of the real SoD client/corpus.
+local parityInputs={
+    {"npc","questStarts",{77301,77302},true,"dense NPC list"},
+    {"npc","questStarts",{},true,"intentional NPC clear"},
+    {"npc","questStarts",{[1]=77301,[3]=77302},false,"sparse NPC legacy"},
+    {"obj","questStarts",{77301},true,"dense object list"},
+    {"obj","questStarts",{},true,"intentional object clear"},
+    {"obj","questStarts",{[0]=77301,[1]=77302},false,"zero-key object legacy"},
+    {"quest","requiredSkill",{164,250},true,"valid skill pair"},
+    {"quest","requiredSkill",{},true,"intentional skill clear"},
+    {"quest","requiredSkill",{164,250,999},false,"extra skill pair legacy"},
+    {"item","npcDrops",{77101,77102},true,"valid item drops"},
+    {"item","npcDrops",{},true,"intentional item clear"},
+    {"item","npcDrops",{[1]=77101,[3]=77102},false,"sparse item legacy"},
+}
+local savedSodBefore=saved.sod
+local isSodBefore=Questie.IsSoD
+local parityRevision=saved.nQuestieDataRevision
+local parityCompiledCount=saved.dbCompiledCount
+for _,spec in ipairs(parityInputs) do
+    local kind,field,value,accepted,label=spec[1],spec[2],spec[3],spec[4],spec[5]
+    local category
+    for _,candidate in ipairs(categories) do
+        if candidate.kind==kind then category=candidate;break end
+    end
+    assert(category,"parity category missing: "..tostring(kind))
+    local dataKey=category.schema.."Data"
+    local previousTable=db[dataKey]
+    local previousBin=saved[kind.."Bin"]
+    local previousPtrs=saved[kind.."Ptrs"]
+    local actualKeys=db[category.tableKeys]
+    local row={[actualKeys.name]=category.name}
+    row[actualKeys[field]]=value
+    db[dataKey]={[category.id]=row}
+    Questie.IsSoD=false
+    local newStage={}
+    local stagedOK,stagedReason=pcall(function()
+        drive(function()compiler[category.fn](compiler,newStage)end)
+    end)
+    -- No-stage historical encoding, with deliberately malformed data too.
+    drive(function()compiler[category.fn](compiler)end)
+    local normalBin,normalPtrs=saved[kind.."Bin"],saved[kind.."Ptrs"]
+    saved.sod={}
+    Questie.IsSoD=true
+    drive(function()compiler[category.fn](compiler)end)
+    local sodBin,sodPtrs=saved.sod[kind.."Bin"],saved.sod[kind.."Ptrs"]
+    Questie.IsSoD=false
+    local matched=type(normalBin)=="string" and type(normalPtrs)=="string"
+        and normalBin==sodBin and normalPtrs==sodPtrs
+        and saved.nQuestieDataRevision==parityRevision
+        and saved.dbCompiledCount==parityCompiledCount
+    if accepted then
+        matched=matched and stagedOK
+            and newStage[kind.."Bin"]==normalBin
+            and newStage[kind.."Ptrs"]==normalPtrs
+    else
+        matched=matched and not stagedOK
+            and tostring(stagedReason):find(
+                "GATE08_STAGE_COMPOUND_NUMERIC_RANGE",1,true)~=nil
+            and newStage[kind.."Bin"]==nil
+            and newStage[kind.."Ptrs"]==nil
+    end
+    db[dataKey]=previousTable
+    saved[kind.."Bin"],saved[kind.."Ptrs"]=previousBin,previousPtrs
+    saved.sod=savedSodBefore
+    Questie.IsSoD=isSodBefore
+    check("stage vs WotLK/SoD no-stage byte parity: "..label,matched)
+end
+
+assert(tests==169,"expected 169 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 169/169 PASS")
 print("DRAFT ONLY: simple compounds guarded; complex nested codec, source epoch, pool isolation, commit, relog recovery and client QA remain blocked")
