@@ -33,21 +33,7 @@ jobs:
             timeout --signal=TERM --kill-after=5s 100s "$lua" tests/compat/nq_gate08_public_npc_correction_order_audit.lua | tee "$output"
             grep -Fx 'PUBLIC NPC CORRECTION CONTROLS: 10/10 PASS' "$output"
             grep -Fx 'PUBLIC NPC CALLSITE REORDER CONTROL: PASS' "$output"
-            test "$(grep -E -c '^PUBLIC WOTLK NPC VALUE DIGEST faction=(Alliance|Horde) digest=[0-9]{9}-[0-9]{9}
-            test "$(grep -E -c '^PUBLIC WOTLK NPC CORRECTED faction=(Alliance|Horde) rows=29615 simple_fields=6023 ordered=6023 reordered_dense=0 malformed=0 intentional_empty=0 patch_writes=2627 auto_writes=84 faction_writes=(24|25) override_fields=0 override_only_rows=0$' "$output")" -eq 2
-            grep -Fx 'PUBLIC WOTLK NPC CORRECTED faction=Alliance rows=29615 simple_fields=6023 ordered=6023 reordered_dense=0 malformed=0 intentional_empty=0 patch_writes=2627 auto_writes=84 faction_writes=25 override_fields=0 override_only_rows=0' "$output"
-            grep -Fx 'PUBLIC WOTLK NPC CORRECTED faction=Horde rows=29615 simple_fields=6023 ordered=6023 reordered_dense=0 malformed=0 intentional_empty=0 patch_writes=2627 auto_writes=84 faction_writes=24 override_fields=0 override_only_rows=0' "$output"
-            grep -Fx 'PUBLIC NPC CORRECTION AUDIT COMPLETE (both factions)' "$output"
-            grep -Fx 'SCOPE LIMIT: WotLK NPC public base plus Classic/TBC/WotLK manual and WotLK automatic NPC fixes; simple questStarts/questEnds only.' "$output"
-            grep -Fx 'NOT ACCEPTED: full effective four-kind sources, waypoint/spawnlist, derived faction updates, Compat/unknown writers, Stage1 or client.' "$output"
-          done
-      - name: No artifact or release packaging
-        shell: bash
-        run: |
-          set -euo pipefail
-          test ! -e dist/N-Questie.zip
-          test ! -e .release-please-manifest.json
- "$output")" -eq 2
+            test "$(grep -E -c '^PUBLIC WOTLK NPC VALUE DIGEST faction=(Alliance|Horde) digest=[0-9]{9}-[0-9]{9}$' "$output")" -eq 2
             test "$(grep -E -c '^PUBLIC WOTLK NPC CORRECTED faction=(Alliance|Horde) rows=29615 simple_fields=6023 ordered=6023 reordered_dense=0 malformed=0 intentional_empty=0 patch_writes=2627 auto_writes=84 faction_writes=(24|25) override_fields=0 override_only_rows=0$' "$output")" -eq 2
             grep -Fx 'PUBLIC WOTLK NPC CORRECTED faction=Alliance rows=29615 simple_fields=6023 ordered=6023 reordered_dense=0 malformed=0 intentional_empty=0 patch_writes=2627 auto_writes=84 faction_writes=25 override_fields=0 override_only_rows=0' "$output"
             grep -Fx 'PUBLIC WOTLK NPC CORRECTED faction=Horde rows=29615 simple_fields=6023 ordered=6023 reordered_dense=0 malformed=0 intentional_empty=0 patch_writes=2627 auto_writes=84 faction_writes=24 override_fields=0 override_only_rows=0' "$output"
