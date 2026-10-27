@@ -951,32 +951,55 @@ local function NQStageNumberInRange(number, low, high)
     return type(number) == "number" and number == number and
         number >= low and number <= high and number % 1 == 0
 end
+-- Stage-only lossless structural contract for the *nine simple* numeric
+-- codecs. Writers enumerate arrays with pairs(), so sparse/hash/zero-based
+-- keys silently change the decoded sequence. Missing pair elements default
+-- to zero; top-level {0,0} decodes as nil (including signed s24pair).
+-- Refuse those ambiguities rather than authenticating modified source data.
+-- This does NOT establish source immutability, reader order on every Lua VM,
+-- nor safety of compound types with nested/polymorphic fields.
+local function NQStageExactNumericPair(value, low, high, topLevel)
+    if type(value) ~= "table" then return false end
+    local count = 0
+    for key, number in pairs(value) do
+        if (key ~= 1 and key ~= 2) or
+                not NQStageNumberInRange(number,low,high) then
+            return false
+        end
+        count = count + 1
+    end
+    if count ~= 2 then return false end
+    -- Reader sentinel applies to standalone pairs, NOT nested pair-arrays.
+    if topLevel and value[1] == 0 and value[2] == 0 then return false end
+    return true
+end
 local function NQValidateStageSimpleCompound(typename, value)
     local shape = NQ_STAGE_SIMPLE_COMPOUNDS[typename]
     if not shape or value == nil then return true end
-    if type(value) ~= "table" then return false end
     local how,low,high,maximum = shape[1],shape[2],shape[3],shape[4]
     if how == "pair" then
-        return NQStageNumberInRange(value[1] == nil and 0 or value[1],low,high)
-            and NQStageNumberInRange(value[2] == nil and 0 or value[2],low,high)
+        return NQStageExactNumericPair(value,low,high,true)
     end
-    local count = 0
-    for _,element in pairs(value) do
-        count = count+1
+    if type(value) ~= "table" then return false end
+    local count,highest = 0,0
+    for key,element in pairs(value) do
+        -- Exactly dense 1..n keys: no hash keys, holes, key zero, fractions,
+        -- or extra data. Also avoid depending on Lua's undefined # for holes.
+        if type(key) ~= "number" or key < 1 or key > maximum or
+                key % 1 ~= 0 then
+            return false
+        end
+        count = count + 1
         if count > maximum then return false end
+        if key > highest then highest = key end
         if how == "array" then
             if not NQStageNumberInRange(element,low,high) then return false end
-        else
-            if type(element) ~= "table" or
-                    not NQStageNumberInRange(
-                        element[1] == nil and 0 or element[1],low,high) or
-                    not NQStageNumberInRange(
-                        element[2] == nil and 0 or element[2],low,high) then
-                return false
-            end
+        elseif not NQStageExactNumericPair(element,low,high,false) then
+            return false
         end
     end
-    return true
+    -- Empty explicit tables decode as nil; nil itself is still legal.
+    return count > 0 and highest == count
 end
 
 -- Only this compilation unit can issue genuine scratch-generation receipts.
