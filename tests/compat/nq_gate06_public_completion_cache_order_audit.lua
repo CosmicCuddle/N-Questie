@@ -68,9 +68,13 @@ local function makeFixture(options)
     QuestiePlayer={GetPlayerLevel=function() return options.level or 1 end}
     AvailableQuests={CalculateAndDrawAll=function() redraws=redraws+1 end}
     QuestieCompat.GetServerTime=function() return now end
+    -- Public CalculateNextResetTime uses an existing reset deadline; it
+    -- computes a new one only when that stored deadline has been cleared.
     QuestieCompat.CalculateNextResetTime=function()
-        resets=resets+1
-        Questie.db.profile.dailyResetTime=now+86400
+        if Questie.db.profile.dailyResetTime==nil then
+            resets=resets+1
+            Questie.db.profile.dailyResetTime=now+86400
+        end
     end
     QuestieCompat.ResetWeeklyQuests=function() return true end
     QuestieCompat.C_Timer={
