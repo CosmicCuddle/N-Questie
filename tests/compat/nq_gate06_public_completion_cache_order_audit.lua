@@ -101,8 +101,10 @@ local function makeFixture(options)
 end
 
 -- Each case is completely isolated; no real quest IDs or server data.
--- The API CLEAR+ADD/ADD_ONLY behaviours are DIFFERENT FICTIONAL assumptions,
--- not assertions about actual Blizzard or AzerothCore API internals.
+-- Historical patch-3.3 GetQuestsCompleted(table) documentation says any
+-- unrelated existing keys in the supplied table are left unchanged. ADD_ONLY
+-- models that documented behavior; CLEAR_ADD is a counterfactual control.
+-- Actual owner 3.3.5a/AzerothCore client and event ordering remain UNTESTED.
 local controls={
     function()
         local f=makeFixture({missingCache=true})
