@@ -2,7 +2,7 @@
 
 **Status: PUBLIC-SAFE TEST-ONLY RESEARCH. This does NOT accept Gate08, TX17, disk/relog QA, integration or any release.**
 
-**Protected `335` baseline:** `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`. This independent child begins at that SHA and is intentionally unrelated to the frozen reviewed #238/#243 and pending CS02 mutation-review children #246/#247.
+**Protected `335` baseline:** `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`. This synthetic research line is isolated from protected `335`; the frozen peer-reviewed #250 parent is a child of public documentation #248 (`570ac6a9102fee9c14b6e903e8b1b99fcac3af69`). The NPC/quest safeguards #246/#247 have since received independent CS02 reviews.
 
 ## Narrow purpose
 
@@ -43,3 +43,11 @@ The regression expects **39 fictional controls** on actual Lua 5.1.5 and 5.4.6. 
 ## Historical superseded research attempt
 
 Earlier isolated [DRAFT #249](https://github.com/CosmicCuddle/N-Questie/pull/249) at frozen `492c9acec2974529044872b2a6488b44d5df82ba` was **NOT production code**; it intentionally preserved 38 fictional positive/negative cases but its automatic fallback rule trusted the unverified generation in a damaged active slot. This rule is **unsafe**: a forged or torn `generation=3` can wrongly make a *valid, uncommitted generation 2* appear to be an old committed backup. The present child adds an explicit negative regression and refuses invalid selected generations. Do not promote #249 or infer disk crash/relog acceptance from either model. #249's inherited original protected-335 overlay workflow auto-generated one PR-test-build artifact; leave that historical evidence intact, and do not install or release it.
+
+## Part40 separate peer-review follow-up — five additional fictional controls
+
+CS02 [reviewed frozen #250 at its exact head](https://github.com/CosmicCuddle/N-Questie/pull/250#issuecomment-6454847660) and verified the original 39-case test on both Lua runtimes. He also found genuine missing **test** coverage, not an integrated production fix: (F1d) promoting a *newer* complete but never-committed spare when the active generation is damaged; (G3/G4) changing `revision` or `compiledCount` to **another valid integer** that passes type checks but should fail checksums; (F7) dropping per-field type/nonempty checks then accepting a missing yet resealed field; and two persisted slot names referencing the **same Lua table**. The revised synthetic reader rejects that alias with `REFUSE_ALIASED_SLOTS` because the two slots do not provide independent backup ownership.
+
+The child extends the fixture to **44 cases**, with 43 named `expect()` checks and one explicit copy-return alias check. It additionally enumerates required names so deleting a named test and replacing it with an arbitrary `cases=cases+1` cannot silently pass. Ordinary checksums remain trivially forgeable and do not authenticate writers; future crash/relog tests still require actual disk/flush semantics, a recovery policy for invalid active markers and owner-approved backups. No proof of durable storage is claimed.
+
+The new test and workflow are public-only and change no production addon files. Exact original-head Lua 5.1.5/5.4.6 results, artifact counts and independently reverted mutations must be checked before calling this added witness reviewed. Parent [#250](https://github.com/CosmicCuddle/N-Questie/pull/250) remains independently reviewed and unchanged, and historical unsafe [#249](https://github.com/CosmicCuddle/N-Questie/pull/249) remains unmerged. All original historical failures are preserved; no installation, merge, release package or tag is authorised.

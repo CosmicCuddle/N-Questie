@@ -72,6 +72,11 @@ local function recover(disk)
     end
     local selected=disk.slots[disk.active]
     local alternate=disk.slots[3-disk.active]
+    -- Two names for the same writable table are not two independently
+    -- recoverable generations. Reject before considering checksums.
+    if selected~=nil and rawequal(selected,alternate) then
+        return "REFUSE_ALIASED_SLOTS"
+    end
     local selectedOK,alternateOK=valid(selected),valid(alternate)
     if selectedOK then
         if alternateOK and selected.generation==alternate.generation
@@ -100,7 +105,9 @@ local function corrupt(x,key,val)
     return out
 end
 local cases=0
+local seenControls={}
 local function expect(name,state,want,gen)
+    assert(not seenControls[name],"PUBLIC_TX17_DUPLICATE_CONTROL")
     local status,value=recover(state)
     assert(status==want,"PUBLIC_TX17_CONTROL_"..name)
     if gen~=nil then
@@ -111,6 +118,7 @@ local function expect(name,state,want,gen)
         assert(value==nil,"PUBLIC_TX17_UNEXPECTED_RESULT_"..name)
     end
     cases=cases+1
+    seenControls[name]=true
 end
 local first=generation(1,"A")
 local second=generation(2,"B")
@@ -165,6 +173,53 @@ expect("C20_KNOWN_UNSAFE_FORGED_CHECK",disk(2,first,forged),"ACTIVE",2)
 expect("C21_FORGED_ACTIVE_EPOCH_CANNOT_PROMOTE_SPARE",
     disk(1,corrupt(first,"generation",3),second),
     "REFUSE_NO_CERTIFIED_GENERATION")
+-- F1d: an invalid OLD active slot must not promote a newer
+-- complete-but-uncommitted alternate; neither its checksum nor its
+-- generation number authenticates a commit.
+expect("C22_DAMAGED_OLD_ACTIVE_NEWER_UNCOMMITTED",
+    disk(1,corrupt(first,"npcBin","synthetic:damaged"),second),
+    "REFUSE_NO_CERTIFIED_GENERATION")
+-- G3/G4: changed but still well-typed metadata must invalidate the seal.
+expect("C23_VALID_INT_REVISION_DRIFT",
+    disk(2,first,corrupt(second,"revision",7)),
+    "REFUSE_NO_CERTIFIED_GENERATION")
+expect("C24_VALID_INT_COUNT_DRIFT",
+    disk(2,first,corrupt(second,"compiledCount",9)),
+    "REFUSE_NO_CERTIFIED_GENERATION")
+-- F7: an attacker may recompute BOTH checks after deleting a field.
+-- The independent type/empty validation must still refuse.
+expect("C25_RESEALED_MISSING_BIN_FIELD",
+    disk(2,first,seal(corrupt(second,"npcBin",nil))),
+    "REFUSE_NO_CERTIFIED_GENERATION")
+-- Slot aliases cannot represent independent persisted generations.
+expect("C26_IDENTICAL_TABLE_ALIAS",
+    disk(2,second,second),"REFUSE_ALIASED_SLOTS")
+-- Independent expected-name census: replacing an expect() with a bare
+-- cases increment must fail even if its printed headline is also forged.
+local requiredNames={
+    "C01_FIRST_ACTIVE","C02_SECOND_ACTIVE","C03_UNCOMMITTED_STAGING",
+    "C07_BAD_MARKER","C08_MISSING_MARKER","C09_MISSING_ACTIVE",
+    "C10_BAD_INACTIVE","C11_BOTH_INVALID",
+    "C12_UNKNOWN_ACTIVE_GENERATION","C13_INVALID_ACTIVE_GENERATION",
+    "C14_INVALID_SCHEMA","C15_CORRUPT_REVISION","C16_EMPTY_LOCALE",
+    "C17_SAME_GEN_DIFFERENT_SIGNED","C18_SAME_GEN_SAME_SIGNED",
+    "C19_VALID_ACTIVE_WITH_NEWER_UNCOMMITTED",
+    "C20_KNOWN_UNSAFE_FORGED_CHECK",
+    "C21_FORGED_ACTIVE_EPOCH_CANNOT_PROMOTE_SPARE",
+    "C22_DAMAGED_OLD_ACTIVE_NEWER_UNCOMMITTED",
+    "C23_VALID_INT_REVISION_DRIFT","C24_VALID_INT_COUNT_DRIFT",
+    "C25_RESEALED_MISSING_BIN_FIELD","C26_IDENTICAL_TABLE_ALIAS",
+}
+for i=1,8 do
+    requiredNames[#requiredNames+1]="C04_TORN_FIELD_"..i
+    requiredNames[#requiredNames+1]="C05_CHANGED_FIELD_"..i
+end
+for i=1,4 do requiredNames[#requiredNames+1]="C06_MIXED_META_"..i end
+assert(#requiredNames==43 and cases==44,
+    "PUBLIC_TX17_CASE_CENSUS_CHANGED")
+for _,name in ipairs(requiredNames) do
+    assert(seenControls[name],"PUBLIC_TX17_CONTROL_NOT_EXECUTED")
+end
 print("PUBLIC TX17 FICTIONAL RECOVERY CONTROLS: "..cases.." PASS")
 print("PUBLIC TX17 KNOWN LIMIT: checksums are not writer authentication.")
 print("PUBLIC TX17 NOT ACCEPTED: WoW client disk serialization, crash atomicity, SavedVariables provenance, full source epoch, real relog or production integration.")
