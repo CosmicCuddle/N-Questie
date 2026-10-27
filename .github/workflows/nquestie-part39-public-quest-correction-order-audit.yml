@@ -32,21 +32,7 @@ jobs:
             output="$RUNNER_TEMP/nq-quest-public-$lua.log"
             timeout --signal=TERM --kill-after=5s 100s "$lua" tests/compat/nq_gate08_public_quest_correction_order_audit.lua | tee "$output"
             grep -Fx 'PUBLIC QUEST COMPOUND CONTROLS: 20/20 PASS' "$output"
-            test "$(grep -E -c '^PUBLIC WOTLK QUEST VALUE DIGEST faction=(Alliance|Horde) digest=[0-9]{9}-[0-9]{9}
-            test "$(grep -E -c '^PUBLIC WOTLK QUEST CORRECTED faction=(Alliance|Horde) rows=9158 simple_fields=(15266|15267) ordered=(13360|13361) reordered_dense=0 malformed=0 intentional_empty=1906 manual_writes=7603 reputation_writes=4254 faction_writes=(23|24) override_fields=(0|1) override_only_rows=0 arrays=(7358|7359) u12pairs=260 s24pairs=715 reward_pairs=6933$' "$output")" -eq 2
-            grep -Fx 'PUBLIC WOTLK QUEST CORRECTED faction=Alliance rows=9158 simple_fields=15266 ordered=13360 reordered_dense=0 malformed=0 intentional_empty=1906 manual_writes=7603 reputation_writes=4254 faction_writes=23 override_fields=0 override_only_rows=0 arrays=7358 u12pairs=260 s24pairs=715 reward_pairs=6933' "$output"
-            grep -Fx 'PUBLIC WOTLK QUEST CORRECTED faction=Horde rows=9158 simple_fields=15267 ordered=13361 reordered_dense=0 malformed=0 intentional_empty=1906 manual_writes=7603 reputation_writes=4254 faction_writes=24 override_fields=1 override_only_rows=0 arrays=7359 u12pairs=260 s24pairs=715 reward_pairs=6933' "$output"
-            grep -Fx 'PUBLIC QUEST CORRECTION AUDIT COMPLETE (both factions)' "$output"
-            grep -Fx 'SCOPE LIMIT: WotLK public quest base and Classic reputation, Classic/TBC/WotLK quest corrections and two faction views, four simple compound families only.' "$output"
-            grep -Fx 'NOT ACCEPTED: full QuestieCorrections derived patches, complex questgiver/objectives/trigger/string, 335 Compat, native compiler/Stage1/client.' "$output"
-          done
-      - name: Assert no packaged output
-        shell: bash
-        run: |
-          set -euo pipefail
-          test ! -e dist/N-Questie.zip
-          test ! -e .release-please-manifest.json
- "$output")" -eq 2
+            test "$(grep -E -c '^PUBLIC WOTLK QUEST VALUE DIGEST faction=(Alliance|Horde) digest=[0-9]{9}-[0-9]{9}$' "$output")" -eq 2
             test "$(grep -E -c '^PUBLIC WOTLK QUEST CORRECTED faction=(Alliance|Horde) rows=9158 simple_fields=(15266|15267) ordered=(13360|13361) reordered_dense=0 malformed=0 intentional_empty=1906 manual_writes=7603 reputation_writes=4254 faction_writes=(23|24) override_fields=(0|1) override_only_rows=0 arrays=(7358|7359) u12pairs=260 s24pairs=715 reward_pairs=6933$' "$output")" -eq 2
             grep -Fx 'PUBLIC WOTLK QUEST CORRECTED faction=Alliance rows=9158 simple_fields=15266 ordered=13360 reordered_dense=0 malformed=0 intentional_empty=1906 manual_writes=7603 reputation_writes=4254 faction_writes=23 override_fields=0 override_only_rows=0 arrays=7358 u12pairs=260 s24pairs=715 reward_pairs=6933' "$output"
             grep -Fx 'PUBLIC WOTLK QUEST CORRECTED faction=Horde rows=9158 simple_fields=15267 ordered=13361 reordered_dense=0 malformed=0 intentional_empty=1906 manual_writes=7603 reputation_writes=4254 faction_writes=24 override_fields=1 override_only_rows=0 arrays=7359 u12pairs=260 s24pairs=715 reward_pairs=6933' "$output"
