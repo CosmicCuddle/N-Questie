@@ -318,6 +318,7 @@ local function interleavedNpcAttempt(mutator)
     local stage={}
     local token=compiler:BeginNQStagedGeneration(stage)
     local lease,finishCount=nil,0
+    local driverCleanupCount=0
     local owner={}
     function owner:Acquire(streamParent,mode)
         assert(not lease)
@@ -348,8 +349,12 @@ local function interleavedNpcAttempt(mutator)
     local dead=coroutine.status(thread)=="dead"
     if dead and lease and finishCount==0 then
         lease.stream:finished() -- driver cleanup only after DEAD
+        driverCleanupCount=driverCleanupCount+1
     end
     if ok then
+        -- The remaining unrelated writers use their normal real streams;
+        -- this NPC lease's single-use owner has already finished.
+        stage._nqWriterLeaseOwner=nil
         for _,method in ipairs({"CompileObjects","CompileQuests","CompileItems"}) do
             drive(function()compiler[method](compiler,stage)end)
         end
@@ -361,7 +366,8 @@ local function interleavedNpcAttempt(mutator)
         end)
     end
     return {ok=ok,reason=tostring(reason),stage=stage,dead=dead,
-        writerFinishCount=finishCount,verified=verified}
+        writerFinishCount=finishCount,driverCleanupCount=driverCleanupCount,
+        verified=verified}
 end
 
 inventedManyNPCs()
@@ -388,13 +394,14 @@ local deleted=interleavedNpcAttempt(function()
 end)
 check("E03 MID-STREAM deletion fails but with untyped Lua error",
     not deleted.ok and deleted.dead and deleted.writerFinishCount==0
-    and not deleted.verified and
+    and deleted.driverCleanupCount==1 and not deleted.verified and
     deleted.stage.npcBin==nil and deleted.stage.npcPtrs==nil
     and deleted.reason:find("GATE08_",1,true)==nil
     and deleted.reason:find("nil",1,true)~=nil)
 check("E03 deleted writer cleanup is only performed after coroutine DEAD",
     not deleted.ok and deleted.dead and deleted.writerFinishCount==0
-    and deleted.stage._nqWriterLeaseOwner~=nil)
+    and deleted.stage._nqWriterLeaseOwner~=nil
+    and deleted.driverCleanupCount==1)
 
 inventedManyNPCs()
 local appended=interleavedNpcAttempt(function()
