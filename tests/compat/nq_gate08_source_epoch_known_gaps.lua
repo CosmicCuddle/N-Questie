@@ -1,0 +1,170 @@
+-- Part37 Gate08: actual Questie source-coroutine mutation witnesses.
+-- All IDs/names are invented. THESE ARE EXPECTED OPEN SAFETY GAPS,
+-- not passed source-epoch acceptance cases E01-E08.
+unpack = unpack or table.unpack
+tremove = table.remove
+local function band(a,b)
+    local result,place=0,1
+    for _=1,32 do
+        if a%2==1 and b%2==1 then result=result+place end
+        a,b,place=math.floor(a/2),math.floor(b/2),place*2
+    end
+    return result
+end
+bit={
+    band=band,
+    lshift=function(n,s)return (n*2^s)%4294967296 end,
+    rshift=function(n,s)return math.floor((n%4294967296)/2^s) end,
+}
+local modules={}
+QuestieLoader={
+    CreateModule=function(_,name)
+        modules[name]=modules[name] or {}
+        return modules[name]
+    end,
+    ImportModule=function(_,name)
+        assert(modules[name],"missing Questie module "..name)
+        return modules[name]
+    end,
+}
+for _,name in ipairs({"QuestieDB","QuestieLib","l10n"}) do
+    QuestieLoader:CreateModule(name)
+end
+QuestieCompat={Is335=true,WOW_PROJECT_ID=2}
+Questie={
+    IsSoD=false,IsTBC=false,IsWotlk=true,
+    db={profile={debugEnabled=false},global={}},
+    Error=function(_,...)error("synthetic Questie error: "..tostring((...)),0)end,
+    Debug=function()end,
+}
+assert(loadfile("Modules/QuestieStream.lua"))()
+for _,file in ipairs({"npcDB","objectDB","questDB","itemDB"}) do
+    assert(loadfile("Database/"..file..".lua"))()
+end
+assert(loadfile("Database/compiler.lua"))()
+local db=QuestieLoader:ImportModule("QuestieDB")
+local compiler=QuestieLoader:ImportModule("DBCompiler")
+local saved=Questie.db.global
+saved.nQuestieDataRevision=57
+saved.dbCompiledCount=9
+local count=0
+local function check(label,ok)
+    count=count+1
+    assert(ok,"FAIL GATE08 SOURCE EPOCH WITNESS "..count.." "..label)
+    print("PASS KNOWN-GAP GATE08 SOURCE EPOCH WITNESS "..count.." "..label)
+end
+local function drive(fn)
+    local t=coroutine.create(fn)
+    for _=1,256 do
+        local ok,res=coroutine.resume(t)
+        assert(ok,tostring(res))
+        if coroutine.status(t)=="dead" then return res end
+    end
+    error("synthetic Questie coroutine exceeded 256 resumes")
+end
+local categories={"CompileNPCs","CompileObjects","CompileQuests","CompileItems"}
+local function resetInvented()
+    db.npcData={[77101]={
+        [db.npcKeys.name]="Witness A",
+        [db.npcKeys.questStarts]={77301},
+    }}
+    db.objectData={[77201]={[db.objectKeys.name]="Witness Object"}}
+    db.questData={[77301]={[db.questKeys.name]="Witness Quest"}}
+    db.itemData={[77401]={[db.itemKeys.name]="Witness Item"}}
+end
+local function compileStage(hook,hookKind)
+    local scratch={}
+    local token=compiler:BeginNQStagedGeneration(scratch)
+    for _,method in ipairs(categories) do
+        local t=coroutine.create(function() compiler[method](compiler,scratch) end)
+        local ok,res=coroutine.resume(t)
+        assert(ok and coroutine.status(t)=="suspended",tostring(res))
+        if hook and method==(hookKind or "CompileNPCs") then hook() end
+        for _=1,256 do
+            if coroutine.status(t)=="dead" then break end
+            ok,res=coroutine.resume(t)
+            assert(ok,tostring(res))
+        end
+        assert(coroutine.status(t)=="dead","writer did not finish: "..method)
+    end
+    assert(compiler:VerifyNQStagedGeneration(scratch,token)==true)
+    return scratch
+end
+local function readName(stage,prefix,kind,keys,id)
+    local h=drive(function()
+        return compiler:GetDBHandle(stage[prefix.."Bin"],stage[prefix.."Ptrs"],
+            compiler:BuildSkipMap(db[kind.."CompilerTypes"],
+                db[kind.."CompilerOrder"]),db[keys],nil)
+    end)
+    local result=h.QuerySingle(id,"name")
+    h.stream:finished()
+    return result
+end
+
+-- E01 characteristic: one late relevant NPC write is included by the real
+-- coroutine; stage receipts still verify. No source-start epoch is checked.
+resetInvented()
+local clean=compileStage()
+resetInvented()
+local late=compileStage(function()
+    db.npcData[77101][db.npcKeys.name]="Witness B"
+end)
+check("E01 OPEN: persistent NPC edit across yield stages as B without RETRY",
+    readName(late,"npc","npc","npcKeys",77101)=="Witness B"
+    and late.npcBin~=clean.npcBin)
+
+-- E02 characteristic: the *same* source data A at both ends can hide a
+-- transient mutation during suspension. Final-value equality cannot prove
+-- source immutability, even though four-kind receipt Verify passes.
+resetInvented()
+local aba=compileStage(function()
+    db.npcData[77101][db.npcKeys.name]="Witness B"
+    db.npcData[77101][db.npcKeys.name]="Witness A"
+end)
+check("E02 OPEN: source A-B-A remains compiler-accepted with identical bytes",
+    aba.npcBin==clean.npcBin and aba.npcPtrs==clean.npcPtrs
+    and readName(aba,"npc","npc","npcKeys",77101)=="Witness A")
+
+-- E03 characteristic: mutating an already-present nested array element does
+-- not need to replace the outer record or trigger Lua __newindex at its root.
+resetInvented()
+local nested=compileStage(function()
+    db.npcData[77101][db.npcKeys.questStarts][1]=77302
+end)
+check("E03 OPEN: nested questStarts index changed across yield with no RETRY",
+    nested.npcBin~=clean.npcBin and
+    db.npcData[77101][db.npcKeys.questStarts][1]==77302)
+
+-- E07 characteristic: a direct write from an unknown addon-like function
+-- reaches the exported normal source table with no writer registration.
+resetInvented()
+local function unknownExternalWriter()
+    db.itemData[77401][db.itemKeys.name]="Unknown Writer"
+end
+local unknown=compileStage(unknownExternalWriter,"CompileItems")
+check("E07 OPEN: uninstrumented external item writer reaches staged bytes",
+    unknown.itemBin~=clean.itemBin and
+    readName(unknown,"item","item","itemKeys",77401)=="Unknown Writer")
+
+-- E06 boundary: the current scratch API is not a whole-source lock. An
+-- unrelated change can happen without changing any of the output bytes.
+resetInvented()
+local unrelated=compileStage(function()
+    db.npcData[77102]={[db.npcKeys.name]="Unrelated Late"}
+end,"CompileItems")
+check("E06 OPEN: unrelated source append has no defined epoch policy",
+    unrelated.npcBin==clean.npcBin and
+    db.npcData[77102]~=nil)
+
+-- E08 limited invariant: legacy no-stage byte encoding with unchanged
+-- source is preserved at fixture scale. This is NOT native 3.3.5a QA.
+resetInvented()
+local current=compileStage()
+drive(function()compiler:CompileNPCs()end)
+check("E08 FIXTURE: unchanged legacy NPC raw encoding equals staged bytes",
+    current.npcBin==saved.npcBin and current.npcPtrs==saved.npcPtrs
+    and saved.nQuestieDataRevision==57 and saved.dbCompiledCount==9)
+
+assert(count==6,"expected exactly six known-gap witness checks, got "..count)
+print("GATE08 SOURCE EPOCH KNOWN-GAPS: 6/6 CHARACTERIZED (NOT FIXED)")
+print("BLOCKED E01-E08: no source-writer exclusion, no source A-B-A epoch, no guarded publication, no client QA")
