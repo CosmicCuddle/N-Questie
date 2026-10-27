@@ -1090,6 +1090,28 @@ local compoundCases = {
     {"npc","questStarts",{0/0},false,"MUTANT u8u24array non-finite input"},
     {"npc","questStarts",{"7"},false,"MUTANT u8u24array numeric string"},
     {"quest","reputationReward",{5},false,"MUTANT u8s24pairs non-pair element"},
+    {"npc","questStarts",{[1]=10,[3]=30},false,"SHAPE sparse numeric keys"},
+    {"npc","questStarts",{[1]=10,extra=30},false,"SHAPE mixed hash key"},
+    {"npc","questStarts",{[0]=10,[1]=20},false,"SHAPE zero-based index"},
+    {"npc","questStarts",{[1]=10,[2.5]=20},false,"SHAPE fractional table key"},
+    {"npc","questStarts",{},false,"SHAPE explicit empty array sentinel"},
+    {"npc","questStarts",{10,30},true,"SHAPE valid dense array"},
+    {"quest","requiredSkill",{10,20,30},false,"SHAPE standalone pair third entry"},
+    {"quest","requiredSkill",{10,20,extra=30},false,"SHAPE standalone pair hash entry"},
+    {"quest","requiredSkill",{[2]=7},false,"SHAPE standalone pair missing first"},
+    {"quest","requiredSkill",{[1]=7},false,"SHAPE standalone pair missing second"},
+    {"quest","requiredSkill",{0,0},false,"SENTINEL u12pair zero pair decodes nil"},
+    {"quest","requiredSkill",{0,7},true,"SHAPE u12pair zero first with second valid"},
+    {"quest","requiredMinRep",{0,0},false,"SENTINEL s24pair zero pair decodes nil"},
+    {"quest","reputationReward",{[1]={1,2},[3]={3,4}},false,"SHAPE sparse pair-array"},
+    {"quest","reputationReward",{{[1]=1}},false,"SHAPE pair-array missing second"},
+    {"quest","reputationReward",{{1,2,3}},false,"SHAPE pair-array third entry"},
+    {"quest","reputationReward",{{[1]=1,[2]=2,x=3}},false,"SHAPE pair-array hash key"},
+    {"quest","reputationReward",{{0,0}},true,"SHAPE nested zero pair is not standalone sentinel"},
+    {"quest","reputationReward",{},false,"SHAPE explicit empty pair array"},
+    {"item","npcDrops",{[2]=1},false,"SHAPE sparse u16 count array"},
+    {"item","npcDrops",{1,2},true,"SHAPE valid dense u16 count array"},
+    {"quest","reputationReward",{[1]={1,2},extra={3,4}},false,"SHAPE pair-array outer hash key"},
     {"quest","requiredSkill",{-1,0},false,"u12pair negative"},
     {"quest","requiredSkill",{5000,1},false,"u12pair overflow"},
     {"quest","requiredSkill",{1,1.5},false,"u12pair fractional"},
@@ -1156,6 +1178,6 @@ check("legacy u12pair wrap remains unchanged and is not staged acceptance",
     and saved.questPtrs==legacyBeforeQuestPtrs
     and saved.nQuestieDataRevision==57)
 
-assert(tests==132,"expected 132 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 132/132 PASS")
+assert(tests==154,"expected 154 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 154/154 PASS")
 print("DRAFT ONLY: simple compounds guarded; complex nested codec, source epoch, pool isolation, commit, relog recovery and client QA remain blocked")
