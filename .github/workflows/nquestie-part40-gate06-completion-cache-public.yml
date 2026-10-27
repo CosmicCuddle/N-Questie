@@ -31,7 +31,7 @@ jobs:
             fi
             log="$RUNNER_TEMP/public-g06-$lua.log"
             timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate06_public_completion_cache_order_audit.lua | tee "$log"
-            grep -Fx 'PUBLIC G06 SOURCE BACKED COMPLETION CONTROLS: 14/14 PASS' "$log"
+            grep -Fx 'PUBLIC G06 SOURCE BACKED COMPLETION CONTROLS: 17/17 PASS assertions=20' "$log"
             grep -Fx 'PUBLIC G06 SOURCE RISK: documented GetQuestsCompleted(table) additive writes may retain stale completion keys.' "$log"
             grep -Fx 'PUBLIC G06 NOT ACCEPTED: native 3.3.5a API execution, uncorrelated event timing, daily/weekly timers, UI markers or private IP phase.' "$log"
             test "$(grep -Ec '^PUBLIC G06 ' "$log")" -eq 3
