@@ -572,3 +572,15 @@ These questions and their dependency ordering are fully presented in [draft #87 
 5. **Before production:** Require explicit maintainer choices, independent exact-head review, backup/rollback plan and separate manual QA; no implied permission from a checklist checkbox.
 
 **Current owner action required:** **none for ongoing read-only/synthetic research**. The eight Part 3 decisions and manual in-game QA will require explicit owner participation later; nothing in this document asks the maintainer to do them immediately.
+
+## Part39 continuation checkpoint — 27 October 2026 (draft-only, no production acceptance)
+
+This append-only evidence supersedes no historical section and alters **no gate classification**.
+
+- **G08 stream lifetime (RED):** CS02 [draft #227](https://github.com/CosmicCuddle/N-Questie/pull/227), exact `0af76d4ce69dd59a9a9aa55391b8906b85bd5218`; real Lua 5.1/5.4 compiler-owned Finish 20/20 positive/KNOWN UNSAFE source checks. Post-Finish handle and new borrower still share storage. Original-head 11/11 Actions success, 0/11 artifact endpoints. No quarantine accepted.
+- **G08 source epoch (RED):** CS02 [draft #229](https://github.com/CosmicCuddle/N-Questie/pull/229), exact `7085d24415100d2b0af4ebcf5165a353a39293af`; 19-witness typed/clean RETRY independent outcome map on real Lua 5.1/5.4 with zero expected-map mismatches. Start/end check does not catch E02m; per-row alone not sufficient for all writers. Original-head 11/11 Actions success, 0/11 artifact endpoints; no actual RETRY implementation.
+- **G08 public codec compatibility (PARTIAL, NOT accepted):** [draft #230](https://github.com/CosmicCuddle/N-Questie/pull/230) exact `ff0b5b617bc693ee9d605155e55791d3d53e7567`, child of frozen #226; read-only WotLK ITEM correction/faction order survey, dual Lua 5.1/5.4, 36,767 rows and 28,755 simple compound fields per faction, 28,409 ordered, 346 intentional empty clears, zero reordered and zero malformed; six fictional self-controls. Public item-only projection deliberately excludes all other effective writers and 3 database kinds, so Stage1 approval remains blocked. Wider CI was 10/11 success with one running M2 at documentation checkpoint; verify final before asserting all-green. 0/11 artifact endpoints checked at time of append.
+- **G01–G12 score unchanged:** 3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING, 439 raw quest research records (NOT 439 approved additions), pilot quests 1207–1209 = 0/3 implemented. G08 epoch, global pool quarantine, atomic eight Bin/Ptrs+metadata publication, disk persistence, real 3.3.5a gameplay and all release acceptance RED.
+- **Coordination:** [team PR #42](https://github.com/CosmicCuddle/N-Questie/pull/42) includes peer review requests for #226 and #230 and original-head T1/T2 closeout. Reviewer conclusions distinct from source tests; no owner release or protected-335 approval.
+
+No real owner SQL, NPC/GO/item/loot/IP relationships or private worksheets included. Do not merge, deploy, tag, package or release.
