@@ -99,6 +99,14 @@ for _,s in ipairs(files) do
     assert(chunk, problem)
     local returned = chunk()
     local dataset = db[dataKey] or returned
+    -- Questie's generated public base DB files store "return {...}" text
+    -- for later loadstring compilation. Decode the in-memory PUBLIC table
+    -- before shape checking; never print any decoded IDs or associations.
+    if type(dataset) == "string" then
+        local decode, decodeProblem = (loadstring or load)(dataset)
+        assert(decode, decodeProblem)
+        dataset = decode()
+    end
     assert(type(dataset) == "table", "public WotLK base table was not loaded: " .. s.kind)
     local stats = {ordered=0, reordered=0, malformed=0, empty=0}
     local rows, fields = 0, 0
