@@ -351,6 +351,9 @@ for _,faction in ipairs({"Alliance","Horde"}) do
         if specs[kind] then digestFields[name]=kind end
     end
     local digest=valueDigest(db.questData,overrides,digestFields,keys)
+    local expectedDigest={Alliance="043054440-899980232",Horde="429450508-289752222"}
+    assert(digest==expectedDigest[faction],
+        "PUBLIC_QUEST_VALUE_DIGEST_SNAPSHOT_CHANGED")
     print("PUBLIC WOTLK QUEST VALUE DIGEST faction="..faction.." digest="..digest)
     db.questData=nil
     collectgarbage("collect")
