@@ -194,7 +194,8 @@ for _,name in ipairs({
     "QuestieItemFixes", "QuestieNPCFixes", "QuestieObjectFixes",
     "QuestieTBCItemFixes", "QuestieTBCNpcFixes", "QuestieTBCObjectFixes",
     "QuestieTBCQuestFixes", "QuestieWotlkNpcFixes",
-    "QuestieWotlkItemFixes", "SeasonOfDiscovery"
+    "QuestieWotlkItemFixes", "QuestieWotlkObjectFixes",
+    "SeasonOfDiscovery"
 }) do
     modules[name].LoadFactionFixes=function()return {}end
 end
