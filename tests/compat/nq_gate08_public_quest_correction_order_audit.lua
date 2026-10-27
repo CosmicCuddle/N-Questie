@@ -184,6 +184,12 @@ local controls={
     {"u8u24array",{[1]=1,[3]=3},"malformed"},
     {"u8u24array",{},"empty"},
     {"u12pair",{12,200},"ordered"},
+    {"u12pair",{4095,0},"ordered"},
+    {"u12pair",{4096,0},"malformed"},
+    {"s24pair",{-8388608,0},"ordered"},
+    {"s24pair",{-8388609,0},"malformed"},
+    {"s24pair",{8388607,0},"ordered"},
+    {"s24pair",{8388608,0},"malformed"},
     {"u12pair",{[1]=0,[3]=2},"malformed"},
     {"s24pair",{1090,-500},"ordered"},
     {"s24pair",{1090,8388608},"malformed"},
@@ -213,10 +219,67 @@ local count=extraRows({[-800]={[1]={10}}},{
         "PUBLIC_QUEST_OVERRIDE_ONLY_CLEAR_FAILED")
 end)
 assert(count==1 and visits==1,"PUBLIC_QUEST_OVERRIDE_ONLY_COUNT_FAILED")
-print("PUBLIC QUEST COMPOUND CONTROLS: 14/14 PASS")
+print("PUBLIC QUEST COMPOUND CONTROLS: 20/20 PASS")
 local keys=assert(db.questKeys)
 local schema=assert(db.questCompilerTypes)
 local explored={}
+
+-- PUBLIC TEST-ONLY sorted source-value witness. Never print IDs, relationships
+-- or values. Two bounded polynomial hashes are deterministic across Lua 5.1/5.4;
+-- collision remains possible: NOT an authenticated source/ABA guard.
+local function sortedKeys(t)
+    local out={}
+    for key in pairs(t) do out[#out+1]=key end
+    table.sort(out)
+    return out
+end
+local function valueDigest(base,overrides,fieldKinds,keys)
+    local a,b=0,0
+    local function feed(s)
+        s=tostring(s)
+        local block=tostring(#s)..":"..s..";"
+        for i=1,#block do
+            local v=string.byte(block,i)
+            a=(a*131+v)%1000000007
+            b=(b*137+v)%1000000009
+        end
+    end
+    local ids={}
+    for id in pairs(base) do ids[id]=true end
+    for id in pairs(overrides) do ids[id]=true end
+    local names=sortedKeys(fieldKinds)
+    for _,id in ipairs(sortedKeys(ids)) do
+        for _,name in ipairs(names) do
+            local kind=fieldKinds[name]
+            local v=effective(base[id],overrides[id],keys[name])
+            if v~=nil then
+                local status=classify(v,kind)
+                assert(status=="ordered" or status=="empty",
+                    "PUBLIC_VALUE_DIGEST_INVALID_COMPOUND")
+                feed(string.format("%.0f",id))
+                feed(name);feed(kind);feed(status)
+                if status=="ordered" then
+                    if kind=="u8u24array" then
+                        feed(#v)
+                        for i=1,#v do feed(string.format("%.0f",v[i])) end
+                    elseif kind=="u8s24pairs" then
+                        feed(#v)
+                        for i=1,#v do
+                            feed(string.format("%.0f",v[i][1]))
+                            feed(string.format("%.0f",v[i][2]))
+                        end
+                    else
+                        feed(2)
+                        feed(string.format("%.0f",v[1]))
+                        feed(string.format("%.0f",v[2]))
+                    end
+                end
+            end
+        end
+    end
+    return string.format("%09d-%09d",a,b)
+end
+
 for _,faction in ipairs({"Alliance","Horde"}) do
     UnitFactionGroup=function() return faction end
     db.questData=newBase()
@@ -283,6 +346,15 @@ for _,faction in ipairs({"Alliance","Horde"}) do
         and typeCounts.u12pair==260 and typeCounts.s24pair==715
         and typeCounts.u8s24pairs==6933,
         "PUBLIC_QUEST_CORRECTION_LAYER_SNAPSHOT_CHANGED")
+    local digestFields={}
+    for name,kind in pairs(schema) do
+        if specs[kind] then digestFields[name]=kind end
+    end
+    local digest=valueDigest(db.questData,overrides,digestFields,keys)
+    local expectedDigest={Alliance="043054440-899980232",Horde="429450508-289752222"}
+    assert(digest==expectedDigest[faction],
+        "PUBLIC_QUEST_VALUE_DIGEST_SNAPSHOT_CHANGED")
+    print("PUBLIC WOTLK QUEST VALUE DIGEST faction="..faction.." digest="..digest)
     db.questData=nil
     collectgarbage("collect")
 end
