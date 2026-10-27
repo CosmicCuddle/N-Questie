@@ -1093,6 +1093,11 @@ local compoundCases = {
     {"npc","questStarts",{"7"},false,"MUTANT u8u24array numeric string"},
     {"quest","reputationReward",{5},false,"MUTANT u8s24pairs non-pair element"},
     {"npc","questStarts",{[1]=10,[3]=30},false,"SHAPE sparse numeric keys"},
+    {"npc","questStarts",{[0]=10,[2]=20},false,"MUTANT M07 zero key with highest=count"},
+    {"npc","questStarts",{[1.5]=10,[2]=20},false,"MUTANT M09 fractional key with highest=count"},
+    {"quest","requiredSkill",{[1]=5,[3]=7},false,"MUTANT M14 pair missing second with third"},
+    {"npc","questStarts",{[3]=30,[2]=20,[1]=10},false,"ORDER dense numeric hash part reversed"},
+    {"quest","reputationReward",{[2]={3,4},[1]={1,2}},false,"ORDER dense pair-array hash part reversed"},
     {"npc","questStarts",{[1]=10,extra=30},false,"SHAPE mixed hash key"},
     {"npc","questStarts",{[0]=10,[1]=20},false,"SHAPE zero-based index"},
     {"npc","questStarts",{[1]=10,[2.5]=20},false,"SHAPE fractional table key"},
@@ -1146,12 +1151,20 @@ end
 for _,case in ipairs(compoundCases) do
     local kind,field,val,accept,label=case[1],case[2],case[3],case[4],case[5]
     local ok,reason,stage,finished,result=scalarRealSourceProbe(case)
+    local expectedKind=({npc="NPCs",obj="Objects",quest="Quests",item="Items"})[kind]
+    local expectedId
+    for _,entry in ipairs(categories) do
+        if entry.kind==kind then expectedId=entry.id;break end
+    end
+    assert(expectedKind and expectedId)
+    local expectedField=expectedKind.."["..tostring(expectedId).."]."..field.." ["
     check("stage simple compound "..label.." exact or fail-closed",
         finished==1 and (
             (accept and ok and type(stage[kind.."Bin"])=="string"
                 and sameCompound(result,val)) or
             (not accept and not ok and
                 reason:find("GATE08_STAGE_COMPOUND_NUMERIC_RANGE",1,true)~=nil
+                and reason:find(expectedField,1,true)~=nil
                 and stage[kind.."Bin"]==nil and stage[kind.."Ptrs"]==nil)
         ))
 end
@@ -1274,6 +1287,6 @@ for _,spec in ipairs(parityInputs) do
     check("stage vs WotLK/SoD no-stage byte parity: "..label,matched)
 end
 
-assert(tests==169,"expected 169 source-backed compiler stage checks, got "..tests)
-print("GATE08 SOURCE STAGING RESULT: 169/169 PASS")
+assert(tests==174,"expected 174 source-backed compiler stage checks, got "..tests)
+print("GATE08 SOURCE STAGING RESULT: 174/174 PASS")
 print("DRAFT ONLY: simple compounds guarded; complex nested codec, source epoch, pool isolation, commit, relog recovery and client QA remain blocked")
