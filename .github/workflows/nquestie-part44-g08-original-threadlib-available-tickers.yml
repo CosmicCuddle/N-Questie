@@ -1,0 +1,67 @@
+name: N-Questie Part44 G08 authentic ThreadLib and AvailableQuests tickers (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  original-threadlib-tickers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Read-only authenticate two immutable 335 source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          root="$RUNNER_TEMP/nq-part44-threadlib-source"
+          mkdir -p "$root/Modules/Libs" "$root/Modules/Quest"
+          while read -r path blob; do
+            test "$(git rev-parse "$sha:$path")" = "$blob"
+            git show "$sha:$path" > "$root/$path"
+            test "$(git hash-object "$root/$path")" = "$blob"
+          done <<'BLOBS'
+          Modules/Libs/ThreadLib.lua 8f564049ad2a4af49473fac939b7c276c4227dd7
+          Modules/Quest/AvailableQuests.lua 2664f09fdf1f5df4d94581414e9d5ea88e9af4e7
+          BLOBS
+          echo "PUBLIC G08 ORIGINAL THREADLIB AND AVAILABLEQUESTS SHA AUTHENTICATED"
+      - name: Install Lua 5.1 and 5.4 for synthetic timer host
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Run genuine original source with fake C_Timer and invented quest rows
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part44_g08_original_threadlib_available_child_tickers.lua
+            else
+              luac5.4 -p tests/compat/nq_part44_g08_original_threadlib_available_child_tickers.lua
+            fi
+            log="$RUNNER_TEMP/nq-part44-threadlib-$lua.log"
+            NQ_G08_ORIGINAL_TICKERS_ROOT="$RUNNER_TEMP/nq-part44-threadlib-source" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part44_g08_original_threadlib_available_child_tickers.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART44 ORIGINAL THREADLIB AND AVAILABLEQUESTS: 32/32 PASS' "$log"
+            grep -Fxc 'PUBLIC G08 SOURCE EXECUTION: complete unmodified original ThreadLib.lua and AvailableQuests.lua modules; actual original timer/coroutine/child callback code and Questie Error handler path.' "$log" | grep -Fx '1'
+            grep -Fxc 'PUBLIC G08 NOT NATIVE: C_Timer.NewTicker, database, quest rows, map/tooltip/Questie globals and source generation switch are simulated; no real client, network, SavedVariables, original compiler, stream, build/ZIP, merge or install.' "$log" | grep -Fx '1'
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 4
+          done
+      - name: Check no runtime artifacts and clean worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d dist
+          test ! -d releases
+          test ! -d Questie-335
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
