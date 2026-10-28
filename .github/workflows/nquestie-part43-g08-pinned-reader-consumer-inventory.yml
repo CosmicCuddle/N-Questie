@@ -1,0 +1,44 @@
+name: N-Questie Part43 G08 pinned first-party reader consumer inventory (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  pinned-reader-consumers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate protected original 335 source commit read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          echo "PUBLIC G08 FIRSTPARTY ORIGINAL SOURCE TREE AUTHENTICATED"
+      - name: Inventory direct first-party Query and Pointers consumers
+        shell: bash
+        run: |
+          set -euo pipefail
+          logfile="$RUNNER_TEMP/nq-firstparty-consumer-audit.log"
+          NQ_G08_PINNED_REPO="$GITHUB_WORKSPACE" timeout --signal=TERM --kill-after=5s 90s python3 tests/compat/nq_part43_g08_pinned_firstparty_reader_consumer_inventory.py | tee "$logfile"
+          grep -Fx 'PUBLIC G08 PART43 PINNED FIRSTPARTY CONSUMER INVENTORY: 25/25 PASS' "$logfile"
+          grep -F 'PUBLIC G08 INVENTORY SCOPE: ' "$logfile"
+          grep -F 'PUBLIC G08 CONSUMER PATH: Modules/Journey/QuestieSearch.lua ' "$logfile"
+          grep -F 'PUBLIC G08 CONSUMER PATH: Database/QuestieDB.lua ' "$logfile"
+          grep -Fx 'PUBLIC G08 NOT ACCEPTED: conservative static first-party lexical matches only; no dynamic alias proof, real source ownership/stream leases, SavedVariables, native 3.3.5a/IP or ZIP/install/merge/release.' "$logfile"
+          test "$(grep -c '^PUBLIC G08 PART43 PINNED' "$logfile")" -eq 1
+      - name: Assert static inventory does not mutate checkout or build addon
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d releases
+          test ! -d dist
+          test ! -d Questie-335
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
