@@ -47,7 +47,7 @@ jobs:
             fi
             log="$RUNNER_TEMP/nq-part44-db-creature-cache-$lua.log"
             NQ_G08_DB_CREATURE_CACHE_ROOT="$RUNNER_TEMP/nq-part44-original-db-creature-cache" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part44_g08_original_db_creature_levels_cache_transition.lua | tee "$log"
-            grep -Fx 'PUBLIC G08 PART44 ACTUAL DB INIT AND CREATURE CACHE: 38/38 PASS' "$log"
+            grep -Fx 'PUBLIC G08 PART44 ACTUAL DB INIT AND CREATURE CACHE: 40/40 PASS' "$log"
             grep -Fxc 'PUBLIC G08 AUTHENTIC EXECUTION: unchanged entire original QuestieDB Initialize and GetCreatureLevels function bodies; original 5-cache resets, QueryItemSingle rebinding and CreatureLevelCache lookup/write with fictional GetDBHandle and NPCs.' "$log" | grep -Fx '1'
             grep -Fxc 'PUBLIC G08 NOT NATIVE: original full QuestieDB module, true decoder, compiler, QuestieStream, WOW UI, SavedVariables, IP 3.3.5a, actual writer, build, ZIP, install, merge and release NOT tested.' "$log" | grep -Fx '1'
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 4
