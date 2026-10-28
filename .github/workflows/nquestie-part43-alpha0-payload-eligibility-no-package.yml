@@ -1,0 +1,42 @@
+name: N-Questie Part43 Alpha0 335 payload eligibility (no package)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  alpha0-payload-eligibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Fetch immutable original public 335 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          test "$(git cat-file -t "$sha:Questie-335.toc")" = blob
+      - name: Audit pure in-memory runtime file selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          logfile="$RUNNER_TEMP/nq-part43-payload-eligibility.log"
+          NQ_ALPHA0_SOURCE_SHA=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070 timeout --signal=TERM --kill-after=5s 90s python3 -B tests/compat/nq_part43_alpha0_335_payload_eligibility_preflight.py | tee "$logfile"
+          grep -Fx 'PUBLIC ALPHA0 PART43 PAYLOAD ELIGIBILITY PREFLIGHT: 32/32 PASS' "$logfile"
+          grep -Fx 'PUBLIC ALPHA0 PAYLOAD MODEL: 546 pinned file references in memory; all TOC/XML closure, strict runtime allowlist, no private/tooling/source-doc directories; NO build.' "$logfile"
+          grep -Fx 'PUBLIC ALPHA0 NOT ACCEPTED: byte payload review, runtime assets and Lua dynamic references, licensing, WoW 3.3.5a/IP, SavedVariables, G08, ZIP/install/merge/release.' "$logfile"
+          test "$(grep -Ec '^PUBLIC ALPHA0 ' "$logfile")" -eq 3
+      - name: Verify clean checkout and no addon payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d releases
+          test ! -d dist
+          test ! -d Questie-335
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
