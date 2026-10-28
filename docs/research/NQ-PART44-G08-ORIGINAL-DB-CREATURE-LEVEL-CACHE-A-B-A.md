@@ -14,7 +14,7 @@ Original `GetCreatureLevels` first returns `QuestieDB._CreatureLevelCache[quest.
 
 ## Planned dedicated exact-head dual-Lua test
 
-- **38 synthetic assertions per Lua5.1.5 and Lua5.4.6**, pending independently inspected dedicated logs.
+- **40 synthetic assertions per Lua5.1.5 and Lua5.4.6**, pending independently inspected corrective dedicated logs. Original frozen #330 unexpectedly ran 40 passing behavioural checks but failed final fictional census n==38. The proposed correction changes only this assertion count and expected stdout; preserve original run failure.
 - Confirm source anchors; load complete unchanged original extracted function bodies and declaration; use invented old A and new B NPC+item rows, fictional four-kind `GetDBHandle`, original public `QueryItemSingle` rebinding and original five-cache resets.
 - A: quest `7001` contains synthetic direct NPC and item-drop NPC objectives. Original `GetCreatureLevels` returns/caches `A_DIRECT` and `A_DROPS`.
 - Reinitialize B under same `QuestieDB` module instance, using fictional recompiled global Bin/Ptrs. Original five caches clear and new `QueryItemSingle` reads B; stored OLD query closure/pointer alias remains A.
