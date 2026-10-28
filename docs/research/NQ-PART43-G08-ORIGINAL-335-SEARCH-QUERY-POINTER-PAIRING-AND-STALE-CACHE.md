@@ -7,7 +7,7 @@
 This test fetches immutable protected original `335` commit `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070` and authenticates Git blobs:
 - `Modules/Journey/QuestieSearch.lua`, `999efb373c5cc61f258115cf89e5e587cc087855`.
 - `Modules/Journey/QuestieSearchResults.lua`, `00b1b0382d301d2839f0cd7c30fe8ff7ac143353`.
-- `Modules/Quest/AvailableQuests.lua`, `2664f09fdf1f899994e6eb09af24465ae196ce`.
+- `Modules/Quest/AvailableQuests.lua`, `2664f09fdf1f5df4d94581414e9d5ea88e9af4e7`.
 
 The **full, byte-for-byte original** `QuestieSearch.lua` is executed, not rewritten. The test supplies only invented, tiny and reversible NPC/object/item/quest query-function closures and corresponding per-kind pointer maps. No AzerothCore data, N-Questie quest mapping, player account, SavedVariables, actual binary compiler/decoder or WoW client is accessed. Two other actual source files are authenticated and their exact consumer anchors inspected but are **not executed**.
 
