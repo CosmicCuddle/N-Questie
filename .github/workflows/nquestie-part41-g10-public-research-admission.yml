@@ -1,0 +1,60 @@
+name: N-Questie Part41 G10 public 439-RAW admission model (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  public-g10-raw-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Pin exact earlier public 439-RAW programme (no private records)
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha=83dd366a2288de444b1ce39d945410ae35bf86e5
+          file=docs/NQ-MISSING-QUEST-COVERAGE-PROGRAMME.md
+          expected_blob=86a91568e6619f161552e6682bc6b9eb557d592b
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$source_sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$source_sha"
+          test "$(git rev-parse "$source_sha:$file")" = "$expected_blob"
+          mkdir -p "$RUNNER_TEMP/nq-g10-source"
+          git show "$source_sha:$file" > "$RUNNER_TEMP/nq-g10-source/programme.md"
+          test -s "$RUNNER_TEMP/nq-g10-source/programme.md"
+          test "$(git hash-object -- "$RUNNER_TEMP/nq-g10-source/programme.md")" = "$expected_blob"
+          echo "PUBLIC G10 PINNED RAW PROGRAMME VERIFIED"
+      - name: Install Lua 5.1 and Lua 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Run public aggregate and invented private-approval model
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_part41_g10_public_research_admission.lua
+            else
+              luac5.4 -p tests/compat/nq_part41_g10_public_research_admission.lua
+            fi
+            output="$RUNNER_TEMP/g10-public-$lua.log"
+            NQ_G10_PUBLIC_PROGRAMME="$RUNNER_TEMP/nq-g10-source/programme.md" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part41_g10_public_research_admission.lua | tee "$output"
+            grep -Fx 'PUBLIC G10 FICTIONAL RESEARCH CONTRACT: 21/21 PASS' "$output"
+            grep -Fx 'PUBLIC G10 RAW BUCKETS: 12 + 418 + 5 + 3 + 1 = 439; approved eligible count UNKNOWN; pilot 0/3 implemented.' "$output"
+            grep -Fx 'PUBLIC G10 NOT ACCEPTED: private evidence, per-quest dispositions, source eligibility, native QA or production/release permission.' "$output"
+            test "$(grep -Ec '^PUBLIC G10 ' "$output")" -eq 3
+          done
+      - name: No packaging or distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
