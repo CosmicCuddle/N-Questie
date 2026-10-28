@@ -20,10 +20,23 @@ jobs:
           timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$source_sha"
           test "$(git rev-parse FETCH_HEAD)" = "$source_sha"
           mkdir -p "$RUNNER_TEMP/nq-protected-g07/Database" "$RUNNER_TEMP/nq-protected-g07/Modules/Quest"
+          # Independent immutable Git blob pins (retrieved from protected 335).
+          # A behavioural match alone is NOT an exact-content integrity proof.
+          # Verify each tree object AND staged temp file against the literal pin.
           for file in Database/itemDB.lua Database/questDB.lua Database/QuestieDB.lua Modules/Quest/AvailableQuests.lua; do
+            case "$file" in
+              Database/itemDB.lua) expected_blob=a714c1a11ce0513276de3f9ce9015d7db22efa80 ;;
+              Database/questDB.lua) expected_blob=9503b16031e739d9c0f046939058229b1a18d9b1 ;;
+              Database/QuestieDB.lua) expected_blob=5784cb65160175e1dce30fe20e8baada0af7e480 ;;
+              Modules/Quest/AvailableQuests.lua) expected_blob=2664f09fdf1f5df4d94581414e9d5ea88e9af4e7 ;;
+              *) echo "G07_UNEXPECTED_PUBLIC_SOURCE_FILE" >&2; exit 1 ;;
+            esac
+            test "$(git rev-parse "$source_sha:$file")" = "$expected_blob"
             git show "$source_sha:$file" > "$RUNNER_TEMP/nq-protected-g07/$file"
             test -s "$RUNNER_TEMP/nq-protected-g07/$file"
+            test "$(git hash-object -- "$RUNNER_TEMP/nq-protected-g07/$file")" = "$expected_blob"
           done
+          echo "PUBLIC G07 FOUR SOURCE BLOBS MATCH PINNED 335"
       - name: Install Lua 5.1 and Lua 5.4
         shell: bash
         run: |

@@ -36,3 +36,23 @@ The first two dedicated original-head runs on this test-only draft **FAILED** an
 To test the right production source **without changing protected 335 or importing its release-packaging workflow**, the dedicated CI now fetches that *exact immutable public protected commit* into a temporary runner directory, verifies the fetched commit SHA, copies the four **public source files** using `git show`, and sets `NQ_G07_SOURCE_ROOT`. The draft Lua fixture requires that variable and executes the public schema and actual renderer from the pinned directory, while the test/workflow/documentation live exclusively on a safer documentation-ancestry draft branch. No temporary files are committed or uploaded. All four production source inputs are from a **single** protected commit, avoiding mixed-version attribution.
 
 The test still executes only a `GetQuest` assignment excerpt, not the whole function. Lua VM/CI result, every artifact endpoint, and CS02 mutation review must be rechecked on the NEW exact head. No early green claim.
+
+
+## Part40 independent-review follow-up — exact Git blob pins (28 October 2026)
+
+CS02's [exact-head #258 mutation review](https://github.com/CosmicCuddle/N-Questie/pull/258#issuecomment-6456828927) **VERIFIED** 15 fictional item-starter controls, with 8/8 original-head Actions success and no uploaded artifacts. Its remaining scope limitation was **content integrity**: a behaviour-equivalent edit to the staged source file, or another commit containing the same four files, previously passed. These results must not be presented as a content-integrity check.
+
+This separate test-only draft keeps the identical protected **commit pin** `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`, verifies the fetched `FETCH_HEAD`, **and additionally checks each source's exact Git blob ID** (the file SHA, not the commit SHA) both in the protected tree and in the temporary staged copy before running either Lua VM:
+
+| Public protected-335 source | Expected Git blob SHA-1 |
+| --- | --- |
+| `Database/itemDB.lua` | `a714c1a11ce0513276de3f9ce9015d7db22efa80` |
+| `Database/questDB.lua` | `9503b16031e739d9c0f046939058229b1a18d9b1` |
+| `Database/QuestieDB.lua` | `5784cb65160175e1dce30fe20e8baada0af7e480` |
+| `Modules/Quest/AvailableQuests.lua` | `2664f09fdf1f5df4d94581414e9d5ea88e9af4e7` |
+
+Hashes were independently retrieved using the connected GitHub file API at the **exact protected commit**. The workflow uses `git rev-parse "$source_sha:$file"` and `git hash-object -- "$staged"` against those expected literals; an altered temporary file or changed tree blob must be rejected. A distinct commit whose contents are **identical** may have the same blob IDs, correctly: the purpose is **file-content identity**, not unique commit ancestry (the separate immutable commit pin handles the latter in this workflow). Neither hashes nor assertions authenticate unrelated future writers, nor do they protect against an authorised adversary deliberately editing both workflow pins and test fixtures.
+
+For clarity, the first item-only mapping control now guards `q.Starts.Item` before accessing `[1]`, producing `G07_ITEM_ONLY_FORWARD_MAPPING` for missing item mapping rather than a raw nil-index. These edits leave the real source and renderer untouched. Independently mutate one staged file's harmless comment, a blob expected literal, and `startedBy[3]`; verify exact CI staging failure for the former two and the named Lua failure for the latter under real 5.1/5.4. No original-head CI or peer verdict is asserted here before verification.
+
+**Still NOT accepted:** full `GetQuest` execution, item inventory use/start, item-quest reverse ownership and private IP phase, 3.3.5a client UI, all-writer source/stream integrity, four-kind compile, SavedVariables durable crash recovery, integration or release. Protect private server data and owner backups.
