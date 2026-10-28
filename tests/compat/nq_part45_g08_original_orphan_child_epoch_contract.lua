@@ -37,6 +37,7 @@ check(compatTimer:find("if id == self.id then",1,true)~=nil,"S25_REAL_COMPAT_OWN
 local function scenario(mode,consumeStaleChild)
   local timers,errors,groups={},{},{}
   local tagReads,drawCalls=0,0
+  local tooltipWrites,worldWrites={},{}
   -- Fabricated AnimationGroup objects, but original Compat timer functions.
   local frame={}
   function frame:CreateAnimationGroup()
@@ -84,7 +85,8 @@ local function scenario(mode,consumeStaleChild)
     end
     return false
   end
-  local quest={Id=1,WasComplete=(mode=="wascomplete" or mode=="orphan"),sourceItemId=mode=="missing" and 5 or 0,
+  local quest={Id=1,WasComplete=(mode=="wascomplete" or mode=="orphan" or mode=="orphanwriter"
+      or mode=="writererror" or mode=="childerror"),sourceItemId=mode=="missing" and 5 or 0,
     Objectives={},SpecialObjectives={},Starts={NPC={1}}}
   function quest:IsComplete()return 0 end
   local db={QuestPointers={},autoBlacklist={},activeChildQuests={}}
@@ -95,8 +97,16 @@ local function scenario(mode,consumeStaleChild)
       return {Id=id,Starts={NPC={id}},tagInfoWasCached=false,requiredLevel=1}
     end
   end
-  function db.GetQuestTagInfo()tagReads=tagReads+1 end
-  function db.GetNPC()return nil end
+  function db.GetQuestTagInfo()
+    tagReads=tagReads+1
+    if mode=="childerror" then error("SYNTHETIC_CHILD_TAG_ERROR") end
+  end
+  function db.GetNPC(_,id)
+    if mode=="orphanwriter" or mode=="writererror" then
+      return {id=id,name="SYNTHETIC_SOURCE_NPC",spawns={[12]={{11,22}}}}
+    end
+    return nil
+  end
   function db.GetObject()return nil end
   function db.QueryQuestSingle()return nil end
   function db.IsComplete()return 0 end
@@ -114,7 +124,15 @@ local function scenario(mode,consumeStaleChild)
   local player={currentQuestlog={},GetPlayerLevel=function()return 40 end}
   local map={_mapDrawQueue={},_minimapDrawQueue={},questIdFrames={}}
   function map:UnloadQuestFrames()end
-  local tooltips={RemoveQuest=function()end,RegisterQuestStartTooltip=function()end}
+  function map:DrawWorldIcon(data,zone,x,y)
+    if mode=="writererror" then error("SYNTHETIC_MAP_WRITER_ERROR") end
+    worldWrites[#worldWrites+1]={id=data.Id,zone=zone,x=x,y=y}
+    return {}
+  end
+  local tooltips={RemoveQuest=function()end}
+  function tooltips:RegisterQuestStartTooltip(questId,name,id,key)
+    tooltipWrites[#tooltipWrites+1]={questId=questId,name=name,id=id,key=key}
+  end
   local questie={db={profile={debugEnabled=false,lowLevelStyle="default",
     showRepeatableQuests=true,showPvPQuests=true,showDungeonQuests=true,
     showRaidQuests=true,showAQWarEffortQuests=true},
@@ -218,6 +236,7 @@ local function scenario(mode,consumeStaleChild)
     tick(resetTicker)
   end
   local tagReadsBefore=tagReads
+  local tooltipWritesBefore,worldWritesBefore=#tooltipWrites,#worldWrites
   local staleChildActiveBefore=child and active(child) or false
   if consumeStaleChild then
     assert(staleChildActiveBefore,"STALE_CHILD_NOT_ACTIVE_AFTER_PARENT_CANCEL")
@@ -226,7 +245,8 @@ local function scenario(mode,consumeStaleChild)
   end
   return {reset=reset,before=before,after=after,child=child,
     tagReadsBefore=tagReadsBefore,tagReadsAfter=tagReads,
-    drawCalls=drawCalls,staleChildActiveBefore=staleChildActiveBefore,
+    tooltipWritesBefore=tooltipWritesBefore,worldWritesBefore=worldWritesBefore,
+    tooltipWrites=tooltipWrites,worldWrites=worldWrites,drawCalls=drawCalls,staleChildActiveBefore=staleChildActiveBefore,
     staleChildActiveAfter=child and active(child) or false,
     completionCalls=completionCalls,active=active,
     errors=errors,checks=sourceItemChecks,activeBefore=activeBefore,
@@ -387,3 +407,93 @@ print("PUBLIC G08 PART45 ORIGINAL ORPHAN CHILD + EPOCH MODEL: 69/69 PASS")
 print("PUBLIC G08 CHILD: original ThreadLib-owned child ran after original parent supersession, with fake DB tag read and original DrawAvailableQuest entry.")
 print("PUBLIC G08 MODEL: proposed owner ledger distinguishes COMPLETED / ABORTED / ERROR, blocks stale A-B-A writes, and waits for children; model is NOT a production patch.")
 print("PUBLIC G08 BOUNDARIES: fake AnimationGroup, invented quest and DB, no native event order, no real character data, no production Lua changes.")
+
+
+-- PART46 REAL-SOURCE WRITER ORDER. These are unchanged original calls
+-- reached with fictional NPC data and fake map/tooltip sinks. NOT client writes.
+check(asrc:find("QuestieTooltips:RegisterQuestStartTooltip",1,true)~=nil,
+  "S40_ORIGINAL_TOOLTIP_CALLSITE")
+check(asrc:find("QuestieMap:DrawWorldIcon",1,true)~=nil,
+  "S41_ORIGINAL_WORLD_ICON_CALLSITE")
+local writer=scenario("orphanwriter",true)
+check(writer.after~=writer.before and writer.staleChildActiveBefore,
+  "S42_WRITER_CHILD_ORPHANED_BY_ORIGINAL_PARENT")
+check(writer.tooltipWritesBefore==0 and writer.worldWritesBefore==0,
+  "S43_NO_PRE_CANCEL_WRITER_EVENTS")
+check(writer.tagReadsAfter>writer.tagReadsBefore,
+  "S44_ORIGINAL_CHILD_TAG_LOOKUP_AFTER_CANCEL")
+check(writer.drawCalls>0,"S45_ORIGINAL_DRAW_ENTERED_AFTER_CANCEL")
+check(#writer.tooltipWrites==1,"S46_ORIGINAL_TOOLTIP_CALLED")
+check(#writer.worldWrites==1,"S47_ORIGINAL_WORLD_ICON_CALLED")
+check(writer.tooltipWrites[1].key=="m_"..writer.tooltipWrites[1].id,
+  "S48_REAL_STARTER_TOOLTIP_KEY")
+check(writer.worldWrites[1].zone==12,"S49_FAKE_ZONE_PROPAGATED")
+check(writer.worldWrites[1].x==11 and writer.worldWrites[1].y==22,
+  "S50_FAKE_NPC_COORDINATES_PROPAGATED")
+check(writer.tooltipWrites[1].questId==writer.worldWrites[1].id,
+  "S51_SAME_ORIGINAL_CHILD_QUEST_FOR_BOTH_WRITES")
+check(not writer.staleChildActiveAfter,"S52_ORIGINAL_CHILD_STOPPED_AFTER_WRITES")
+check(writer.completionCalls==0 and writer.reset._resetNeedsAvailables==true,
+  "S53_STALE_WRITES_DID_NOT_RELEASE_RESET_CALLBACK")
+
+-- Controlled invented host error AFTER original tooltip call, BEFORE icon sink.
+local writeError=scenario("writererror",true)
+check(#writeError.tooltipWrites==1,"S54_TOOLTIP_PRECEDES_MAP_ERROR")
+check(#writeError.worldWrites==0,"S55_FAKE_MAP_ERROR_PREVENTS_ICON")
+check(#writeError.errors==1 and writeError.errors[1]:find("SYNTHETIC_MAP_WRITER_ERROR",1,true),
+  "S56_ORIGINAL_THREADLIB_REPORTS_FAKE_MAP_ERROR")
+check(not writeError.staleChildActiveAfter and writeError.reset._resetNeedsAvailables==true,
+  "S57_CHILD_ERROR_STOPS_CHILD_NOT_RESET_LATCH")
+
+-- Controlled failure during fake tag lookup, before original DrawAvailableQuest.
+local childError=scenario("childerror",true)
+check(childError.tagReadsAfter>childError.tagReadsBefore and childError.drawCalls==0,
+  "S58_TAG_ERROR_PREVENTS_DRAW")
+check(#childError.tooltipWrites==0 and #childError.worldWrites==0,
+  "S59_TAG_ERROR_HAS_NO_WRITER_EVENTS")
+check(#childError.errors==1 and childError.errors[1]:find("SYNTHETIC_CHILD_TAG_ERROR",1,true),
+  "S60_ORIGINAL_THREADLIB_REPORTS_FAKE_TAG_ERROR")
+check(not childError.staleChildActiveAfter and childError.reset._resetNeedsAvailables==true,
+  "S61_TAG_ERROR_CHILD_TERMINAL_NOT_RESET_SUCCESS")
+
+-- COUNTERFACTUAL MODEL ONLY: a proposed writer adapter vetoes publication
+-- based on monotonic owner identity before dispatching to hypothetical sinks.
+local function guardedSink(ledger)
+  local sink={tooltip={},world={}}
+  function sink:write(ticket,kind,payload)
+    assert(kind=="tooltip" or kind=="world")
+    if not ledger:publish(ticket) then return false end
+    self[kind][#self[kind]+1]=payload
+    return true
+  end
+  return sink
+end
+local w=newLedger()
+local first=w:begin("A")
+local firstChild=w:child(first)
+local sink=guardedSink(w)
+check(first.serial==1 and firstChild~=nil,"M31_FIRST_WRITER_OWNER")
+check(sink:write(firstChild,"tooltip",{id=7}),"M32_CURRENT_TOOLTIP_ALLOWED")
+check(sink:write(firstChild,"world",{id=7}),"M33_CURRENT_ICON_ALLOWED")
+check(#sink.tooltip==1 and #sink.world==1,"M34_CURRENT_WRITES_RECORDED")
+local middle=w:begin("B")
+check(first.state=="ABORTED" and middle.serial==2,"M35_ABORT_ON_SUPERSESSION")
+check(not sink:write(firstChild,"tooltip",{id=7}),"M36_ABORTED_TOOLTIP_REJECTED")
+check(not sink:write(firstChild,"world",{id=7}),"M37_ABORTED_ICON_REJECTED")
+local again=w:begin("A")
+check(again.label==first.label and again.serial==3,"M38_NEW_A_EPOCH")
+check(not sink:write(firstChild,"world",{id=7}),"M39_OLD_A_STILL_REJECTED")
+local freshChild=w:child(again)
+check(freshChild~=nil and sink:write(freshChild,"world",{id=8}),
+  "M40_NEW_A_ICON_ALLOWED")
+check(#sink.world==2 and sink.world[2].id==8,"M41_ONLY_FRESH_ICON_RECORDED")
+check(w:error(again) and again.state=="ERROR","M42_CURRENT_ERROR_TERMINAL")
+check(not sink:write(freshChild,"tooltip",{id=8})
+  and not sink:write(freshChild,"world",{id=8}),"M43_ERROR_WRITES_REJECTED")
+check(#sink.tooltip==1 and #sink.world==2,"M44_REJECTED_WRITES_NO_SIDE_EFFECTS")
+check(not w:parentDone(again) and not w:childDone(freshChild),
+  "M45_ERROR_CANNOT_REPORT_SUCCESS")
+assert(n==106,"PART46_WRITER_ASSERTION_CENSUS_CHANGED:"..n)
+print("PUBLIC G08 PART46 ORPHAN WRITER AND GUARDED MODEL: 106/106 PASS")
+print("PUBLIC G08 PART46 SOURCE: unchanged original tooltip and world-icon call sites reached AFTER original parent cancellation; synthetic NPC and sinks only.")
+print("PUBLIC G08 PART46 LIMITS: controlled fake tag/map errors and counterfactual guards, no native UI, gameplay data, SavedVariables or addon patch.")
