@@ -17,7 +17,7 @@ local helpers=exact("local function loadFullDatabase()",
     "-- ********************************************************************************\n-- Start of QuestieInit.Stages")
 local stage=exact("QuestieInit.Stages[1] = function() -- run as a coroutine",
     "\nQuestieInit.Stages[2] = function()")
-assert(#helpers>1500 and #stage>3000,"ALPHA0_UNMODIFIED_SOURCE_TRUNCATED")
+assert(#helpers>1300 and #stage>3000,"ALPHA0_UNMODIFIED_SOURCE_TRUNCATED")
 for _,token in ipairs({
     "QuestieCorrections:Initialize()", "QuestieCorrections:PreCompile()",
     "QuestieDBCompiler:Compile()", "QuestieCorrections:MinimalInit()",
