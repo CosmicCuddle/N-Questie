@@ -1,0 +1,64 @@
+name: N-Questie Part44 G08 original SmoothReset callback ownership (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  original-smoothreset-callback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate immutable original 335 source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          root="$RUNNER_TEMP/nq-part44-smoothreset-original"
+          mkdir -p "$root/Modules/Libs" "$root/Modules/Quest"
+          while read -r path blob; do
+            test "$(git rev-parse "$sha:$path")" = "$blob"
+            git show "$sha:$path" > "$root/$path"
+            test "$(git hash-object "$root/$path")" = "$blob"
+          done <<'BLOBS'
+          Modules/Quest/QuestieQuest.lua cd4239c5b40c1f5b1ced823dfa12d8a895091719
+          Modules/Quest/AvailableQuests.lua 2664f09fdf1f5df4d94581414e9d5ea88e9af4e7
+          Modules/Libs/ThreadLib.lua 8f564049ad2a4af49473fac939b7c276c4227dd7
+          BLOBS
+          echo "PUBLIC G08 ORIGINAL SMOOTHRESET THREE SOURCE BLOBS VERIFIED"
+      - name: Install Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+      - name: Execute original SmoothReset and ThreadLib under fictional clock
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part44_g08_smoothreset_callback_ownership.lua
+            else
+              luac5.4 -p tests/compat/nq_part44_g08_smoothreset_callback_ownership.lua
+            fi
+            log="$RUNNER_TEMP/nq-original-smoothreset-$lua.log"
+            NQ_G08_SMOOTHRESET_ROOT="$RUNNER_TEMP/nq-part44-smoothreset-original" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part44_g08_smoothreset_callback_ownership.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART44 SMOOTHRESET CALLBACK SOURCE: 22/22 PASS' "$log"
+            grep -Fxc 'PUBLIC G08 REAL ORIGINAL: unchanged ThreadLib module and exact unmodified QuestieQuest.SmoothReset function execute with fictional timer, calculation and game host.' "$log" | grep -Fx '1'
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 4
+          done
+      - name: No build artifacts or modified source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d dist
+          test ! -d releases
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
