@@ -1,0 +1,67 @@
+name: N-Questie Part44 G08 actual StreamPool and GetDBHandle lifetime (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  real-stream-handle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Independently authenticate exact original protected 335 source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          root="$RUNNER_TEMP/nq-part44-original-stream-handle"
+          mkdir -p "$root/Modules" "$root/Database"
+          while read -r path blob; do
+            test "$(git rev-parse "$sha:$path")" = "$blob"
+            git show "$sha:$path" > "$root/$path"
+            test "$(git hash-object "$root/$path")" = "$blob"
+          done <<'BLOBS'
+          Modules/QuestieStream.lua 1819aeea11148eae0742810dbd2338410edda238
+          Database/compiler.lua abba0249f44d14711dbdd46bbde969ccffbc2963
+          BLOBS
+          echo "PUBLIC G08 ORIGINAL 335 STREAM AND COMPILER BLOBS VERIFIED"
+      - name: Install native Lua interpreters for isolated public source execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute original StreamPool GetDBHandle coroutine and artificial lease misuse
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part44_g08_real_stream_pool_getdbhandle_lifetime.lua
+            else
+              luac5.4 -p tests/compat/nq_part44_g08_real_stream_pool_getdbhandle_lifetime.lua
+            fi
+            log="$RUNNER_TEMP/nq-g08-real-stream-handle-$lua.log"
+            NQ_G08_REAL_STREAM_HANDLE_ROOT="$RUNNER_TEMP/nq-part44-original-stream-handle" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part44_g08_real_stream_pool_getdbhandle_lifetime.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART44 REAL STREAM AND HANDLE LIFETIME: 33/33 PASS' "$log"
+            grep -Fxc 'PUBLIC G08 REAL SOURCE: entire unchanged original QuestieStream module and entire unchanged original compiler GetDBHandle body executed, including real three yields, raw-byte query closures and pool finished/reuse methods.' "$log" | grep -Fx '1'
+            grep -Fxc 'PUBLIC G08 NOT NATIVE: fabricated pointer decoder, one-field skipmap and binary strings, no real producer, native client, WoW 3.3.5a/IP, SaveVariables, original full compiler, QuestieDB module, package/ZIP, install, merge or release.' "$log" | grep -Fx '1'
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 4
+          done
+      - name: Confirm no output artifact and clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d dist
+          test ! -d releases
+          test ! -d Questie-335
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
