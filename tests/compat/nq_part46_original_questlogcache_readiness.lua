@@ -85,6 +85,7 @@ local function harness()
   setmetatable(env,{__index=_G})
   compile(cacheSource,"@original_335/Modules/Quest/QuestLogCache.lua",env)
   local cache=assert(modules.QuestLogCache)
+  env.QuestLogCache=cache -- mirror QuestieLoader export for original QuestieQuest
   -- Only the two source-item *helpers* are synthetic; original GetAllQuestIds
   -- is unchanged. The original full QuestLogCache runs from its original blob.
   local fakeHelpers="local _AddSourceItemObjective=function() end\n"
