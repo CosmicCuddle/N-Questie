@@ -1,0 +1,66 @@
+name: N-Questie Part42 G08 actual correction writer/compiler ABA (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  actual-correction-writers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Pin original three public protected-335 Git blobs and staged bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          mkdir -p "$RUNNER_TEMP/nq-real-compiler-aba/Database/Corrections" "$RUNNER_TEMP/nq-real-compiler-aba/Modules"
+          for file in Database/compiler.lua Modules/QuestieStream.lua Database/Corrections/QuestieCorrections.lua; do
+            case "$file" in
+              Database/compiler.lua) expected=abba0249f44d14711dbdd46bbde969ccffbc2963 ;;
+              Modules/QuestieStream.lua) expected=1819aeea11148eae0742810dbd2338410edda238 ;;
+              Database/Corrections/QuestieCorrections.lua) expected=0584d2d6c0ff8c6e04c0fd0152d9c524bbf0345d ;;
+              *) echo "G08_UNEXPECTED_PUBLIC_SOURCE" >&2; exit 1 ;;
+            esac
+            test "$(git rev-parse "$sha:$file")" = "$expected"
+            git show "$sha:$file" > "$RUNNER_TEMP/nq-real-compiler-aba/$file"
+            test -s "$RUNNER_TEMP/nq-real-compiler-aba/$file"
+            test "$(git hash-object -- "$RUNNER_TEMP/nq-real-compiler-aba/$file")" = "$expected"
+          done
+          echo "PUBLIC G08 REAL CORRECTION AND COMPILER GIT TREE AND BYTES VERIFIED"
+      - name: Install exact PUC Lua runtimes
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Check unmodified real correction-writer ABA on both VMs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_part42_g08_real_correction_writers_aba.lua
+            else
+              luac5.4 -p tests/compat/nq_part42_g08_real_correction_writers_aba.lua
+            fi
+            output="$RUNNER_TEMP/nq-real-corrections-$lua.log"
+            NQ_G08_REAL_COMPILER_POOL_ROOT="$RUNNER_TEMP/nq-real-compiler-aba" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part42_g08_real_correction_writers_aba.lua | tee "$output"
+            grep -Fx 'PUBLIC G08 REAL CORRECTION WRITER CONTROLS: 51/51 PASS' "$output"
+            grep -Fx 'PUBLIC G08 KNOWN UNSAFE: actual unmodified correction writer performs source A-to-B-to-A across real compiler yields; final source A but real compiled reader sees B.' "$output"
+            grep -Fx 'PUBLIC G08 NOT ACCEPTED: all E01-E08 writer provenance, native faction views, runtime unknown-writer locks, four-kind atomicity, crash/relog, or release.' "$output"
+            test "$(grep -Ec '^PUBLIC G08 ' "$output")" -eq 3
+          done
+      - name: Refuse package/release output
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
