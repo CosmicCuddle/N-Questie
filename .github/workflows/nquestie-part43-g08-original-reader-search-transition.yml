@@ -1,0 +1,70 @@
+name: N-Questie Part43 G08 authentic reader and Journey Search generation handoff (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  real-reader-search-transition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate unchanged original protected 335 reader and consumer blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          root="$RUNNER_TEMP/nq-original-reader-search"
+          mkdir -p "$root/Database" "$root/Modules/Journey" "$root/Modules/Quest"
+          while read -r path oid; do
+            test "$(git rev-parse "$sha:$path")" = "$oid"
+            git show "$sha:$path" > "$root/$path"
+            test "$(git hash-object "$root/$path")" = "$oid"
+          done <<'BLOBS'
+          Database/QuestieDB.lua 5784cb65160175e1dce30fe20e8baada0af7e480
+          Modules/Journey/QuestieSearch.lua 999efb373c5cc61f258115cf89e5e587cc087855
+          Modules/Journey/QuestieSearchResults.lua 00b1b0382d301d2839f0cd7c30fe8ff7ac143353
+          Modules/Quest/AvailableQuests.lua 2664f09fdf1f5df4d94581414e9d5ea88e9af4e7
+          BLOBS
+          echo "PUBLIC G08 ORIGINAL READER SEARCH SOURCE BLOBS AUTHENTICATED"
+      - name: Install Lua 5.1 and 5.4 only for source-backed test
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute authentic DB Initialize and Journey Search with shadow read-side generations
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part43_g08_real_reader_search_generation_transition.lua
+            else
+              luac5.4 -p tests/compat/nq_part43_g08_real_reader_search_generation_transition.lua
+            fi
+            logfile="$RUNNER_TEMP/nq-original-reader-search-$lua.log"
+            NQ_G08_ORIGINAL_READER_SEARCH_ROOT="$RUNNER_TEMP/nq-original-reader-search" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part43_g08_real_reader_search_generation_transition.lua | tee "$logfile"
+            grep -Fx 'PUBLIC G08 PART43 ORIGINAL READER SEARCH GENERATION TRANSITION: 54/54 PASS' "$logfile"
+            grep -Fx 'PUBLIC G08 TEST-ONLY WITNESS: unchanged 335 DB Initialize and Journey Search execute together; private read-side generations and fresh search caches prevent OLD IDs entering NEW reader selection in the model.' "$logfile"
+            grep -Fx 'PUBLIC G08 KNOWN-UNSAFE REBIND: changing public query functions and pointer maps without resetting original Search LastResult retains OLD and NEW IDs together.' "$logfile"
+            grep -Fx 'PUBLIC G08 NOT ACCEPTED: coordinator and GetDBHandle decoder are fictional; no actual 335 production query dispatcher, QuestieStream/real writer, SavedVariables disk/relog, native 3.3.5a/IP or ZIP/install/merge/release.' "$logfile"
+            test "$(grep -Ec '^PUBLIC G08 ' "$logfile")" -eq 4
+          done
+      - name: Preserve test-only no-package safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d releases
+          test ! -d dist
+          test ! -d Questie-335
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
