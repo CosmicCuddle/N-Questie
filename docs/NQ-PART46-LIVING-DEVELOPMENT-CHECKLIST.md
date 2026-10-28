@@ -1,0 +1,53 @@
+# N-Questie — Part 46 Living Development Checklist
+
+**28 October 2026. PUBLIC-SAFE DRAFT / append-only evidence ledger.** This is not native testing or release authorisation. **Read in FULL together with [Complete Part45→46 Engineering Handover](HANDOVERS/2026-10-28_PART45_TO_PART46.md)** before any coding or GitHub action. Then consult [Part45 Checklist](NQ-PART45-LIVING-DEVELOPMENT-CHECKLIST.md), [Part44 Checklist](NQ-PART44-LIVING-DEVELOPMENT-CHECKLIST.md), [Master Checklist](NQ-LIVING-PROJECT-MASTER-CHECKLIST.md) and [Coordination PR #42](https://github.com/CosmicCuddle/N-Questie/pull/42).
+
+## A. Safety, scope and release gate
+
+- [x] Owner-approved README-only [#351](https://github.com/CosmicCuddle/N-Questie/pull/351) was merged, **7/7 Actions**, no emojis. Its new HEAD of protected LIVE `335` is **`26053bd28b0df3a01e5859f779d5f3cb4f57b221`**. Only root README changed (12 lines added, none removed). Superseded earlier emoji PR #350 CLOSED unmerged. The **historic 335 CODE provenance** `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070` is **NOT** current head.
+- [x] GitHub remains a public fork of `divial28/Questie-335`; owner chose public WIP banner, not private migration or fork detach. Do not change visibility without a separate request.
+- [x] Gate08 **MAJOR RED**: **3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING**. **439 RAW unapproved**, eligible denominator unknown, pilot 1207–1209 = **0/3 implemented**. No Alpha0 / native acceptance / playable release approved.
+- [ ] No further protected `335` edits, merges, releases, tags, live Lua/SQL/TOC, built ZIP/package, install, real client, realm/account/character/SavedVariables/network unless specifically authorised by owner in a separate action. Allowed default: independent **test-only/docs-only DRAFT** PRs with exact pinned source and CI; all remain unmerged.
+- [ ] Before any future separately permitted native QA: full `Interface/AddOns/Questie-335` and account+character SavedVariables backups, hashes, verified rollback and written owner acceptance. Never treat source-backed synthetic test as native pass.
+
+## B. Historic Part45 originals: immutable failure and success accounting
+
+- [x] Original test draft #341 exact `04c4ffc66af6cd327580b2896fde401dd7398c5c`: **37/37 Actions success**, genuine SmoothReset+UpdateQuest function bodies, full original AvailableQuests+ThreadLib, 24/24 each Lua5.1.5/5.4.6 under invented timers.
+- [x] Original test draft #342 exact `da0b89ab917c11427e4af092b928f13b2afb3ce6`: **36/36 Actions success**, genuine original Compat timer FRAGMENT + full original ThreadLib; 27/27 each dual Lua under invented animation frame.
+- [x] Original combined failure draft #345 `b6a1a49d61607a9f1e28bb0a36bf49793fe90864`: **37 success + 1 failed** (synthetic Lua5.1 fixture missed ThreadLib's direct original Compat timer). Freeze its failed CI 40759192882 / job 123066199296, zero artifacts.
+- [x] Original correction-but-failure draft #346 `d072b5d9e41e3a9d1ebe8930f4a43f830fcbe69c`: **37 success + 1 failed** (synthetic Lua5.1 S06 counted unrelated auxiliary timer as calculator). Freeze CI 40759420407 / job 123066984255, zero artifacts.
+- [x] Original corrected combined draft [#348](https://github.com/CosmicCuddle/N-Questie/pull/348) `fdb0507fcec1e4d903c879425c9b35b0ef4ce128`: **38/38 Actions success**. [Dedicated CI 40759854445](https://github.com/CosmicCuddle/N-Questie/actions/runs/40759854445), job 123068509511: **31/31 EACH Lua5.1.5/5.4.6**, exact original source authenticated, clean checkout, zero dedicated artifacts.
+- [x] Original failed orphan-child extension [#352](https://github.com/CosmicCuddle/N-Questie/pull/352) `693fd4aea95939be40e64221c26a2f7dae482b02`: **38 success + 1 failed**, dedicated CI 40766799344 / job 123092992675 failed **host-only model M20 serial expectation** on Lua5.1 after original source checks, Lua5.4 not reached. Zero dedicated artifacts; freeze without retroactive correction.
+- [x] Distinct corrected orphan-child [#353](https://github.com/CosmicCuddle/N-Questie/pull/353) `5c7df752c0e6ca8aa3d99c4fcc0d14c9e0eb89da`: **38/38 Actions SUCCESS**; [dedicated 40767027048](https://github.com/CosmicCuddle/N-Questie/actions/runs/40767027048), job 123093808923 **69/69 EACH Lua5.1.5/5.4.6**, original code blobs authenticated, clean checkout, **0 dedicated artifacts**. Original child executes after parent cancel and enters original DrawAvailableQuest in fake host; counterfactual terminal-state/monotonic-epoch model separately tested, NOT a production feature.
+- [x] Documentation drafts [#343](https://github.com/CosmicCuddle/N-Questie/pull/343) 9/9, [#344](https://github.com/CosmicCuddle/N-Questie/pull/344) 9/9, [#347](https://github.com/CosmicCuddle/N-Questie/pull/347) 9/9, [#349](https://github.com/CosmicCuddle/N-Questie/pull/349) 9/9 and [#354](https://github.com/CosmicCuddle/N-Questie/pull/354) 9/9 original-head Actions success.
+- [ ] Documentation-only latest [#355](https://github.com/CosmicCuddle/N-Questie/pull/355) exact `5311c21ba68a4990b6f6809d7d2dfc4818203fca`: **7/8 successful, 1 M2 in progress** at last exact-head handover check. Recheck and report final count; do not mark full-green until complete.
+- [x] Historical failed original #328/#330/#338/#340 remain frozen. Other older successful heads #323/#324/#326/#329/#331/#333/#335 (original context) remain unmerged; see previous complete handover and Part45 checklist for SHA/CI.
+
+## C. Authentic original source identity and bounded evidence
+
+- [x] Historic original blob `Modules/Quest/QuestieQuest.lua` `cd4239c5b40c1f5b1ced823dfa12d8a895091719`: original extracted **SmoothReset** and **UpdateQuest** function bodies, NOT entire original module.
+- [x] Complete original `Modules/Quest/AvailableQuests.lua` `2664f09fdf1f5df4d94581414e9d5ea88e9af4e7`: replacement parent calculator cancels earlier timer, but an independent child can survive; no completed callback on earlier cancel.
+- [x] Complete original `Modules/Libs/ThreadLib.lua` `8f564049ad2a4af49473fac939b7c276c4227dd7`: normal callback, no completion callback on coroutine error or cancellation.
+- [x] Original `Compat/Compat.lua` `b3e273e82cabbd5b7b351ae5aa3d94d4675387be`: **timer fragment ONLY** plus **fictional AnimationGroup host**, not whole Compat/native WoW event schedule.
+- [x] Independently researched original `Database/QuestieDB.lua` `5784cb65160175e1dce30fe20e8baada0af7e480`: no complete first-party DB or true map/tooltip writer executed in child test; `GetQuestTagInfo` stubbed in test.
+- [x] Separate model-only counterfactual: monotonic epoch A1→A2→B3→A4→C5; explicit PENDING/COMPLETED/ABORTED/ERROR, exactly-once terminal, stale post-cancel writer rejection. **NONE OF THESE GUARANTEES IS IMPLEMENTED IN PRODUCTION.**
+- [x] Independent CS02 [PR #42 comment 6479424206](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6479424206): 438/438 each local Lua5.1.5/5.4.7 synthetic timing sweep; 8/11 Compat mutants killed with 3 survivors; real native 3.3.5a AnimationGroup timing **UNKNOWN**.
+
+## D. Next Part46 work queue (stay in test/docs-only DRAFT scope)
+
+- [ ] FIRST: read complete Part45→46 handover and this checklist, recheck live protected `335` head, latest peer PR #42 comments, #355 CI, any newly created PRs and original-head hashes. Only then update append-only ledger.
+- [ ] Inspect #353 source fixture and isolate owner vs descendant-child lifetime and stale test-only writer effects; identify which test predicates are genuine original source and which are invented host/model.
+- [ ] Add **test-only** negative/positive controls for reentrant Compat timer ID, normal completion count exactly 1, parent cancel with running child, child exception, parent error, double-callback and stale A→B→A write, linked to real original call sites where feasible. New child draft; never rewrite #352/#353.
+- [ ] Source-check real 3.3.5a frame OnFinished ordering / UpdateQuest WasComplete or missing source item reachability. Mark any timing argument synthetic or conditional, no invented native data.
+- [ ] Research cancellation contract (ABORT/ERROR no false ready), reset latch `_resetNeedsAvailables` cleanup, child ownership propagation, source timer identity, and guards on quest-map/tooltip writer access — **research/model only** until separately approved.
+- [ ] Continue original QuestieStream / QuestieDB lease cache invalidation and Comms/Tracker/Journey user-lifetime integration; no assertion of normal first-party early `finished()` or native A→B→A trigger without evidence.
+- [ ] Coordinate with CS02/Grok/CS03/Claude via targeted public-safe comments; never assume response, completion or branch permission without evidence. Existing [comment 6480457256](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6480457256) has narrow task boundaries.
+- [ ] Keep owner and users informed with short, plain step-by-step reports. No emojis in repository warning text. Preserve compatibility with AzerothCore / 3.3.5a / Individual Progression constraints.
+
+## E. Handover quality and release safety
+
+- [ ] Every new isolated draft contains only allowed files (test and/or documentation/CI workflow), exactly pinned source, source-vs-mock-vs-native labels, clear run/runner/job evidence and no distributed packages. Verify GitHub Actions and artifacts after changes.
+- [ ] Keep [Part46 checklist](NQ-PART46-LIVING-DEVELOPMENT-CHECKLIST.md), Part45 checklist and master checklist append-only; do not erase historic unresolved results. Draft PRs are not merges.
+- [ ] Maintain Gate08 MAJOR RED, 439 RAW unapproved, pilot 1207–1209 0/3 until actual separately approved evidence changes.
+
+**This checklist lives in an isolated documentation DRAFT PR, not on the protected `335` branch.**
