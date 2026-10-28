@@ -143,7 +143,7 @@ local function fixture(opts)
         env.NQuestieCustomQuestData={revision=opts.sourceRevision or 7}
     end
     setmetatable(env,{__index=_G})
-    execute_original("local coYield=coroutine.yield\n"..helpers..
+    assert(source:find("local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID",1,true),\n        "ALPHA0_ORIGINAL_EXPANSION_BINDING_MISSING")\n    execute_original("local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID\n"..\n        "local coYield=coroutine.yield\n"..helpers..
         "\nQuestieInit.Stages={}\n"..stage,env)
 
     local thread=coroutine.create(env.QuestieInit.Stages[1])
