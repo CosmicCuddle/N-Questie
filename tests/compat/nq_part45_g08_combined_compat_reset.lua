@@ -64,10 +64,9 @@ local function scenario(mode)
   end
   local compat={frame=frame}
   local function ticker(delay,cb,iterations)
-    -- Only record returned handles; execute the original Compat.NewTicker.
-    local handle=compat.C_Timer.NewTicker(delay,cb,iterations)
-    timers[#timers+1]=handle
-    return handle
+    -- The test observer below records all original Compat calls, including
+    -- ThreadLib's direct reference; no double-counting in this adapter.
+    return compat.C_Timer.NewTicker(delay,cb,iterations)
   end
   local function active(handle)
     for _,group in ipairs(groups) do
@@ -161,6 +160,14 @@ local function scenario(mode)
     QuestieTracker={Update=function()end}}
   setmetatable(env,{__index=_G})
   compile(compatTimer,"=original_335_Compat_timer_fragment",env)
+  -- Test-only passive observer: genuine ThreadLib imports Compat.NewTicker
+  -- directly, bypassing SmoothReset's C_Timer alias. Capture EVERY issued ID.
+  local originalNewTicker=compat.C_Timer.NewTicker
+  compat.C_Timer.NewTicker=function(delay,callback,iterations)
+    local handle=originalNewTicker(delay,callback,iterations)
+    timers[#timers+1]=handle
+    return handle
+  end
   compile(tsrc,"@335/Modules/Libs/ThreadLib.lua",env)
   compile(asrc,"@335/Modules/Quest/AvailableQuests.lua",env)
   env.AvailableQuests=modules.AvailableQuests
