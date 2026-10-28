@@ -52,7 +52,7 @@ jobs:
             fi
             output="$RUNNER_TEMP/g04-public-$lua.log"
             NQ_G04_SOURCE_ROOT="$RUNNER_TEMP/nq-protected-g04" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate04_public_manifest_lifecycle.lua | tee "$output"
-            grep -Fx 'PUBLIC G04 PINNED LOADER CONTROLS: 16/16 PASS' "$output"
+            grep -Fx 'PUBLIC G04 PINNED LOADER CONTROLS: 18/18 PASS' "$output"
             grep -Fx 'PUBLIC G04 KNOWN UNSAFE: late mutable manifest field edit and removed source after memoized approval are reproduced.' "$output"
             grep -Fx 'PUBLIC G04 NOT ACCEPTED: exclusive all-writer provenance, immutable manifest, native client, IP eligibility or production integration.' "$output"
             test "$(grep -Ec '^PUBLIC G04 ' "$output")" -eq 3

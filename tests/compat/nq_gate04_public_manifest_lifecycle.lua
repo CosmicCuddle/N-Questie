@@ -188,8 +188,17 @@ local controls={
             {"objectData","questData","npcData"},
             {"objectData","npcData","questData"},
         }
-        for _,order in ipairs(orders) do checkValid(boot(),order) end
-        assert(#orders==6,"G04_CALLBACK_ORDER_MATRIX_MISSING")
+        local seen,count={},0
+        for _,order in ipairs(orders) do
+            assert(#order==3,"G04_CALLBACK_ORDER_WIDTH_INVALID")
+            local key=table.concat(order,">")
+            assert(not seen[key],"G04_CALLBACK_ORDER_DUPLICATE")
+            seen[key]=true
+            count=count+1
+            checkValid(boot(),order)
+        end
+        assert(#orders==6 and count==6,
+            "G04_CALLBACK_ORDER_MATRIX_MISSING")
     end,
     function()
         local b=boot()
@@ -201,14 +210,32 @@ local controls={
             "G04_CORRECTION_CALLBACK_MUST_NOT_WRITE_SOURCE")
     end,
     function()
+        -- Mutation V1: initial unsupported u8 requiredLevel is rejected
+        -- BEFORE a first approval cache is created.
+        local b=boot()
+        b.proposal.requiredLevel=300
+        assert(next(b.registered.questData())==nil and
+            next(b.registered.npcData())==nil,
+            "G04_INITIAL_U8_LEVEL_BOUNDARY_REJECTED")
+    end,
+    function()
+        -- Mutation V2: a sparse-but-two-valued starter list must not be
+        -- accidentally truncated by ipairs during initial admission.
+        local b=boot()
+        b.proposal.startedByNpcs={[1]=S,[3]=F}
+        assert(next(b.registered.questData())==nil and
+            next(b.registered.npcData())==nil,
+            "G04_INITIAL_SPARSE_STARTER_REJECTED")
+    end,
+    function()
         -- EXPECTED UNSAFE: approvedQuests caches a reference to mutable q.
         -- After first approval, an unregistered late edit bypasses parseQuest.
         local b=boot()
         local before=assert(b.registered.questData()[ID])
         assert(before[Q.requiredLevel]==20,"G04_LATE_WRITE_BASELINE")
         b.proposal.requiredLevel=300 -- invalid u8, INVENTED TEST DATA ONLY
-        local after=assert(b.registered.questData()[ID])
-        assert(after[Q.requiredLevel]==300,
+        local after=b.registered.questData()[ID]
+        assert(after and after[Q.requiredLevel]==300,
             "G04_EXPECTED_UNSAFE_LATE_MANIFEST_FIELD_WRITE_NOT_REPRODUCED")
     end,
     function()
@@ -217,19 +244,24 @@ local controls={
         local b=boot()
         assert(b.registered.questData()[ID],"G04_LATE_SOURCE_BASELINE")
         b.db.npcData[S]=nil
-        assert(b.registered.questData()[ID] and
-            b.registered.npcData()[S]==nil,
+        local reverse=b.registered.npcData()
+        -- A fabricated reverse entry is NOT an acceptable fix for an
+        -- absent source; distinguish it from a real forward refusal.
+        assert(reverse[S]==nil,
+            "G04_MISSING_SOURCE_REVERSE_FABRICATION_REFUSED")
+        local forward=b.registered.questData()[ID]
+        assert(forward~=nil,
             "G04_EXPECTED_UNSAFE_LATE_OWNER_REMOVAL_NOT_REPRODUCED")
     end,
 }
-assert(#controls==16,"G04_CONTROL_INVENTORY_CHANGED")
+assert(#controls==18,"G04_CONTROL_INVENTORY_CHANGED")
 local executed=0
 for i,fn in ipairs(controls) do
     fn()
     executed=executed+1
     assert(executed==i,"G04_CONTROL_EXECUTION_DRIFT")
 end
-assert(executed==16,"G04_CONTROL_COUNT_DRIFT")
-print("PUBLIC G04 PINNED LOADER CONTROLS: 16/16 PASS")
+assert(executed==18,"G04_CONTROL_COUNT_DRIFT")
+print("PUBLIC G04 PINNED LOADER CONTROLS: 18/18 PASS")
 print("PUBLIC G04 KNOWN UNSAFE: late mutable manifest field edit and removed source after memoized approval are reproduced.")
 print("PUBLIC G04 NOT ACCEPTED: exclusive all-writer provenance, immutable manifest, native client, IP eligibility or production integration.")
