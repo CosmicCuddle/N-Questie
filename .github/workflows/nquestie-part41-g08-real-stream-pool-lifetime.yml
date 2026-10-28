@@ -1,0 +1,65 @@
+name: N-Questie Part41 G08 exact real QuestieStream pool lifetime (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  public-g08-real-stream-pool:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Pin real protected-335 stream and compiler source tree and bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          mkdir -p "$RUNNER_TEMP/nq-real-stream/Modules" "$RUNNER_TEMP/nq-real-stream/Database"
+          for file in Modules/QuestieStream.lua Database/compiler.lua; do
+            case "$file" in
+              Modules/QuestieStream.lua) expected=1819aeea11148eae0742810dbd2338410edda238 ;;
+              Database/compiler.lua) expected=abba0249f44d14711dbdd46bbde969ccffbc2963 ;;
+              *) echo "G08_UNKNOWN_PUBLIC_SOURCE" >&2; exit 1 ;;
+            esac
+            test "$(git rev-parse "$sha:$file")" = "$expected"
+            git show "$sha:$file" > "$RUNNER_TEMP/nq-real-stream/$file"
+            test -s "$RUNNER_TEMP/nq-real-stream/$file"
+            test "$(git hash-object -- "$RUNNER_TEMP/nq-real-stream/$file")" = "$expected"
+          done
+          echo "PUBLIC G08 FULL STREAM AND COMPILER SOURCE BLOBS MATCH PROTECTED 335"
+      - name: Install real Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute complete actual stream module with fictional alias cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_part41_g08_real_stream_pool_lifetime.lua
+            else
+              luac5.4 -p tests/compat/nq_part41_g08_real_stream_pool_lifetime.lua
+            fi
+            output="$RUNNER_TEMP/real-g08-stream-$lua.log"
+            NQ_G08_STREAM_SOURCE_ROOT="$RUNNER_TEMP/nq-real-stream" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part41_g08_real_stream_pool_lifetime.lua | tee "$output"
+            grep -Fx 'PUBLIC G08 EXACT REAL STREAM POOL CONTROLS: 14/14 PASS' "$output"
+            grep -Fx 'PUBLIC G08 KNOWN UNSAFE: stale aliases, double-finished duplicate leases, and prematurely returned suspended writers can contaminate pool borrowers.' "$output"
+            grep -Fx 'PUBLIC G08 NOT ACCEPTED: normal client can trigger misuse, ownership quarantine, full compiler, writer epochs, durable relog or release.' "$output"
+            test "$(grep -Ec '^PUBLIC G08 ' "$output")" -eq 3
+          done
+      - name: Do not package or distribute test code
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
