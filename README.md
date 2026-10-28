@@ -1,3 +1,15 @@
+# 🚧 N-QUESTIE — UNDER DEVELOPMENT 🚧
+
+## ⛔ NOT FINISHED — NOT READY FOR DOWNLOAD OR INSTALLATION
+
+**N-Questie is an unfinished development project, not a released addon. No public N-Questie release or installation-ready build has been approved. Features, integration and in-game compatibility testing are still in progress.**
+
+**⚠️ IMPORTANT: The inherited Questie-335 and upstream Questie download/installation links farther down this README are NOT N-Questie releases. Do not mistake them for a completed version of this project.**
+
+**Please do not redistribute, install or rely on repository development branches as finished N-Questie builds.**
+
+---
+
 # N-Questie — Naxxramas Questie Fork
 
 **Status:** WoW 3.3.5a custom-server fork in development; **no N-Questie release is published yet**.
