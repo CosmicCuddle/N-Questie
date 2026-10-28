@@ -1,0 +1,63 @@
+name: N-Questie Part43 G08 original 335 reader generation ABI (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  original-db-reader-abi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate protected original QuestieDB Initialize source
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          path=Database/QuestieDB.lua
+          oid=5784cb65160175e1dce30fe20e8baada0af7e480
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          test "$(git rev-parse "$sha:$path")" = "$oid"
+          mkdir -p "$RUNNER_TEMP/nq-original-db-reader/Database"
+          git show "$sha:$path" > "$RUNNER_TEMP/nq-original-db-reader/$path"
+          test "$(git hash-object "$RUNNER_TEMP/nq-original-db-reader/$path")" = "$oid"
+          echo "PUBLIC G08 ORIGINAL 335 QUESTIEDB SOURCE BLOB AUTHENTICATED"
+      - name: Install Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute original read-side ABI under fictional handle factory
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part43_g08_real_335_db_reader_generation_abi.lua
+            else
+              luac5.4 -p tests/compat/nq_part43_g08_real_335_db_reader_generation_abi.lua
+            fi
+            logfile="$RUNNER_TEMP/nq-original-db-reader-$lua.log"
+            NQ_G08_ORIGINAL_DB_READER_ROOT="$RUNNER_TEMP/nq-original-db-reader" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part43_g08_real_335_db_reader_generation_abi.lua | tee "$logfile"
+            grep -Fx 'PUBLIC G08 PART43 ORIGINAL 335 READER ABI: 32/32 PASS' "$logfile"
+            grep -Fx 'PUBLIC G08 ORIGINAL FACT: QuestieDB Initialize reads eight individual global or SoD Bin/Ptrs, builds four query handles and ignores a shadow published generation pointer.' "$logfile"
+            grep -Fx 'PUBLIC G08 NOT ACCEPTED: GetDBHandle is fictional, shadow reader adapter is hypothetical; no native consumer migration, global stream/atomicity, disk/relog or playable ZIP/install/merge/release.' "$logfile"
+            test "$(grep -Ec '^PUBLIC G08 ' "$logfile")" -eq 3
+          done
+      - name: Fail closed on any generated addon package
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d releases
+          test ! -d dist
+          test ! -d Questie-335
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
