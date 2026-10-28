@@ -127,3 +127,25 @@
 - [ ] Provide the owner one copy-ready next-chat message with full documents, exact pinned SHA/PR and explicit safety/governance constraints.
 
 **No owner action is needed to continue public-safe isolated research.** If real client/private data becomes essential, explain one step at a time and prepare backups first. Never act beyond separately approved scope.
+
+## 8. Part 41 live engineering checkpoint — 28 October 2026, after handover
+
+**This is a later checkpoint; historical handover rows above remain intentionally unchanged.** The latest independently fetched protected `335` HEAD is still `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`.
+
+### Original-head Actions and artifact re-audit
+
+- [x] [#260](https://github.com/CosmicCuddle/N-Questie/pull/260) `2afeebd06c2909c42966edcad7f66555c561830e`: **8/8 exact-original-head Actions SUCCESS** (including the push run and previously running M2); **0/8 individual artifact endpoints**. Dedicated [40671956841](https://github.com/CosmicCuddle/N-Questie/actions/runs/40671956841) source blob tests remain 15/15 on actual Lua 5.1.5 and 5.4.6. **CS02 mutation review remains PENDING** as of this checkpoint, not falsely promoted.
+- [x] [#261](https://github.com/CosmicCuddle/N-Questie/pull/261) `894485e79feb198c6ac0eb91db767c9faec6b2cf`: **9/9 original-head Actions SUCCESS** (including TWO push CI runs), **0/9 individual artifact endpoints**.
+- [x] [#262](https://github.com/CosmicCuddle/N-Questie/pull/262) `9224b8a7a44e769155d3ae0f8ee48f7d3166f9c2`: **8/8 original-head Actions SUCCESS**, including formerly pending M2 [40673090482](https://github.com/CosmicCuddle/N-Questie/actions/runs/40673090482); **0/8 individual artifact endpoints**.
+- [x] All **25 distinct** #260/#261/#262 original-head Actions artifact endpoints were fetched individually (including all push runs), all empty. These are current-status observations, not revisions of the original handover's earlier pending results or a perpetual release safety guarantee.
+
+### New isolated public-source engineering draft
+
+- [x] Created separate **TEST-ONLY DRAFT [#263](https://github.com/CosmicCuddle/N-Questie/pull/263)**, initial frozen HEAD `727631466e4e318f15a36531ce8afa909a78d947`, child of #260 exact HEAD, with 3 new paths (Lua, dedicated workflow, [public-source research note](../docs/research/NQ-PART41-GATE05-PUBLIC-GETITEM-SOURCE-LINEAGE.md)). It executes the real complete protected-335 `QuestieDB:GetItem` function under **invented** QueryItem records; stages exact pinned 335 item/quest/QuestieDB file blob IDs; no source production edit.
+- [x] Dedicated [#263 G05 run 40674232076](https://github.com/CosmicCuddle/N-Questie/actions/runs/40674232076) **SUCCESS**, log confirms **Lua 5.1.5 + 5.4.6**, **14/14** actual executed synthetic tests under each. It separates `startQuest` from monster/vendor/GO `Sources` and documents that this `GetItem` code path does not turn `itemDrops` into `Sources` entries. **9/9 original-head artifact endpoints individually fetched EMPTY** at the initial run snapshot.
+- [ ] #263 broader exact-head Actions completion, any additional push runs, new artifacts, independent CS02 test mutation review and true source/adapter coverage remain open. Do not claim full CI green or peer VERIFIED from dedicated tests alone.
+- [ ] CS02 #260 exact-four-blob mutation challenge: no newly returned PR #260 / #42 review at this checkpoint; retain original open request.
+- [ ] Continue G04 OPT-A provenance and effective loader, G05 faction/override-only forward/reverse consistency, G06 native cache events, G07 client item-use interaction, G08 E01–E08 + TX01–TX18, G09 OWNER-PRIVATE phase/history, and 439 individual RAW research; these are still NOT resolved by G05 public fixture.
+- [ ] Keep original protected 335 untouched; retain #249 unsafe fixture and owner-approved testbuild deletion history, #258 early failures, no private SQL/IP/loot data, no merge/install/package/tag/release.
+
+**Whole-project scoreboard stays 3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING.** RAW research stays 439 (12 linked + 418 exploratory + 5 excluded + 3 placeholders + 1 handled overlay), approved eligible total UNKNOWN; pilot 1207–1209 still **0/3 implemented**. A successfully executed synthetic adapter test is NOT server source/quest approval, full item-start lineage, real client QA, all-writer epoch, atomic four-kind memory or durable SavedVariables recovery.
