@@ -1,0 +1,42 @@
+name: N-Questie Part42 Alpha0 recursive 335 XML closure (no package)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  alpha0-recursive-xml-closure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Fetch exact immutable original public 335 commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          test "$(git cat-file -t "$sha:Questie-335.toc")" = blob
+          test "$(git cat-file -t "$sha:Compat/embeds.xml")" = blob
+      - name: Audit main 335 TOC and every nested Script Include XML reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tests/compat/nq_part42_alpha0_335_recursive_xml_preflight.py
+          logfile="$RUNNER_TEMP/nq-alpha0-recursive-xml.log"
+          NQ_ALPHA0_SOURCE_SHA=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070 timeout --signal=TERM --kill-after=5s 90s python3 -B tests/compat/nq_part42_alpha0_335_recursive_xml_preflight.py | tee "$logfile"
+          grep -Fx 'PUBLIC ALPHA0 335 RECURSIVE XML PREFLIGHT: 39/39 PASS' "$logfile"
+          grep -Fx 'PUBLIC ALPHA0 KNOWN BLOCKERS: legacy builder wrong folder, wrong Wrath TOC and missing Compat; corrected in-memory file plan covers recursive 335 XML, but creates no build.' "$logfile"
+          grep -Fx 'PUBLIC ALPHA0 NOT ACCEPTED: complete WoW XML semantics, runtime, user approval, ZIP/install/release, SavedVariables relog, or G08.' "$logfile"
+          test "$(grep -Ec '^PUBLIC ALPHA0 ' "$logfile")" -eq 3
+      - name: Check no addon packaging occurred
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -d releases
+          test ! -d dist
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
