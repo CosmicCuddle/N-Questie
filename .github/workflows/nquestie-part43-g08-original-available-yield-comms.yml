@@ -1,0 +1,69 @@
+name: N-Questie Part43 G08 original AvailableQuests yield and Comms pairing (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  source-yield-consumers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate protected 335 consumer source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          root="$RUNNER_TEMP/nq-original-yield-comms"
+          mkdir -p "$root/Modules/Quest" "$root/Modules/Network" "$root/Modules/Tracker"
+          while read -r path oid; do
+            test "$(git rev-parse "$sha:$path")" = "$oid"
+            git show "$sha:$path" > "$root/$path"
+            test "$(git hash-object "$root/$path")" = "$oid"
+          done <<'BLOBS'
+          Modules/Quest/AvailableQuests.lua 2664f09fdf1f5df4d94581414e9d5ea88e9af4e7
+          Modules/Network/QuestieComms.lua 400dbfaec895517cea7cd283e6ec20404f46a7b7
+          Modules/Tracker/TrackerLinePool.lua e7e9f6b8539080b3934def64779a49c0fc2a6b6b
+          BLOBS
+          echo "PUBLIC G08 ORIGINAL AVAILABLEQUESTS COMMS TRACKER BLOBS VERIFIED"
+      - name: Install Lua5.1 and Lua5.4 for public synthetic fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute exact original fragments with fictional generations
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part43_g08_availablequests_yield_comms_generation.lua
+            else
+              luac5.4 -p tests/compat/nq_part43_g08_availablequests_yield_comms_generation.lua
+            fi
+            logfile="$RUNNER_TEMP/nq-original-yield-comms-$lua.log"
+            NQ_G08_AVAIL_COMMS_ROOT="$RUNNER_TEMP/nq-original-yield-comms" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part43_g08_availablequests_yield_comms_generation.lua | tee "$logfile"
+            grep -Fx 'PUBLIC G08 PART43 AVAILABLE QUESTS YIELD AND COMMS PAIR: 40/40 PASS' "$logfile"
+            grep -Fx 'PUBLIC G08 ORIGINAL FRAGMENT WITNESS: actual 335 AvailableQuests pointer capture and yielded iteration can enumerate old pointer IDs while an invented new query handle returns missing fields.' "$logfile"
+            grep -Fx 'PUBLIC G08 COMMS FRAGMENT WITNESS: original pointer and zone query expressions are distinct; constructed mismatched values can return missing or fail on a nil zone comparison.' "$logfile"
+            grep -Fx 'PUBLIC G08 NOT ACCEPTED: only authentic source fragments executed, not complete AvailableQuests/QuestieComms; quest callbacks, data, query handles and epoch coordinator fictional; no native scheduling, stream ownership, disk/relog or ZIP/install/merge/release.' "$logfile"
+            test "$(grep -Ec '^PUBLIC G08 ' "$logfile")" -eq 4
+          done
+      - name: Confirm clean checkout and no build outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d releases
+          test ! -d dist
+          test ! -d Questie-335
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
