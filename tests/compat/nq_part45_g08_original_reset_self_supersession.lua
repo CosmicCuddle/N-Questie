@@ -127,8 +127,11 @@ local function scenario(mode)
   assert(tick(before),"CALC_FIRST_RESUME_FAILED")
   local child=timers[3]
   local activeBefore=reset._resetNeedsAvailables==true
+  local preUpdateTickerCount=#timers
   assert(tick(resetTicker),"ORIGINAL_UPDATE_QUEST_STEP_FAILED")
-  local after=timers[#timers]
+  -- The original first calculator already spawned independent child tickers.
+  -- Compare the count across UpdateQuest; the final old child is NOT a replacement.
+  local after=(#timers>preUpdateTickerCount) and timers[#timers] or before
   for i=1,6 do
     tick(before);if after~=before then tick(after)end
     tick(resetTicker)
