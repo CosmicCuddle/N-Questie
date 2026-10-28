@@ -207,10 +207,25 @@ check(module.LastResult.query=="new",
 check(oldQueryAlias(101,"name")=="OLD token npc 101" and
     oldPtrAlias[101]==true,
     "C47_OLD_EXPORTED_ALIASES_NOT_REBOUND_AFTER_SWAP")
+-- Even a fully matched OLD-to-NEW facade transition can retain OLD IDs
+-- if callers invoke :Search directly without :ByName's reset procedure.
+setPart("npc","old","old")
+module:ByName("__FICTIONAL_NONMATCH_SENTINEL__")
+check(count(module:Search("old","npc"))==2,
+    "C48_FRESH_OLD_SEARCH_CACHE_CONTAINS_ONLY_OLD_IDS")
+setPart("npc","new","new")
+local retained=module:Search("new","npc")
+check(count(retained)==4 and retained[101]==true and retained[111]==true,
+    "C49_DIRECT_SEARCH_CARRIES_OLD_IDS_IN_NEW_GENERATION")
+check(retained[102]==true and retained[112]==true,
+    "C50_DIRECT_SEARCH_ALSO_ADDS_NEW_GENERATION_IDS")
+local reset=module:ByName("new")
+check(count(reset.npc)==2 and reset.npc[101]==nil and reset.npc[102]==true,
+    "C51_BYNAME_RESETS_OLD_ID_CACHE_AFTER_GENERATION_CHANGE")
 check(not contains(original,"QueryGeneration") and
     not contains(original,"AcquireGeneration"),
-    "C48_ORIGINAL_SEARCH_HAS_NO_EXPLICIT_GENERATION_LEASE_API")
-assert(checks==48,"ORIGINAL_CONSUMER_ASSERTION_CENSUS_CHANGED")
-print("PUBLIC G08 PART43 REAL 335 QUESTIESEARCH QUERY POINTER PAIR: 48/48 PASS")
+    "C52_ORIGINAL_SEARCH_HAS_NO_EXPLICIT_GENERATION_LEASE_API")
+assert(checks==52,"ORIGINAL_CONSUMER_ASSERTION_CENSUS_CHANGED")
+print("PUBLIC G08 PART43 REAL 335 QUESTIESEARCH QUERY POINTER PAIR: 52/52 PASS")
 print("PUBLIC G08 ORIGINAL SOURCE WITNESS: separate query and pointer field reads; constructed mixed facade silently loses matching search IDs; stable matching local pair remains coherent through one synchronous search.")
 print("PUBLIC G08 NOT ACCEPTED: data/query functions are invented; no real GetDBHandle, real external writer interleaving, stream pool, saved variables, native 3.3.5a/IP, build/ZIP/install/merge/release.")
