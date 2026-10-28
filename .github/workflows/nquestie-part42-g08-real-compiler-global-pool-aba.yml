@@ -1,0 +1,65 @@
+name: N-Questie Part42 G08 real compiler and global pool ABA (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  real-compiler-aba:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Pin exact protected-335 real compiler and stream bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          mkdir -p "$RUNNER_TEMP/nq-real-compiler-aba/Database" "$RUNNER_TEMP/nq-real-compiler-aba/Modules"
+          for file in Database/compiler.lua Modules/QuestieStream.lua; do
+            case "$file" in
+              Database/compiler.lua) expected=abba0249f44d14711dbdd46bbde969ccffbc2963 ;;
+              Modules/QuestieStream.lua) expected=1819aeea11148eae0742810dbd2338410edda238 ;;
+              *) echo "G08_UNKNOWN_PUBLIC_SOURCE_FILE" >&2; exit 1 ;;
+            esac
+            test "$(git rev-parse "$sha:$file")" = "$expected"
+            git show "$sha:$file" > "$RUNNER_TEMP/nq-real-compiler-aba/$file"
+            test -s "$RUNNER_TEMP/nq-real-compiler-aba/$file"
+            test "$(git hash-object -- "$RUNNER_TEMP/nq-real-compiler-aba/$file")" = "$expected"
+          done
+          echo "PUBLIC G08 REAL COMPILER AND STREAM SOURCE TREE AND STAGED BYTES VERIFIED"
+      - name: Install real Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute exact real per-kind compiler with global pool and ABA schedule
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_part42_g08_real_compiler_pool_aba.lua
+            else
+              luac5.4 -p tests/compat/nq_part42_g08_real_compiler_pool_aba.lua
+            fi
+            output="$RUNNER_TEMP/nq-real-compiler-aba-$lua.log"
+            NQ_G08_REAL_COMPILER_POOL_ROOT="$RUNNER_TEMP/nq-real-compiler-aba" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part42_g08_real_compiler_pool_aba.lua | tee "$output"
+            grep -Fx 'PUBLIC G08 REAL COMPILER GLOBAL POOL ABA CONTROLS: 17/17 PASS' "$output"
+            grep -Fx 'PUBLIC G08 KNOWN UNSAFE: staged actual compiler reads transient B across source A-to-B-to-A, real decoder returns B after source restored; aborts retain borrowed streams.' "$output"
+            grep -Fx 'PUBLIC G08 NOT ACCEPTED: authenticated E01-E08 writer epochs, all-kind atomic publication, normal client source timing, durable disk/relog, or release.' "$output"
+            test "$(grep -Ec '^PUBLIC G08 ' "$output")" -eq 3
+          done
+      - name: Never package or distribute these tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
