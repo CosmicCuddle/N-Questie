@@ -1,0 +1,46 @@
+name: N-Questie Part42 Alpha0 335 manifest preflight (no packaging)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  alpha0-no-package-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Fetch exact public protected 335 source without installing or packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          test "$(git cat-file -t "$sha:Questie-335.toc")" = blob
+          test "$(git cat-file -t "$sha:build.py")" = blob
+          test "$(git cat-file -t "$sha:Compat/embeds.xml")" = blob
+          echo "PUBLIC ALPHA0 PINNED ORIGINAL 335 FILE TREE AVAILABLE"
+      - name: Verify original 335 file manifest and known legacy packager blockers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile tests/compat/nq_part42_alpha0_335_manifest_preflight.py
+          output="$RUNNER_TEMP/nq-alpha0-335-preflight.log"
+          NQ_ALPHA0_SOURCE_SHA=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070 timeout --signal=TERM --kill-after=5s 90s python3 -B tests/compat/nq_part42_alpha0_335_manifest_preflight.py | tee "$output"
+          grep -Fx 'PUBLIC ALPHA0 335 MANIFEST PREFLIGHT: 27/27 PASS' "$output"
+          grep -Fx 'PUBLIC ALPHA0 KNOWN BLOCKERS: original build.py targets Questie folder and upstream Wrath TOC and omits required Compat tree; no installable build generated.' "$output"
+          grep -Fx 'PUBLIC ALPHA0 NOT ACCEPTED: package generation, approval to distribute/install, live WoW 3.3.5a startup, SavedVariables backup/relog, G08, or release.' "$output"
+          test "$(grep -Ec '^PUBLIC ALPHA0 ' "$output")" -eq 3
+      - name: Enforce no ZIP, distribution, install or release outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -d releases
+          test ! -d dist
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
