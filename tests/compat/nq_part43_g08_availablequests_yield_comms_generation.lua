@@ -40,6 +40,11 @@ local function generation(tag,start)
 end
 local old=generation("OLD",1)
 local new=generation("NEW",101)
+local function count(t)
+    local n=0
+    for _ in pairs(t or {}) do n=n+1 end
+    return n
+end
 local function fixture()
     local current={pointers=old.ptr,queryData=old.data,tag="OLD"}
     local facade={QuestPointers=current.pointers}
@@ -136,8 +141,16 @@ restart.setCurrent("NEW")
 restart.step();restart.step();restart.step()
 check(#restart.events==52 and restart.missing()==0,
       "V26_FRESH_NEW_POINTERS_NEW_QUERY_COHERENT")
-check(restart.events[1].id==101 and restart.events[52].id==152,
-      "V27_FRESH_NEW_POINTERS_EXCLUDE_OLD_IDS")
+local newOnly=true
+local seenNew={}
+for _,event in ipairs(restart.events) do
+    if event.id < 101 or event.id > 152 or seenNew[event.id] then
+        newOnly=false
+    end
+    seenNew[event.id]=true
+end
+check(newOnly and count(seenNew)==52,
+      "V27_FRESH_NEW_POINTERS_EXCLUDE_OLD_IDS_UNORDERED")
 -- Comms original expression guard and lookup, under a synthetic swap.
 local pointerExpression="QuestieDB.QuestPointers[questId]"
 local queryExpression='QuestieDB.QueryQuestSingle(questId, "zoneOrSort")'
