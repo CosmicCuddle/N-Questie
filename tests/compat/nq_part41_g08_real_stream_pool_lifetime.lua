@@ -46,6 +46,8 @@ local function boot()
             lshift=function(a,b)return (a*(2^b))%(2^32) end,
             rshift=function(a,b)return math.floor(a/(2^b)) end,
         },
+        -- WoW 3.3.5a exports tremove; plain PUC Lua does not.
+        tremove=table.remove,
         unpack=unpack or table.unpack
     },{__index=_G})
     local chunk
