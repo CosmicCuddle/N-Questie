@@ -1,0 +1,65 @@
+name: N-Questie Part41 G04 public manifest lifecycle (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  public-g04-manifest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Stage protected-335 public loader and manifest, pin tree and bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$source_sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$source_sha"
+          mkdir -p "$RUNNER_TEMP/nq-protected-g04/Compat"
+          for file in Compat/NQuestieCustomQuestLoader.lua Compat/NQuestieCustomQuestData.lua; do
+            case "$file" in
+              Compat/NQuestieCustomQuestLoader.lua) expected_blob=1feb6b5e8a55c68686a4a6bcb9f2355f89454970 ;;
+              Compat/NQuestieCustomQuestData.lua) expected_blob=1d48353b796bdccd179b7aaa964cba21d6d0462c ;;
+              *) echo "G04_UNEXPECTED_PUBLIC_SOURCE" >&2; exit 1 ;;
+            esac
+            test "$(git rev-parse "$source_sha:$file")" = "$expected_blob"
+            git show "$source_sha:$file" > "$RUNNER_TEMP/nq-protected-g04/$file"
+            test -s "$RUNNER_TEMP/nq-protected-g04/$file"
+            test "$(git hash-object -- "$RUNNER_TEMP/nq-protected-g04/$file")" = "$expected_blob"
+          done
+          echo "PUBLIC G04 TWO SOURCE BLOBS MATCH PINNED 335"
+      - name: Install real Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute real public loader, registration and known-unsafe lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_gate04_public_manifest_lifecycle.lua
+            else
+              luac5.4 -p tests/compat/nq_gate04_public_manifest_lifecycle.lua
+            fi
+            output="$RUNNER_TEMP/g04-public-$lua.log"
+            NQ_G04_SOURCE_ROOT="$RUNNER_TEMP/nq-protected-g04" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate04_public_manifest_lifecycle.lua | tee "$output"
+            grep -Fx 'PUBLIC G04 PINNED LOADER CONTROLS: 16/16 PASS' "$output"
+            grep -Fx 'PUBLIC G04 KNOWN UNSAFE: late mutable manifest field edit and removed source after memoized approval are reproduced.' "$output"
+            grep -Fx 'PUBLIC G04 NOT ACCEPTED: exclusive all-writer provenance, immutable manifest, native client, IP eligibility or production integration.' "$output"
+            test "$(grep -Ec '^PUBLIC G04 ' "$output")" -eq 3
+          done
+      - name: Forbid packaging in this test-only branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
