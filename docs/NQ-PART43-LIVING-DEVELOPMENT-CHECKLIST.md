@@ -41,3 +41,6 @@
 ## Part 43 work log (append dated verified updates)
 
 **2026-10-28 initial handover:** First Alpha0 goal is a limited, private, reversible smoke test. No playable build yet. Review frozen exact heads and carry on public-safe engineering before asking approval for packaging.
+
+
+**2026-10-28 final original-head CI follow-up:** Frozen [#290](https://github.com/CosmicCuddle/N-Questie/pull/290) is now **17/17 Actions SUCCESS, 0/17 artifacts**, final M2 completed. Frozen [#291](https://github.com/CosmicCuddle/N-Questie/pull/291) is now **9/9 Actions SUCCESS, 0/9 artifacts** including late push run `40702804623`. Earlier 16/17 and 7/8 observations in the dated opening checklist remain historical. Mark their pending-closeout tasks **completed at this timestamp**; future next lead must recheck any newly arrived original-head workflows before claiming continued complete coverage. No new playable ZIP or native client test; Gate08 remains MAJOR RED.
