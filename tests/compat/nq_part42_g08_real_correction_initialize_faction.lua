@@ -56,7 +56,7 @@ local function boot(opts)
     local isWotlk=opts.isWotlk~=false
     local is335=opts.is335~=false
     local faction=opts.faction or "A"
-    local events={},{}
+    local events={}
     -- The fixture controls faction explicitly: NO WoW native unit faction API.
     local db={
         questKeys={startedBy=1,requiredRaces=2},
@@ -124,7 +124,8 @@ local function boot(opts)
         "QuestieWotlkQuestFixes","QuestieWotlkNpcFixes",
         "QuestieWotlkItemFixes","QuestieWotlkObjectFixes",
     }
-    local env={
+    local env
+    env={
         QuestieDB=db,QuestieCorrections=module,
         Questie={IsClassic=not isWotlk,IsTBC=false,
             IsWotlk=isWotlk,IsSoD=false,IsHardcore=false,
