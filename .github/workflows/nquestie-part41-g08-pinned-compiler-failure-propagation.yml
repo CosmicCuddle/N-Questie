@@ -1,0 +1,65 @@
+name: N-Questie Part41 G08 pinned real compiler failure propagation (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  public-g08-compiler-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Stage two pinned protected-335 public sources by tree and bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          mkdir -p "$RUNNER_TEMP/nq-pinned-g08/Database" "$RUNNER_TEMP/nq-pinned-g08/Modules"
+          for file in Database/compiler.lua Modules/QuestieInit.lua; do
+            case "$file" in
+              Database/compiler.lua) expected=abba0249f44d14711dbdd46bbde969ccffbc2963 ;;
+              Modules/QuestieInit.lua) expected=22fffa1b1bbeb81ba067f34151949c0938a316c1 ;;
+              *) echo "G08_UNKNOWN_SOURCE_FILE" >&2; exit 1 ;;
+            esac
+            test "$(git rev-parse "$sha:$file")" = "$expected"
+            git show "$sha:$file" > "$RUNNER_TEMP/nq-pinned-g08/$file"
+            test -s "$RUNNER_TEMP/nq-pinned-g08/$file"
+            test "$(git hash-object -- "$RUNNER_TEMP/nq-pinned-g08/$file")" = "$expected"
+          done
+          echo "PUBLIC G08 TWO PINNED PROTECTED SOURCE BLOBS VERIFIED"
+      - name: Install real Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Actual source function negative regression with invented stream
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_part41_g08_pinned_compiler_failure_propagation.lua
+            else
+              luac5.4 -p tests/compat/nq_part41_g08_pinned_compiler_failure_propagation.lua
+            fi
+            output="$RUNNER_TEMP/g08-$lua.log"
+            NQ_G08_PINNED_SOURCE_ROOT="$RUNNER_TEMP/nq-pinned-g08" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part41_g08_pinned_compiler_failure_propagation.lua | tee "$output"
+            grep -Fx 'PUBLIC G08 REAL PINNED COMPILER NEGATIVE CONTROLS: 12/12 PASS' "$output"
+            grep -Fx 'PUBLIC G08 KNOWN UNSAFE: invalid-kind return reports compiled despite mixed four-kind state; errors strand streams and partial pairs.' "$output"
+            grep -Fx 'PUBLIC G08 NOT ACCEPTED: full QuestieStream pool behaviour, all-writer epochs, atomic memory, disk crash/relog, client or release.' "$output"
+            test "$(grep -Ec '^PUBLIC G08 ' "$output")" -eq 3
+          done
+      - name: Forbid packaging and external publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
