@@ -1,0 +1,63 @@
+name: N-Questie Part43 Alpha0 original 335 Stage1 cold warm source (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  alpha0-real-stage1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate exact original protected 335 Stage1 source blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          source_file=Modules/QuestieInit.lua
+          source_oid=22fffa1b1bbeb81ba067f34151949c0938a316c1
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          test "$(git rev-parse "$sha:$source_file")" = "$source_oid"
+          mkdir -p "$RUNNER_TEMP/nq-original-335/Modules"
+          git show "$sha:$source_file" > "$RUNNER_TEMP/nq-original-335/$source_file"
+          test "$(git hash-object "$RUNNER_TEMP/nq-original-335/$source_file")" = "$source_oid"
+          echo "PUBLIC ALPHA0 ORIGINAL STAGE1 SOURCE BLOB VERIFIED"
+      - name: Install actual Lua 5.1 and 5.4 interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute original Stage1 for fictional cold warm revisions and errors
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part43_alpha0_335_real_stage1_cold_warm.lua
+            else
+              luac5.4 -p tests/compat/nq_part43_alpha0_335_real_stage1_cold_warm.lua
+            fi
+            logfile="$RUNNER_TEMP/nq-part43-stage1-$lua.log"
+            NQ_ALPHA0_REAL_STAGE1_ROOT="$RUNNER_TEMP/nq-original-335" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part43_alpha0_335_real_stage1_cold_warm.lua | tee "$logfile"
+            grep -Fx 'PUBLIC ALPHA0 PART43 REAL 335 STAGE1 SOURCE: 35/35 PASS' "$logfile"
+            grep -Fx 'PUBLIC ALPHA0 SOURCE FACT: original cold cache triggers correction writers, precompile and compiler before DB init; matching warm cache uses MinimalInit; skipValidation does not bypass compilation.' "$logfile"
+            grep -Fx 'PUBLIC ALPHA0 NOT ACCEPTED: real addon environment, safe source ownership, SavedVariables flush/recovery, native WoW 3.3.5a/IP, production fix, ZIP/install/merge/release.' "$logfile"
+            test "$(grep -Ec '^PUBLIC ALPHA0 ' "$logfile")" -eq 3
+          done
+      - name: Verify no source mutation or packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d releases
+          test ! -d dist
+          test ! -d Questie-335
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
