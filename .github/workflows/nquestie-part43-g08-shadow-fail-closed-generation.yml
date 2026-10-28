@@ -1,0 +1,64 @@
+name: N-Questie Part43 G08 shadow fail-closed generation handshake (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  shadow-fail-closed-prototype:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate original protected compiler and Stage1 source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          mkdir -p "$RUNNER_TEMP/nq-shadow-original/Modules" "$RUNNER_TEMP/nq-shadow-original/Database"
+          test "$(git rev-parse "$sha:Modules/QuestieInit.lua")" = 22fffa1b1bbeb81ba067f34151949c0938a316c1
+          test "$(git rev-parse "$sha:Database/compiler.lua")" = abba0249f44d14711dbdd46bbde969ccffbc2963
+          git show "$sha:Modules/QuestieInit.lua" > "$RUNNER_TEMP/nq-shadow-original/Modules/QuestieInit.lua"
+          git show "$sha:Database/compiler.lua" > "$RUNNER_TEMP/nq-shadow-original/Database/compiler.lua"
+          test "$(git hash-object "$RUNNER_TEMP/nq-shadow-original/Modules/QuestieInit.lua")" = 22fffa1b1bbeb81ba067f34151949c0938a316c1
+          test "$(git hash-object "$RUNNER_TEMP/nq-shadow-original/Database/compiler.lua")" = abba0249f44d14711dbdd46bbde969ccffbc2963
+          echo "PUBLIC G08 ORIGINAL STAGE1 AND COMPILER BLOB HASHES AUTHENTICATED"
+      - name: Install Lua 5.1 and Lua 5.4 test interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Exercise read-only shadow protocol (NOT a production patch)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part43_g08_shadow_fail_closed_generation.lua
+            else
+              luac5.4 -p tests/compat/nq_part43_g08_shadow_fail_closed_generation.lua
+            fi
+            logfile="$RUNNER_TEMP/nq-shadow-$lua.log"
+            NQ_G08_SHADOW_ORIGINAL_ROOT="$RUNNER_TEMP/nq-shadow-original" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part43_g08_shadow_fail_closed_generation.lua | tee "$logfile"
+            grep -Fx 'PUBLIC G08 PART43 SHADOW FAIL-CLOSED HANDSHAKE: 45/45 PASS' "$logfile"
+            grep -Fx 'PUBLIC G08 PROTOTYPE ONLY: SUCCESS/BUSY/RETRY/ERROR, staged four-kind fields and metadata, one in-memory generation swap, epoch ABA guard, failure without downstream initialization.' "$logfile"
+            grep -Fx 'PUBLIC G08 NOT ACCEPTED: shadow API is NOT original production Questie/AceDB, actual E01-E08 writers or QuestieStream, disk/relog or native 3.3.5a/IP, ZIP/install/merge/release.' "$logfile"
+            test "$(grep -Ec '^PUBLIC G08 ' "$logfile")" -eq 3
+          done
+      - name: Assert no package or checkout mutations
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d releases
+          test ! -d dist
+          test ! -d Questie-335
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
