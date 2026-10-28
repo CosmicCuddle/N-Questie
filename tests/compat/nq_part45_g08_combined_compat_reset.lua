@@ -172,29 +172,37 @@ local function scenario(mode)
   compile(asrc,"@335/Modules/Quest/AvailableQuests.lua",env)
   env.AvailableQuests=modules.AvailableQuests
   local completionCalls=0
+  local lastCalculatorTicker=nil
   local originalCalculate=modules.AvailableQuests.CalculateAndDrawAll
-  -- Test-side counting observer, forwarding unchanged original production method.
+  -- Test-side observer tracks only the synchronous parent ticker allocated
+  -- by this genuine original call, never unrelated C_Timer.After/child timers.
   modules.AvailableQuests.CalculateAndDrawAll=function(callback)
-    if not callback then return originalCalculate() end
-    return originalCalculate(function(...)
-      completionCalls=completionCalls+1
-      return callback(...)
-    end)
+    local prior=#timers
+    local actualCallback=callback
+    if callback then
+      actualCallback=function(...)
+        completionCalls=completionCalls+1
+        return callback(...)
+      end
+    end
+    local result=originalCalculate(actualCallback)
+    assert(#timers==prior+1,"ORIGINAL_CALC_EXPECTED_ONE_PARENT_TIMER")
+    lastCalculatorTicker=timers[#timers]
+    return result
   end
   compile(smooth,"=original_335_SmoothReset",env)
   compile(update,"=original_335_UpdateQuest",env)
   reset:SmoothReset()
   local resetTicker=assert(timers[1],"RESET_TICKER_NOT_STARTED")
   for i=1,8 do assert(tick(resetTicker),"RESET_STEP_FAILED:"..i) end
-  local before=assert(timers[2],"ORIGINAL_CALCULATOR_NOT_STARTED")
+  local before=assert(lastCalculatorTicker,"ORIGINAL_CALCULATOR_NOT_STARTED")
   assert(tick(before),"CALC_FIRST_RESUME_FAILED")
   local child=timers[3]
   local activeBefore=reset._resetNeedsAvailables==true
-  local preUpdateTickerCount=#timers
   assert(tick(resetTicker),"ORIGINAL_UPDATE_QUEST_STEP_FAILED")
-  -- The original first calculator already spawned independent child tickers.
-  -- Compare the count across UpdateQuest; the final old child is NOT a replacement.
-  local after=(#timers>preUpdateTickerCount) and timers[#timers] or before
+  -- A new parent owner is proved only when the ORIGINAL CalculateAndDrawAll
+  -- source executes; timer counts also include unrelated one-shot timers.
+  local after=lastCalculatorTicker
   for i=1,6 do
     tick(before);if after~=before then tick(after)end
     tick(resetTicker)
