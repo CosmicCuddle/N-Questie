@@ -224,8 +224,10 @@ local controls={
         local renewed=lib:GetStream("raw")
         local binary=string.char(120,121,122)
         renewed:Load(binary)
-        assert(renewed:Save()=="xyz" and
-            renewed._pointer==1,
+        assert(renewed._pointer==1 and
+            renewed:ReadByte()==120 and
+            renewed:ReadByte()==121 and
+            renewed._pointer==3,
             "G08_ACTUAL_STREAM_LOAD_RESET_BOUNDARY")
     end
 }
