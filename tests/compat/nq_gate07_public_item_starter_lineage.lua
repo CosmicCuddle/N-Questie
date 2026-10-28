@@ -152,8 +152,10 @@ end
 local controls={
     function()
         local q=quest(nil,nil,{I})
-        assert(q.Starts.Item[1]==I and q.Starts.NPC==nil
-            and q.Starts.GameObject==nil,
+        -- Guard before indexing so changed startedBy[3] gets the named
+        -- failure, not a raw nil-table Lua exception.
+        assert(type(q.Starts.Item)=="table" and q.Starts.Item[1]==I
+            and q.Starts.NPC==nil and q.Starts.GameObject==nil,
             "G07_ITEM_ONLY_FORWARD_MAPPING")
     end,
     function()
