@@ -1,0 +1,67 @@
+name: N-Questie Part43 G08 original QuestieSearch query pointer pairing (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  original-search-pairing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate actual protected 335 Journey and AvailableQuests blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          mkdir -p "$RUNNER_TEMP/nq-search-original/Modules/Journey" "$RUNNER_TEMP/nq-search-original/Modules/Quest"
+          while read -r path oid; do
+            test "$(git rev-parse "$sha:$path")" = "$oid"
+            git show "$sha:$path" > "$RUNNER_TEMP/nq-search-original/$path"
+            test "$(git hash-object "$RUNNER_TEMP/nq-search-original/$path")" = "$oid"
+          done <<'BLOBS'
+          Modules/Journey/QuestieSearch.lua 999efb373c5cc61f258115cf89e5e587cc087855
+          Modules/Journey/QuestieSearchResults.lua 00b1b0382d301d2839f0cd7c30fe8ff7ac143353
+          Modules/Quest/AvailableQuests.lua 2664f09fdf1f599994e6eb09af24465ae88e9af4e7
+          BLOBS
+          echo "PUBLIC G08 ORIGINAL 335 SEARCH CONSUMER BLOBS AUTHENTICATED"
+      - name: Install actual Lua 5.1 and 5.4 for source-backed test
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute unchanged original QuestieSearch with fictional generation pairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part43_g08_real_questiesearch_query_pointer_pair.lua
+            else
+              luac5.4 -p tests/compat/nq_part43_g08_real_questiesearch_query_pointer_pair.lua
+            fi
+            logfile="$RUNNER_TEMP/nq-questiesearch-$lua.log"
+            NQ_G08_SEARCH_ORIGINAL_ROOT="$RUNNER_TEMP/nq-search-original" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part43_g08_real_questiesearch_query_pointer_pair.lua | tee "$logfile"
+            grep -Fx 'PUBLIC G08 PART43 REAL 335 QUESTIESEARCH QUERY POINTER PAIR: 48/48 PASS' "$logfile"
+            grep -Fx 'PUBLIC G08 ORIGINAL SOURCE WITNESS: separate query and pointer field reads; constructed mixed facade silently loses matching search IDs; stable matching local pair remains coherent through one synchronous search.' "$logfile"
+            grep -Fx 'PUBLIC G08 NOT ACCEPTED: data/query functions are invented; no real GetDBHandle, real external writer interleaving, stream pool, saved variables, native 3.3.5a/IP, build/ZIP/install/merge/release.' "$logfile"
+            test "$(grep -Ec '^PUBLIC G08 ' "$logfile")" -eq 3
+          done
+      - name: Verify no artifact, addon folder or checkout mutations
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d releases
+          test ! -d dist
+          test ! -d Questie-335
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
