@@ -52,6 +52,8 @@ function db.IsDungeonQuest()return false end
 function db.IsRaidQuest()return false end
 function db.IsLevelRequirementsFulfilled()return true end
 function db.IsDoable()return true end
+function db.IsActiveEventQuest()return false end
+function db.IsTrivial()return false end
 function db.GetQuest(id)
   lookups[#lookups+1]={id=id,generation=current}
   local found=(current=="OLD" and old or new)[id]
