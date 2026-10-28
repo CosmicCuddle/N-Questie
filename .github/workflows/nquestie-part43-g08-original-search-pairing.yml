@@ -27,7 +27,7 @@ jobs:
           done <<'BLOBS'
           Modules/Journey/QuestieSearch.lua 999efb373c5cc61f258115cf89e5e587cc087855
           Modules/Journey/QuestieSearchResults.lua 00b1b0382d301d2839f0cd7c30fe8ff7ac143353
-          Modules/Quest/AvailableQuests.lua 2664f09fdf1f599994e6eb09af24465ae88e9af4e7
+          Modules/Quest/AvailableQuests.lua 2664f09fdf1f899994e6eb09af24465ae196ce
           BLOBS
           echo "PUBLIC G08 ORIGINAL 335 SEARCH CONSUMER BLOBS AUTHENTICATED"
       - name: Install actual Lua 5.1 and 5.4 for source-backed test
