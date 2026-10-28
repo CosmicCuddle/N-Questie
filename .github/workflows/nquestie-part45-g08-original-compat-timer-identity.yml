@@ -1,0 +1,62 @@
+name: N-Questie Part45 G08 authentic Compat timer identity (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  original-compat-timer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate original 335 immutable Compat and ThreadLib blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          root="$RUNNER_TEMP/nq-part45-compat-source"
+          mkdir -p "$root/Compat" "$root/Modules/Libs"
+          while read -r path blob; do
+            test "$(git rev-parse "$sha:$path")" = "$blob"
+            git show "$sha:$path" > "$root/$path"
+            test "$(git hash-object "$root/$path")" = "$blob"
+          done <<'BLOBS'
+          Compat/Compat.lua b3e273e82cabbd5b7b351ae5aa3d94d4675387be
+          Modules/Libs/ThreadLib.lua 8f564049ad2a4af49473fac939b7c276c4227dd7
+          BLOBS
+          echo 'PUBLIC G08 ORIGINAL COMPAT AND THREADLIB BLOBS AUTHENTICATED'
+      - name: Install dual Lua interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+      - name: Source-execute original timer ownership under simulated frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part45_g08_original_compat_timer_identity.lua
+            else
+              luac5.4 -p tests/compat/nq_part45_g08_original_compat_timer_identity.lua
+            fi
+            log="$RUNNER_TEMP/nq-part45-compat-$lua.log"
+            NQ_G08_ORIGINAL_COMPAT_ROOT="$RUNNER_TEMP/nq-part45-compat-source" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part45_g08_original_compat_timer_identity.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART45 ORIGINAL COMPAT TIMER: 27/27 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 4
+          done
+      - name: No distribution output; clean test checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d dist
+          test ! -d releases
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
