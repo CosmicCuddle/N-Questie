@@ -127,7 +127,9 @@ a.game.objectives={{text="SYNTHETIC_OBJECTIVE",type="item",
 local miss2,delta2=a.cache.CheckForChanges(nil)
 check(not miss2 and delta2[1] and delta2[1][1]==1,
   "C16_ORIGINAL_GAME_COMPLETE_TRANSITION_RECORDED")
-check(a.sounds.questComplete==1,"C17_ORIGINAL_CACHE_QUEST_COMPLETE_SIGNAL")
+-- Lua's numeric 0 is truthy: the original "not cachedQuest.isComplete"
+-- test is FALSE for 0, so no completion sound is emitted in this branch.
+check(a.sounds.questComplete==0,"C17_NUMERIC_ZERO_DOES_NOT_TRIGGER_SOUND")
 local finishedEntry=a.cache.questLog_DO_NOT_MODIFY[1]
 check(finishedEntry.isComplete==1 and
   finishedEntry.objectives[1].numFulfilled==2,
@@ -204,7 +206,19 @@ check(next(blank.cache.questLog_DO_NOT_MODIFY)==nil,
   "C41_COLD_OBJECTIVE_DOES_NOT_CREATE_PARTIAL_CACHE")
 check(not blank.cache.TestGameCache(),"C42_COLD_OBJECTIVE_PREVENTS_READY")
 
-assert(assertions==42,"ORIGINAL_QUESTLOGCACHE_ASSERTION_CENSUS:"..assertions)
-print("PUBLIC G08 PART46 AUTHENTIC FULL QUESTLOGCACHE: 42/42 PASS")
+-- Positive sound control: original source DOES play completion audio when
+-- the prior cached isComplete was nil (unlike the numeric-zero case above).
+local nilBefore=harness()
+nilBefore.game.complete=nil
+local beforeMiss,beforeDelta=nilBefore.cache.CheckForChanges(nil)
+assert(not beforeMiss and beforeDelta[1]~=nil)
+nilBefore.game.complete=1
+local afterMiss,afterDelta=nilBefore.cache.CheckForChanges(nil)
+check(not afterMiss and afterDelta[1]~=nil and
+  nilBefore.sounds.questComplete==1,
+  "C43_NIL_TO_COMPLETE_SOUND_POSITIVE_CONTROL")
+
+assert(assertions==43,"ORIGINAL_QUESTLOGCACHE_ASSERTION_CENSUS:"..assertions)
+print("PUBLIC G08 PART46 AUTHENTIC FULL QUESTLOGCACHE: 43/43 PASS")
 print("PUBLIC G08 PART46 SOURCE: whole unchanged QuestLogCache module and original reset GetAllQuestIdsNoObjectives body, under fake client questlog/objective API.")
 print("PUBLIC G08 PART46 LIMITS: independent QuestieDB.GetQuest, game questlog/inventory/frames, objective helper functions and native scheduling remain fake or unexecuted.")
