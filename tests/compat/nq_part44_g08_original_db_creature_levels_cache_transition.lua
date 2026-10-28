@@ -173,8 +173,8 @@ check(restored.A_DIRECT~=nil and restored.B_DIRECT==nil,
   "D37_MODEL_SECOND_INVALIDATION_RESTORES_A")
 check(count(restored)==2 and module._CreatureLevelCache[7001]==restored,
   "D38_ORIGINAL_FUNCTION_RECOMPUTES_AFTER_MODEL_CLEAR")
-assert(n==38,"DB_CREATURE_ASSERTION_CENSUS_CHANGED:"..n)
-print("PUBLIC G08 PART44 ACTUAL DB INIT AND CREATURE CACHE: 38/38 PASS")
+assert(n==40,"DB_CREATURE_ASSERTION_CENSUS_CHANGED:"..n)
+print("PUBLIC G08 PART44 ACTUAL DB INIT AND CREATURE CACHE: 40/40 PASS")
 print("PUBLIC G08 AUTHENTIC EXECUTION: unchanged entire original QuestieDB Initialize and GetCreatureLevels function bodies; original 5-cache resets, QueryItemSingle rebinding and CreatureLevelCache lookup/write with fictional GetDBHandle and NPCs.")
 print("PUBLIC G08 SYNTHETIC WITNESS: original Initialize does not reset CreatureLevelCache; synthetic A-to-B and A-to-B-to-A snapshots retain earlier quest ID levels until an explicit MODEL-ONLY invalidation.")
 print("PUBLIC G08 NOT NATIVE: original full QuestieDB module, true decoder, compiler, QuestieStream, WOW UI, SavedVariables, IP 3.3.5a, actual writer, build, ZIP, install, merge and release NOT tested.")
