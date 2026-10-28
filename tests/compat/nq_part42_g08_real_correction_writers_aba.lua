@@ -630,7 +630,3 @@ print("PUBLIC G08 REAL CORRECTION WRITER CONTROLS: 51/51 PASS")
 print("PUBLIC G08 KNOWN UNSAFE: actual unmodified correction writer performs source A-to-B-to-A across real compiler yields; final source A but real compiled reader sees B.")
 print("PUBLIC G08 NOT ACCEPTED: all E01-E08 writer provenance, native faction views, runtime unknown-writer locks, four-kind atomicity, crash/relog, or release.")
 
-print("PUBLIC G08 REAL COMPILER EPOCH MODEL CONTROLS: 33/33 PASS")
-print("PUBLIC G08 KNOWN UNSAFE: unregistered A-to-B-to-A bypasses a cosmetic epoch; only explicitly certified writers can justify fixture publication.")
-print("PUBLIC G08 NOT ACCEPTED: any production writer registry, E01-E08 completeness, all-kind atomicity, stream recovery, disk/relog, native client, or release.")
-
