@@ -48,7 +48,7 @@ jobs:
             logfile="$RUNNER_TEMP/nq-original-comms-$lua.log"
             NQ_G08_FULL_COMMS_ROOT="$RUNNER_TEMP/nq-part44-original-full-comms" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part44_g08_full_original_comms_generation_broadcast.lua | tee "$logfile"
             grep -Fx 'PUBLIC G08 PART44 FULL ORIGINAL COMMS V1 V2: 46/46 PASS' "$logfile"
-            grep -Fxc 'PUBLIC G08 ORIGINAL EXECUTION: unchanged complete QuestieComms.lua loaded; actual full BroadcastQuestLog and BroadcastQuestLogV2, CreateQuestDataPacket, PopulateQuestDataPacketV2, CreatePacket, Broadcast and delayed callbacks executed.' "$logfile" | grep -Fx '1'
+            grep -Fxc 'PUBLIC G08 ORIGINAL EXECUTION: unchanged complete QuestieComms.lua loaded; actual full BroadcastQuestLog and BroadcastQuestLogV2, CreateQuestDataPacket, PopulateQuestDataPacketV2_noclass_renameme, CreatePacket, Broadcast and delayed callbacks executed.' "$logfile" | grep -Fx '1'
             grep -Fxc 'PUBLIC G08 SAFETY: fake SendCommMessage only records calls; no actual network traffic, real serializer, client timer, AzerothCore/IP client, SavedVariables, compiler, stream, build, ZIP, install, protected merge or release.' "$logfile" | grep -Fx '1'
             test "$(grep -Ec '^PUBLIC G08 ' "$logfile")" -eq 4
           done
