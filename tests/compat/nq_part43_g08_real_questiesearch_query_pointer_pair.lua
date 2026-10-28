@@ -123,36 +123,40 @@ check(module:Search("token","unsupported_type")==nil,
 
 -- The original source does two *independent* reads of query closure and
 -- pointer map. A fabricated preexisting mixed facade can silently lose IDs.
+local function fresh(query,kind,mode)
+    module:ByName("__FICTIONAL_NONMATCH_SENTINEL__")
+    return module:Search(query,kind,mode)
+end
 setPart("npc","old","new")
-local ok,result=pcall(function()return module:Search("new","npc")end)
+local ok,result=pcall(function()return fresh("new","npc")end)
 check(ok,"C24_MIXED_NPC_PAIR_COMPLETES_WITHOUT_THROW")
 check(count(result)==0,"C25_MIXED_OLD_QUERY_NEW_PTRS_SILENT_FALSE_NEGATIVE")
 check(db.NPCPointers[102]==true and
     pairsByType.npc.old.query(102,"name")==nil,
     "C26_MIXED_NPC_SOURCE_FIELDS_ARE_INCOMPATIBLE")
 setPart("npc","new","old")
-check(count(module:Search("old","npc"))==0,
+check(count(fresh("old","npc"))==0,
     "C27_MIXED_NEW_QUERY_OLD_PTRS_SILENT_FALSE_NEGATIVE")
 setPart("npc","new","new")
-check(count(module:Search("new","npc"))==2,
+check(count(fresh("new","npc"))==2,
     "C28_MATCHING_NEW_NPC_PAIR_RECOVERS_RESULTS")
 setPart("object","old","new")
-check(count(module:Search("new","object"))==0,
+check(count(fresh("new","object"))==0,
     "C29_MIXED_OBJECT_QUERY_PTRS_SILENT_FALSE_NEGATIVE")
 setPart("object","new","new")
-check(count(module:Search("new","object"))==2,
+check(count(fresh("new","object"))==2,
     "C30_MATCHING_NEW_OBJECT_PAIR_RECOVERS_RESULTS")
 setPart("item","old","new")
-check(count(module:Search("new","item"))==0,
+check(count(fresh("new","item"))==0,
     "C31_MIXED_ITEM_QUERY_PTRS_SILENT_FALSE_NEGATIVE")
 setPart("item","new","new")
-check(count(module:Search("new","item"))==2,
+check(count(fresh("new","item"))==2,
     "C32_MATCHING_NEW_ITEM_PAIR_RECOVERS_RESULTS")
 setPart("quest","old","new")
-check(count(module:Search("new","quest"))==0,
+check(count(fresh("new","quest"))==0,
     "C33_MIXED_QUEST_QUERY_PTRS_SILENT_FALSE_NEGATIVE")
 setPart("quest","new","new")
-check(count(module:Search("new","quest"))==2,
+check(count(fresh("new","quest"))==2,
     "C34_MATCHING_NEW_QUEST_PAIR_RECOVERS_RESULTS")
 local allNew=module:ByName("new")
 check(count(allNew.npc)==2 and count(allNew.object)==2,
@@ -175,6 +179,7 @@ db.QueryNPCSingle=nil
 local successNilQuery=pcall(function()module:Search("new","npc")end)
 check(not successNilQuery,"C41_MISSING_QUERY_CLOSURE_FAILS_IN_REAL_SEARCH")
 setPart("npc","old","old")
+module:ByName("__FICTIONAL_NONMATCH_SENTINEL__")
 -- During one synchronous original Search, a synthetic query callback swaps
 -- the facade globally after the first read. The function's already-captured
 -- local query and pointer map remain on old generation throughout that call.
@@ -195,7 +200,7 @@ check(count(stable)==2 and stable[101]==true and stable[111]==true,
     "C43_LOCAL_QUERY_PTRS_REMAIN_PAIRED_DURING_CALLBACK_SWAPPING")
 check(db.NPCPointers==pairsByType.npc.new.pointers,
     "C44_FACADE_SWAPPED_WHILE_ORIGINAL_SEARCH_RAN")
-check(count(module:Search("new","npc"))==2,
+check(count(fresh("new","npc"))==2,
     "C45_NEXT_SEARCH_USES_NEW_MATCHING_PAIR")
 check(module.LastResult.query=="new",
     "C46_ORIGINAL_SEARCH_METADATA_LATEST")
