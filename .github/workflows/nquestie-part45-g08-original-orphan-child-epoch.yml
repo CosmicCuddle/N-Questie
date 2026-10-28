@@ -65,7 +65,7 @@ jobs:
             fi
             log="$RUNNER_TEMP/nq-part46-cache-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_original_questlogcache_readiness.lua | tee "$log"
-            grep -Fx 'PUBLIC G08 PART46 AUTHENTIC FULL QUESTLOGCACHE: 42/42 PASS' "$log"
+            grep -Fx 'PUBLIC G08 PART46 AUTHENTIC FULL QUESTLOGCACHE: 43/43 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
