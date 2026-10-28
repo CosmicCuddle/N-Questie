@@ -60,13 +60,17 @@ local function boot(config)
     if config.registrationMissing then compat.RegisterCorrection=nil end
     local manifest={revision=1,quests={[ID]=proposal}}
     if config.badQuestTable then manifest.quests="not a table" end
+    local selectedCompat=compat
+    local selectedManifest=manifest
+    if config.noCompat then selectedCompat=nil end
+    if config.noManifest then selectedManifest=nil end
     local env=setmetatable({
-        QuestieCompat=config.noCompat and nil or compat,
+        QuestieCompat=selectedCompat,
         QuestieLoader={ImportModule=function(_,name)
             assert(name=="QuestieDB","G04_UNEXPECTED_DB_IMPORT")
             return db
         end},
-        NQuestieCustomQuestData=config.noManifest and nil or manifest,
+        NQuestieCustomQuestData=selectedManifest,
     },{__index=_G})
     runExact(loader,"=pinned_public_custom_loader",env)
     return {registered=registered,registrations=registrations,db=db,
