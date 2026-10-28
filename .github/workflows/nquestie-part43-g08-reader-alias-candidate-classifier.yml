@@ -1,0 +1,44 @@
+name: N-Questie Part43 G08 classify pinned reader alias candidates (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  reader-alias-candidate-classification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate immutable original 335 source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          echo "PUBLIC G08 ORIGINAL FIRSTPARTY CLASSIFIER SOURCE PIN VERIFIED"
+      - name: Classify original first-party query and callback sites
+        shell: bash
+        run: |
+          set -euo pipefail
+          logfile="$RUNNER_TEMP/nq-reader-alias-candidates.log"
+          NQ_G08_PINNED_REPO="$GITHUB_WORKSPACE" timeout --signal=TERM --kill-after=5s 90s python3 tests/compat/nq_part43_g08_classify_reader_alias_callback_candidates.py | tee "$logfile"
+          grep -Fx 'PUBLIC G08 PART43 CONSUMER CANDIDATE CLASSIFIER: 25/25 PASS' "$logfile"
+          grep -F 'PUBLIC G08 REPRODUCED: 110 firstparty files; 197 references in 25 files; old_stored=36 old_callback=14' "$logfile"
+          grep -F 'PUBLIC G08 STORED RECLASSIFIED: ' "$logfile"
+          grep -F 'PUBLIC G08 CALLBACK RECLASSIFIED: ' "$logfile"
+          grep -Fx 'PUBLIC G08 NOT ACCEPTED: regex source classifier, not Lua dataflow or lifetime analysis; dynamic aliases, long comments, original decoder, stream, SavedVariables, native 3.3.5a/IP and build/ZIP/install/merge/release NOT verified.' "$logfile"
+          test "$(grep -c '^PUBLIC G08 PART43 CONSUMER' "$logfile")" -eq 1
+      - name: Ensure read-only runner and no addon packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d releases
+          test ! -d dist
+          test ! -d Questie-335
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
