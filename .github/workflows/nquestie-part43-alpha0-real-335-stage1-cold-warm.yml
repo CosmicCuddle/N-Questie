@@ -1,4 +1,4 @@
-name: N-Questie Part43 Alpha0 original 335 Stage1 cold warm source (test only)
+name: N-Questie Part43 G08 real Stage1 and outer compiler handshake (test only)
 on:
   pull_request:
 permissions:
@@ -25,7 +25,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/nq-original-335/Modules"
           git show "$sha:$source_file" > "$RUNNER_TEMP/nq-original-335/$source_file"
           test "$(git hash-object "$RUNNER_TEMP/nq-original-335/$source_file")" = "$source_oid"
-          echo "PUBLIC ALPHA0 ORIGINAL STAGE1 SOURCE BLOB VERIFIED"
+          compiler_file=Database/compiler.lua
+          compiler_oid=abba0249f44d14711dbdd46bbde969ccffbc2963
+          test "$(git rev-parse "$sha:$compiler_file")" = "$compiler_oid"
+          mkdir -p "$RUNNER_TEMP/nq-original-335/Database"
+          git show "$sha:$compiler_file" > "$RUNNER_TEMP/nq-original-335/$compiler_file"
+          test "$(git hash-object "$RUNNER_TEMP/nq-original-335/$compiler_file")" = "$compiler_oid"
+          echo "PUBLIC ALPHA0 ORIGINAL STAGE1 AND COMPILER SOURCE BLOBS VERIFIED"
       - name: Install actual Lua 5.1 and 5.4 interpreters
         shell: bash
         run: |
@@ -46,9 +52,9 @@ jobs:
             fi
             logfile="$RUNNER_TEMP/nq-part43-stage1-$lua.log"
             NQ_ALPHA0_REAL_STAGE1_ROOT="$RUNNER_TEMP/nq-original-335" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part43_alpha0_335_real_stage1_cold_warm.lua | tee "$logfile"
-            grep -Fx 'PUBLIC ALPHA0 PART43 REAL 335 STAGE1 SOURCE: 35/35 PASS' "$logfile"
-            grep -Fx 'PUBLIC ALPHA0 SOURCE FACT: original cold cache triggers correction writers, precompile and compiler before DB init; matching warm cache uses MinimalInit; skipValidation does not bypass compilation.' "$logfile"
-            grep -Fx 'PUBLIC ALPHA0 NOT ACCEPTED: real addon environment, safe source ownership, SavedVariables flush/recovery, native WoW 3.3.5a/IP, production fix, ZIP/install/merge/release.' "$logfile"
+            grep -Fx 'PUBLIC ALPHA0 PART43 REAL 335 STAGE1 AND OUTER: 55/55 PASS' "$logfile"
+            grep -Fx 'PUBLIC ALPHA0 SOURCE FACT: real outer four-kind compiler silently returns on busy and writes separate payload pairs before final metadata; unchanged Stage1 can certify revision after a busy return.' "$logfile"
+            grep -Fx 'PUBLIC ALPHA0 NOT ACCEPTED: per-kind serializers are fictional, no global lease/atomicity fix, real addon/SavedVariables/native 3.3.5a/IP, ZIP/install/merge/release.' "$logfile"
             test "$(grep -Ec '^PUBLIC ALPHA0 ' "$logfile")" -eq 3
           done
       - name: Verify no source mutation or packaging
