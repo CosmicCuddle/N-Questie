@@ -27,7 +27,7 @@ jobs:
             test "$(git hash-object "$root/$path")" = "$blob"
           done <<'BLOBS'
           Modules/Quest/QuestieQuest.lua cd4239c5b40c1f5b1ced823dfa12d8a895091719
-          Modules/Quest/AvailableQuests.lua 2664f09fdf1f5df4d94581414e9af4e7
+          Modules/Quest/AvailableQuests.lua 2664f09fdf1f5df4d94581414e9d5ea88e9af4e7
           Modules/Libs/ThreadLib.lua 8f564049ad2a4af49473fac939b7c276c4227dd7
           BLOBS
           echo 'PUBLIC G08 PART45 PINNED ORIGINAL SOURCE BLOBS VERIFIED'
