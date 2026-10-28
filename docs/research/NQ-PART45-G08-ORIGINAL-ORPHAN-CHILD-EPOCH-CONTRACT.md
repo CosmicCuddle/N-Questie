@@ -65,3 +65,19 @@ New distinct child corrects only two expected counterfactual model serial values
 **Added counterfactual contract tests (M31–M45):** A separate invented \`guardedSink\` tests whether a proposed epoch-aware publication veto rejects old A after A→B→A, rejects aborted/error writes, and permits only a fresh owner. This **does not patch** map code, reset code, QuestieDB, or ThreadLib, and is **not** evidence that any such guard already exists.
 
 **CI intent:** 106 checks per interpreter (69 previously checked + 22 authentic-source-under-fake-host assertions + 15 separate model assertions); require exact interpreter job logs and artifact census before claiming success. The original 69-check print is retained as an intermediate check, not a substitute for the 106-check result. A failing head must remain frozen and any fix should use a **separate** child. No new source, SQL, TOC, native QA, real SavedVariables, ZIP/build, installation, tag, merge or release permission. Gate08 MAJOR RED; pilots 1207–1209 remain 0/3.
+
+
+## Part46 next test-only child: authentic source quest-log and item-check bodies
+
+**Separate child of frozen #357 at \`d5fc41b89219ffe704b52ec44d49cdcea5f77a5c\`**, not a rewrite of any earlier green/red head. Only the same test/CI/research paths changed. Historical source is still exact \`QuestieQuest.lua\` blob \`cd4239c5b40c1f5b1ced823dfa12d8a895091719\`; the previous three original blobs remain pinned and unchanged.
+
+**What is new real original 335 code:**
+1. \`QuestieQuest:GetAllQuestIdsNoObjectives\` full **unchanged original function body** from \`QuestieQuest.lua:835–860\`, which clears and rebuilds \`QuestiePlayer.currentQuestlog\` by retaining the object returned by \`QuestieDB.GetQuest\`. Its two separately imported source-item objective *helpers* are mocked as no-ops; those helper functions are **not** executed from original code.
+2. \`QuestieQuest:CheckQuestSourceItem\` full **unchanged original function body** from \`QuestieQuest.lua:890–927\`, checking bag slots via \`QuestieCompat.GetContainerNumSlots\` and tenth return value of \`QuestieCompat.GetContainerItemInfo\`, and creating an objective only for absent item with a fake leaderboard/QueryItemSingle.
+3. Original \`SmoothReset\`, \`UpdateQuest\`, \`AvailableQuests\`, \`ThreadLib\`, Compat timer fragment continue to execute in the already documented invented AnimationGroup host.
+
+**Control distinction:** The *actual original QuestieDB.GetQuest body*, real quest-cache initialization and actual account/quest-log/bag state remain **UNEXECUTED**. A synthetic \`db.GetQuest(1)\` returns a stable fake quest object, fake \`QuestLogCache.questLog_DO_NOT_MODIFY\` lists ID 1, fake bag returns empty or present item ID 5, and fake source-objective helpers avoid unrelated drawing. This verifies only original **quest-log and item-check branch logic** when these fictional inputs are supplied. It does **not** prove retained \`WasComplete\` occurs or a missing source item is present in actual client memory.
+
+**New S62–S84 checks (23 added):** one cached-object \`WasComplete\` path, one original source-item **missing** path which constructs the original missing-item objective, and a **present-item control** which follows the original normal path and releases the callback. These are source function execution in a fake scheduler/DB and remain synthetic; real 3.3.5a timing and native reachability remain **UNKNOWN**.
+
+**CI proposal:** 129 checks EACH Lua5.1.5 and Lua5.4.6; source blob validation, clean checkout, zero distributed artifacts. **Pending independent exact-head Actions at draft creation; never claim PASS without run/job/log verification.** No actual addon Lua/SQL/TOC changes, native client/realm/account/character/SavedVariables, builds/ZIPs, merge or release. Gate08 remains MAJOR RED; 439 RAW unapproved; pilots 1207–1209 remain 0/3.
