@@ -50,7 +50,7 @@ jobs:
             fi
             logfile="$RUNNER_TEMP/nq-questiesearch-$lua.log"
             NQ_G08_SEARCH_ORIGINAL_ROOT="$RUNNER_TEMP/nq-search-original" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part43_g08_real_questiesearch_query_pointer_pair.lua | tee "$logfile"
-            grep -Fx 'PUBLIC G08 PART43 REAL 335 QUESTIESEARCH QUERY POINTER PAIR: 48/48 PASS' "$logfile"
+            grep -Fx 'PUBLIC G08 PART43 REAL 335 QUESTIESEARCH QUERY POINTER PAIR: 52/52 PASS' "$logfile"
             grep -Fx 'PUBLIC G08 ORIGINAL SOURCE WITNESS: separate query and pointer field reads; constructed mixed facade silently loses matching search IDs; stable matching local pair remains coherent through one synchronous search.' "$logfile"
             grep -Fx 'PUBLIC G08 NOT ACCEPTED: data/query functions are invented; no real GetDBHandle, real external writer interleaving, stream pool, saved variables, native 3.3.5a/IP, build/ZIP/install/merge/release.' "$logfile"
             test "$(grep -Ec '^PUBLIC G08 ' "$logfile")" -eq 3
