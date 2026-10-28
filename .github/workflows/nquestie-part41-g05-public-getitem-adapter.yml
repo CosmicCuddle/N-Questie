@@ -1,0 +1,66 @@
+name: N-Questie Part41 G05 public GetItem adapter contract (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  public-g05-getitem:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Stage pinned protected-335 PUBLIC files with exact three blob identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$source_sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$source_sha"
+          mkdir -p "$RUNNER_TEMP/nq-protected-g05/Database"
+          for file in Database/itemDB.lua Database/questDB.lua Database/QuestieDB.lua; do
+            case "$file" in
+              Database/itemDB.lua) expected_blob=a714c1a11ce0513276de3f9ce9015d7db22efa80 ;;
+              Database/questDB.lua) expected_blob=9503b16031e739d9c0f046939058229b1a18d9b1 ;;
+              Database/QuestieDB.lua) expected_blob=5784cb65160175e1dce30fe20e8baada0af7e480 ;;
+              *) echo "G05_UNEXPECTED_SOURCE_PATH" >&2; exit 1 ;;
+            esac
+            test "$(git rev-parse "$source_sha:$file")" = "$expected_blob"
+            git show "$source_sha:$file" > "$RUNNER_TEMP/nq-protected-g05/$file"
+            test -s "$RUNNER_TEMP/nq-protected-g05/$file"
+            test "$(git hash-object -- "$RUNNER_TEMP/nq-protected-g05/$file")" = "$expected_blob"
+          done
+          echo "PUBLIC G05 THREE PINNED SOURCE BLOBS VERIFIED"
+      - name: Install real Lua 5.1 and 5.4 interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Exercise exact public GetItem function with imaginary source records
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_gate05_public_getitem_adapter.lua
+            else
+              luac5.4 -p tests/compat/nq_gate05_public_getitem_adapter.lua
+            fi
+            output="$RUNNER_TEMP/g05-public-$lua.log"
+            NQ_G05_SOURCE_ROOT="$RUNNER_TEMP/nq-protected-g05" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_gate05_public_getitem_adapter.lua | tee "$output"
+            grep -Fx 'PUBLIC G05 PINNED GETITEM ADAPTER CONTROLS: 14/14 PASS' "$output"
+            grep -Fx 'PUBLIC G05 LIMIT: item startQuest is separate from item drops/vendors; GetItem Sources excludes itemDrops in this code path.' "$output"
+            grep -Fx 'PUBLIC G05 NOT ACCEPTED: complete quest forward/reverse consistency, eligibility, server loot/IP links, native 3.3.5a client or all-writer provenance.' "$output"
+            test "$(grep -Ec '^PUBLIC G05 ' "$output")" -eq 3
+          done
+      - name: Forbid test packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
