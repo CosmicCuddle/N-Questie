@@ -101,6 +101,7 @@ local function scenario(mode)
     return assert(modules[name],"NO_TEST_MODULE:"..tostring(name))
   end
   local env={QuestieLoader=loader,Questie=questie,QuestieQuest=reset,
+    QuestieDB=db,QuestieMap=map,QuestiePlayer=player,QuestieTooltips=tooltips,
     QuestieCompat={C_Timer={NewTicker=ticker}},
     C_Timer={NewTicker=ticker,After=function(_,f)f()end},
     GetQuestGreenRange=function()return 10 end,
