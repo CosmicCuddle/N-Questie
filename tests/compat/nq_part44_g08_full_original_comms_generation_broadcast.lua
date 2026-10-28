@@ -262,6 +262,6 @@ check(j.network[1].packet[1][2]==11 and j.network[1].atGeneration=="NEW",
 check(#j.errors==0,"C46_DELAYED_PAYLOAD_NO_NATIVE_MUTATION_ERRORS")
 assert(assertions==46,"FULL_COMMS_CENSUS_CHANGED:"..assertions)
 print("PUBLIC G08 PART44 FULL ORIGINAL COMMS V1 V2: 46/46 PASS")
-print("PUBLIC G08 ORIGINAL EXECUTION: unchanged complete QuestieComms.lua loaded; actual full BroadcastQuestLog and BroadcastQuestLogV2, CreateQuestDataPacket, PopulateQuestDataPacketV2, CreatePacket, Broadcast and delayed callbacks executed.")
+print("PUBLIC G08 ORIGINAL EXECUTION: unchanged complete QuestieComms.lua loaded; actual full BroadcastQuestLog and BroadcastQuestLogV2, CreateQuestDataPacket, PopulateQuestDataPacketV2_noclass_renameme, CreatePacket, Broadcast and delayed callbacks executed.")
 print("PUBLIC G08 SYNTHETIC FINDINGS: mismatched pointers and zone query fail on nil compare; prepared OLD V1/V2 payload can enter fake outbound sink after invented OLD-to-NEW source swap; queued V1 broadcast rebuilds from NEW.")
 print("PUBLIC G08 SAFETY: fake SendCommMessage only records calls; no actual network traffic, real serializer, client timer, AzerothCore/IP client, SavedVariables, compiler, stream, build, ZIP, install, protected merge or release.")
