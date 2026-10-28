@@ -1,0 +1,64 @@
+name: N-Questie Part44 G08 full original AvailableQuests coroutine (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  full-original-availablequests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Authenticate immutable protected 335 original AvailableQuests
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          path=Modules/Quest/AvailableQuests.lua
+          expected=2664f09fdf1f5df4d94581414e9d5ea88e9af4e7
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          test "$(git rev-parse "$sha:$path")" = "$expected"
+          root="$RUNNER_TEMP/nq-part44-original-available"
+          mkdir -p "$root/Modules/Quest"
+          git show "$sha:$path" > "$root/$path"
+          test "$(git hash-object "$root/$path")" = "$expected"
+          echo "PUBLIC G08 PART44 EXACT UNMODIFIED ORIGINAL 335 MODULE AUTHENTICATED"
+      - name: Install Lua 5.1 and Lua 5.4 for fictional host tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute entire original module in isolated fictional scheduler
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part44_g08_full_availablequests_coroutine_lifetime.lua
+            else
+              luac5.4 -p tests/compat/nq_part44_g08_full_availablequests_coroutine_lifetime.lua
+            fi
+            log="$RUNNER_TEMP/nq-part44-full-original-$lua.log"
+            NQ_G08_FULL_AVAILABLE_ROOT="$RUNNER_TEMP/nq-part44-original-available" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part44_g08_full_availablequests_coroutine_lifetime.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART44 FULL ORIGINAL AVAILABLEQUESTS: 37/37 PASS' "$log"
+            grep -Fxc 'PUBLIC G08 AUTHENTIC EXECUTION: unmodified complete original AvailableQuests.lua module and real CalculateAndDrawAll, _CalculateAvailableQuests, deferred DrawAvailableQuest, tooltip/map and UnloadUndoable paths under fictional host.' "$log" | grep -Fx '1'
+            grep -Fxc 'PUBLIC G08 NOT NATIVE: fictional data, GetQuest, ThreadLib timers, ThreadSimple queue, map/tooltip/game APIs; no actual QuestieComms send, IP client, SavedVariables, stream, original compiler, ZIP, merge, build or install.' "$log" | grep -Fx '1'
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 5
+          done
+      - name: Ensure clean checkout and no package output
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d releases
+          test ! -d dist
+          test ! -d Questie-335
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
