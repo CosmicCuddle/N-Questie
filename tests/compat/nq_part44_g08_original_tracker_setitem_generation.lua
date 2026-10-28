@@ -153,6 +153,9 @@ check(equipped:SetItem({Id=905,sourceItemId=41},"primary",18)==true,
 check(equipped.texture=="FictionalEquipmentTexture" and equipped.itemId==41,
   "T31_EQUIPPED_ITEM_TEXTURE_FROM_FALLBACK")
 a.bag(41);a.inventory(nil)
+-- Reset the prior NON-QUEST class override before testing a source-generation swap.
+-- Otherwise classOverride[41] would mask the deliberately mismatched NEW reader.
+a.class(41,nil)
 a.onBag(function()a.source("NEW")end)
 local reentrant=a.button()
 check(reentrant:SetItem({Id=906,sourceItemId=41},"primary",18)==false,
