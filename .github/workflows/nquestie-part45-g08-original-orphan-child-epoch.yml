@@ -1,4 +1,4 @@
-name: N-Questie Part46 G08 original child writer questlog and source item (test only)
+name: N-Questie Part46 G08 original reset and full QuestLogCache (test only)
 on:
   pull_request:
 permissions:
@@ -27,6 +27,7 @@ jobs:
             test "$(git hash-object "$root/$path")" = "$blob"
           done <<'BLOBS'
           Modules/Quest/QuestieQuest.lua cd4239c5b40c1f5b1ced823dfa12d8a895091719
+          Modules/Quest/QuestLogCache.lua 09e9989922731f899994e6eb09af24465ae196ce
           Modules/Quest/AvailableQuests.lua 2664f09fdf1f5df4d94581414e9d5ea88e9af4e7
           Modules/Libs/ThreadLib.lua 8f564049ad2a4af49473fac939b7c276c4227dd7
           Compat/Compat.lua b3e273e82cabbd5b7b351ae5aa3d94d4675387be
@@ -51,6 +52,21 @@ jobs:
             grep -Fx 'PUBLIC G08 PART46 ORPHAN WRITER AND GUARDED MODEL: 106/106 PASS' "$log"
             grep -Fx 'PUBLIC G08 PART46 AUTHENTIC QUESTLOG AND SOURCE ITEM: 129/129 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 14
+          done
+      - name: Run full original QuestLogCache readiness and fallback in synthetic API
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part46_original_questlogcache_readiness.lua
+            else
+              luac5.4 -p tests/compat/nq_part46_original_questlogcache_readiness.lua
+            fi
+            log="$RUNNER_TEMP/nq-part46-cache-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_original_questlogcache_readiness.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART46 AUTHENTIC FULL QUESTLOGCACHE: 42/42 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
         shell: bash
