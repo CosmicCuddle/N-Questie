@@ -1,0 +1,60 @@
+name: N-Questie Part42 actual correction init faction layers (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  original-correction-initialize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate exact protected-335 correction source tree and staged bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          file=Database/Corrections/QuestieCorrections.lua
+          expected=0584d2d6c0ff8c6e04c0fd0152d9c524bbf0345d
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse FETCH_HEAD)" = "$sha"
+          test "$(git rev-parse "$sha:$file")" = "$expected"
+          mkdir -p "$RUNNER_TEMP/nq-original-init/Database/Corrections"
+          git show "$sha:$file" > "$RUNNER_TEMP/nq-original-init/$file"
+          test -s "$RUNNER_TEMP/nq-original-init/$file"
+          test "$(git hash-object -- "$RUNNER_TEMP/nq-original-init/$file")" = "$expected"
+          echo "PUBLIC G08 ORIGINAL CORRECTION INIT SOURCE HASH VERIFIED"
+      - name: Install real Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+          lua5.1 -v 2>&1 | grep -F 'Lua 5.1'
+          lua5.4 -v 2>&1 | grep -F 'Lua 5.4'
+      - name: Execute actual Initialize MinimalInit and layered faction source controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if [ "$lua" = lua5.1 ]; then
+              luac5.1 -p tests/compat/nq_part42_g08_real_correction_initialize_faction.lua
+            else
+              luac5.4 -p tests/compat/nq_part42_g08_real_correction_initialize_faction.lua
+            fi
+            output="$RUNNER_TEMP/nq-original-init-$lua.log"
+            NQ_G08_REAL_CORRECTION_INIT_ROOT="$RUNNER_TEMP/nq-original-init" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part42_g08_real_correction_initialize_faction.lua | tee "$output"
+            grep -Fx 'PUBLIC G08 REAL INIT AND FACTION SOURCE CONTROLS: 31/31 PASS' "$output"
+            grep -Fx 'PUBLIC G08 KNOWN RISK: protected Initialize layers built-in and 3.3.5 correction writers before derived race patch and MinimalInit; synthetic faction views are not native ownership proof.' "$output"
+            grep -Fx 'PUBLIC G08 NOT ACCEPTED: normal-client writer timing, third-party source aliases, actual IP/faction route, four-kind atomicity, disk/relog, or release.' "$output"
+            test "$(grep -Ec '^PUBLIC G08 ' "$output")" -eq 3
+          done
+      - name: Prevent test-only branch from publishing packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          test ! -e .release-please-manifest.json
