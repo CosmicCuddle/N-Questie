@@ -27,6 +27,19 @@ for _,token in ipairs({
     assert((helpers..stage):find(token,1,true),"ALPHA0_REQUIRED_REAL_SOURCE_ANCHOR:"..token)
 end
 
+-- Authenticate and execute the unchanged original outer four-kind compiler too.
+local compilerFile=assert(io.open(root.."/Database/compiler.lua","rb"),
+    "ALPHA0_ORIGINAL_COMPILER_SOURCE_REQUIRED")
+local compilerSource=assert(compilerFile:read("*a"));compilerFile:close()
+local a=assert(compilerSource:find("function QuestieDBCompiler:Compile()",1,true))
+local b=assert(compilerSource:find("\nfunction QuestieDBCompiler:ValidateNPCs()",a+1,true))
+assert(b>a and not compilerSource:find("function QuestieDBCompiler:Compile()",a+1,true),
+    "ALPHA0_ORIGINAL_OUTER_COMPILER_ANCHOR")
+local originalOuter=compilerSource:sub(a,b-1)
+assert(#originalOuter>1000 and
+    originalOuter:find("if QuestieDBCompiler._isCompiling then",1,true) and
+    originalOuter:find("Questie.db.global.dbIsCompiled = true",1,true),
+    "ALPHA0_REAL_OUTER_COMPILER_SOURCE_TRUNCATED")
 local function execute_original(chunk,env)
     local run
     if _VERSION=="Lua 5.1" then
@@ -143,6 +156,29 @@ local function fixture(opts)
         env.NQuestieCustomQuestData={revision=opts.sourceRevision or 7}
     end
     setmetatable(env,{__index=_G})
+    if opts.useOuterSource then
+        for _,kind in ipairs({"npc","obj","quest","item"}) do
+            localDB.global[kind.."Bin"]="OLD_BIN_"..kind
+            localDB.global[kind.."Ptrs"]="OLD_PTR_"..kind
+        end
+        local forms={{"NPCs","npc"},{"Objects","obj"},
+            {"Quests","quest"},{"Items","item"}}
+        for _,pair in ipairs(forms) do
+            local method,kind="Compile"..pair[1],pair[2]
+            compiler[method]=function()
+                mark("QuestieDBCompiler."..method)
+                if opts.outerFailAt==kind then
+                    error("FICTIONAL_OUTER_FAILURE_"..kind,0)
+                end
+                localDB.global[kind.."Bin"]="NEW_BIN_"..kind
+                localDB.global[kind.."Ptrs"]="NEW_PTR_"..kind
+            end
+        end
+        compiler._isCompiling=opts.outerBusy==true
+        env.GetTime=function()return 123 end
+        execute_original("local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID\n"..
+            originalOuter,env)
+    end
     assert(source:find("local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID",1,true),
         "ALPHA0_ORIGINAL_EXPANSION_BINDING_MISSING")
     execute_original("local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID\n"..
@@ -272,7 +308,93 @@ check(not failureChanged.ok and
 check(count(failureChanged.events,"QuestieCorrections.MinimalInit")==0,
       "S35_FAILED_REFRESH_NOT_SILENT_WARM_FALLBACK")
 
-assert(checks==35,"ALPHA0_STAGE1_TEST_CENSUS_CHANGED")
-print("PUBLIC ALPHA0 PART43 REAL 335 STAGE1 SOURCE: 35/35 PASS")
-print("PUBLIC ALPHA0 SOURCE FACT: original cold cache triggers correction writers, precompile and compiler before DB init; matching warm cache uses MinimalInit; skipValidation does not bypass compilation.")
-print("PUBLIC ALPHA0 NOT ACCEPTED: real addon environment, safe source ownership, SavedVariables flush/recovery, native WoW 3.3.5a/IP, production fix, ZIP/install/merge/release.")
+-- The actual original outer :Compile() is now connected to the unchanged Stage1.
+-- Only per-kind serializers are invented. Failure/reentry are intentionally unsafe.
+local outerOK=fixture({compiled=false,useOuterSource=true})
+check(outerOK.ok,"S36_REAL_OUTER_COMPILE_STAGE1_SUCCESS")
+check(occurs_in_order(outerOK.events,{"QuestieDBCompiler.CompileNPCs",
+    "QuestieDBCompiler.CompileObjects","QuestieDBCompiler.CompileQuests",
+    "QuestieDBCompiler.CompileItems","QuestieDB.Initialize"}),
+    "S37_REAL_FOUR_KIND_OUTER_ORDER")
+local function valuesAre(f,expected)
+    for _,kind in ipairs({"npc","obj","quest","item"}) do
+        if f.db.global[kind.."Bin"]~=expected.."BIN_"..kind or
+            f.db.global[kind.."Ptrs"]~=expected.."PTR_"..kind then return false end
+    end
+    return true
+end
+check(valuesAre(outerOK,"NEW_"),"S38_SYNTHETIC_EIGHT_PAYLOAD_FIELDS_WRITTEN")
+check(outerOK.db.global.dbIsCompiled==true and
+    outerOK.db.global.dbCompiledOnVersion=="9.5.1.1" and
+    outerOK.db.global.dbCompiledLang=="enUS" and
+    outerOK.db.global.dbCompiledExpansion==11 and
+    outerOK.db.global.dbCompiledCount==5,
+    "S39_REAL_OUTER_METADATA_SEQUENCED_AFTER_FOUR_KINDS")
+check(outerOK.db.global.nQuestieDataRevision==7 and
+    count(outerOK.events,"QuestieDB.Initialize")==1,
+    "S40_REAL_STAGE1_REVISION_AFTER_REAL_OUTER")
+check(outerOK.env.QuestieDBCompiler._isCompiling==true,
+    "S41_REAL_OUTER_SUCCESS_RETains_LOCK")
+local successfulReturns=outerOK.env.QuestieDBCompiler:Compile()
+check(successfulReturns==nil and
+    count(outerOK.events,"QuestieDBCompiler.CompileNPCs")==1,
+    "S42_SECOND_SUCCESSFUL_CALL_SILENTLY_RETURNS")
+local failObject=fixture({useOuterSource=true,cachedRevision=6,
+    outerFailAt="obj"})
+check(not failObject.ok and tostring(failObject.err):find(
+    "FICTIONAL_OUTER_FAILURE_obj",1,true)~=nil,
+    "S43_REAL_OUTER_OBJECT_FAIL_ESCAPES")
+check(failObject.db.global.npcBin=="NEW_BIN_npc" and
+    failObject.db.global.npcPtrs=="NEW_PTR_npc" and
+    failObject.db.global.objBin=="OLD_BIN_obj" and
+    failObject.db.global.questBin=="OLD_BIN_quest" and
+    failObject.db.global.itemBin=="OLD_BIN_item",
+    "S44_REAL_OUTER_PARTIAL_PAYLOAD_VISIBLE_AFTER_ERROR")
+check(failObject.db.global.dbIsCompiled==true and
+    failObject.db.global.dbCompiledCount==4 and
+    failObject.db.global.nQuestieDataRevision==6,
+    "S45_FAILURE_PRESERVES_OLD_CACHE_METADATA")
+local retryResult=failObject.env.QuestieDBCompiler:Compile()
+check(retryResult==nil and
+    count(failObject.events,"QuestieDBCompiler.CompileNPCs")==1 and
+    failObject.env.QuestieDBCompiler._isCompiling==true,
+    "S46_FAILED_OUTER_LOCK_SILENT_RETRY")
+check(count(failObject.events,"QuestieDB.Initialize")==0 and
+    count(failObject.events,"QuestieCleanup.Run")==0,
+    "S47_THROWN_FAILURE_STOPS_STAGE1_DOWNSTREAM")
+local failItem=fixture({useOuterSource=true,cachedRevision=6,
+    outerFailAt="item"})
+check(not failItem.ok and count(failItem.events,
+    "QuestieDBCompiler.CompileItems")==1,
+    "S48_REAL_OUTER_ITEM_FAIL_REACHED")
+check(failItem.db.global.npcBin=="NEW_BIN_npc" and
+    failItem.db.global.objBin=="NEW_BIN_obj" and
+    failItem.db.global.questBin=="NEW_BIN_quest" and
+    failItem.db.global.itemBin=="OLD_BIN_item",
+    "S49_REAL_OUTER_LATE_PARTIAL_PUBLICATION")
+local busy=fixture({useOuterSource=true,cachedRevision=6,outerBusy=true})
+check(busy.ok and count(busy.events,"QuestieDB.Initialize")==1,
+    "S50_REAL_STAGE1_BUSY_RETURNS_AS_IF_SUCCESSFUL")
+check(valuesAre(busy,"OLD_") and
+    count(busy.events,"QuestieDBCompiler.CompileNPCs")==0,
+    "S51_BUSY_OUTER_SKIPS_ALL_FOUR_KINDS")
+check(busy.db.global.nQuestieDataRevision==7 and
+    busy.db.global.dbIsCompiled==true and
+    busy.db.global.dbCompiledCount==4,
+    "S52_BUSY_STAGE1_WRITES_NEW_REVISION_WITH_OLD_PAYLOAD")
+check(busy.env.QuestieDBCompiler._isCompiling==true and
+    busy.env.QuestieDBCompiler:Compile()==nil,
+    "S53_BUSY_RETURN_UNDISTINGUISHABLE_FROM_SUCCESS")
+local apparentWarm=fixture({useOuterSource=true,cachedRevision=
+    busy.db.global.nQuestieDataRevision})
+check(apparentWarm.ok and
+    count(apparentWarm.events,"QuestieCorrections.MinimalInit")==1 and
+    count(apparentWarm.events,"QuestieDBCompiler.CompileNPCs")==0,
+    "S54_BAD_REVISION_COULD_APPEAR_WARM_ON_RELOG_MODEL")
+check(not valuesAre(busy,"NEW_") and
+    count(busy.events,"QuestieCleanup.Run")==1,
+    "S55_STAGE1_COMPLETED_WITHOUT_FOUR_KIND_RECOMPILE")
+assert(checks==55,"ALPHA0_STAGE1_TEST_CENSUS_CHANGED")
+print("PUBLIC ALPHA0 PART43 REAL 335 STAGE1 AND OUTER: 55/55 PASS")
+print("PUBLIC ALPHA0 SOURCE FACT: real outer four-kind compiler silently returns on busy and writes separate payload pairs before final metadata; unchanged Stage1 can certify revision after a busy return.")
+print("PUBLIC ALPHA0 NOT ACCEPTED: per-kind serializers are fictional, no global lease/atomicity fix, real addon/SavedVariables/native 3.3.5a/IP, ZIP/install/merge/release.")
