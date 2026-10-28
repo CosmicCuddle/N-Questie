@@ -1,4 +1,4 @@
-name: N-Questie Part45 G08 original orphan-child and epoch ownership (test only)
+name: N-Questie Part45/46 G08 original child and writer boundaries (test only)
 on:
   pull_request:
 permissions:
@@ -38,7 +38,7 @@ jobs:
           set -euo pipefail
           timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
           timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
-      - name: Execute unchanged original timers and child plus counterfactual epoch model
+      - name: Execute unchanged original child, writer sinks and counterfactual epoch models
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,8 @@ jobs:
             log="$RUNNER_TEMP/nq-part45-original-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part45_g08_original_orphan_child_epoch_contract.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART45 ORIGINAL ORPHAN CHILD + EPOCH MODEL: 69/69 PASS' "$log"
-            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 8
+            grep -Fx 'PUBLIC G08 PART46 ORPHAN WRITER AND GUARDED MODEL: 106/106 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 11
           done
       - name: Assert no distributed build or modified source
         shell: bash
