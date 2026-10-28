@@ -1,0 +1,24 @@
+# N-Questie — Part 44 Living Development Checklist
+
+**Opened 28 October 2026 · Canonical append-only status tracker · DRAFT ONLY**
+
+Read [complete Part43→44 handover](HANDOVERS/2026-10-28_PART43_TO_PART44.md), [Part43 checklist](NQ-PART43-LIVING-DEVELOPMENT-CHECKLIST.md), [Part42 checklist](NQ-PART42-LIVING-DEVELOPMENT-CHECKLIST.md) and [master checklist](NQ-LIVING-PROJECT-MASTER-CHECKLIST.md), plus [PR #42 peer coordination](https://github.com/CosmicCuddle/N-Questie/pull/42).
+
+## Part44 source-backed progress
+
+- [x] Independently verify immutable protected public `335` `8b23c6e2cfa00bb81cb26d40c44fef154e9e0070`, still protected and unchanged.
+- [x] Independently refresh frozen #319 historic FAILED and frozen #320 corrected 28/28 PASS original-head history; preserve original 335 source, failed and green heads.
+- [x] Refresh #321 docs original `0d7e04f81c5a0a11e96a179a8c82a00aa5156ba4` to **9/9 SUCCESS, 0/9 artifacts**; #322 original `0baca36247f481e9a6652dbb24a63540b43c5caf` **8/8 SUCCESS, 0/8 artifacts**. All draft/unmerged.
+- [x] Create isolated [test draft #323](https://github.com/CosmicCuddle/N-Questie/pull/323), exact `5283d41633bfaaef09201d696f0cf67605041aaf`, three new test-only files; authenticate unaltered original whole 359-line AvailableQuests source; execute full original calculator, actual yielded coroutines, deferred draw, quest-tag/tooltip/map and cached `UnloadUndoable` paths under fictional host. Dedicated [run 40736592276](https://github.com/CosmicCuddle/N-Questie/actions/runs/40736592276), job `122986685508`, confirmed **37/37 EACH Lua5.1.5 and Lua5.4.6, 0 dedicated artifacts, clean checkout**. Wider CI **28/30 success, two running/queued** at initial dated checkpoint; refresh exact head before claiming full green.
+- [x] Inspect real original `Modules/Libs/ThreadLib.lua` source blob `8f564049ad2a4af49473fac939b7c276c4227dd7` and `AvailableQuests.lua` blob `2664f09fdf1f5df4d94581414e9d5ea88e9af4e7`: original `ThreadSimple` delegates to independent `Thread` / `newTicker`. Cancelling the outer `CalculateAndDrawAll` timer alone does not visibly cancel existing child tickers, whose deferred callbacks query mutable QuestieDB.
+- [x] Create isolated [test draft #324](https://github.com/CosmicCuddle/N-Questie/pull/324), first original `73b8be5b9aca0c4b54f9303a7b780b939bec9e35`, exactly three new test-only files. Execute genuine complete unmodified original ThreadLib **and** AvailableQuests modules in the same fictional `C_Timer.NewTicker` host. Dedicated **32 proposed** source/execution assertions per Lua interpreter; CI not verified at creation.
+- [x] Request targeted independently sourced team investigations in [PR #42 coordination comment](https://github.com/CosmicCuddle/N-Questie/pull/42#issuecomment-6476051574). No completion claims for CS02/CS03/Grok/Claude until actual replies.
+- [ ] Independently inspect #324 exact-head Lua5.1 and Lua5.4 logs, job, artifacts, full Actions; preserve its original result even on fixture failure.
+- [ ] Complete full original `QuestieComms` bounded send-path source-executed synthetic tests, coherent pointer + zone membership, zero real network traffic.
+- [ ] Execute original tracker item class consumers and derived UI cache lifetime against fictional reader transitions.
+- [ ] Resolve original `QuestieDB:GetDBHandle`, original compiler / `QuestieStream` scope, all E01–E08 plus unknown external writer ownership, four-kind eight Bin/Ptrs + metadata coherent handoff and original DB/public reader API migration.
+- [ ] Source-prove and test aborted/stale queued child callbacks, frames/tooltips, cache reset, source A→B→A, crash/relog/SavedVariables protocol; native acceptance after separate owner authorization only.
+
+## Permanent red gates / release safety
+
+**Gate08 MAJOR RED**, overall **3 COMPLETE / 6 UNDERWAY / 3 TECHNICALLY PENDING**. Public 439 RAW not approved, eligible denominator unknown, pilot 1207–1209 **0/3 implemented**. Synthetic dual Lua success is **not** a playable Alpha 0. No change to protected 335, production runtime/SQL, merge, ZIP, package, install, tag or release without explicit owner scope. No account, character, realm-private or SavedVariables data are used. Future approved native acceptance requires complete `Interface/AddOns/Questie-335` and account/character SavedVariables backups, rollback verification and client/IP smoke test.
