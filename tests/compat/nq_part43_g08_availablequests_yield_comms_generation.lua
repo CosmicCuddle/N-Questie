@@ -47,7 +47,7 @@ local function fixture()
         return current.queryData[id] and current.queryData[id][key]
     end
     local attempts,missing={},0
-    local env={QuestieDB=facade,yield=coroutine.yield}
+    local env={QuestieDB=facade,yield=coroutine.yield,QUESTS_PER_YIELD=24}
     env._DrawQuestIfAvailable=function(questId)
         local zone=facade.QueryQuestSingle(questId,"zoneOrSort")
         attempts[#attempts+1]={id=questId,zone=zone,current=current.tag}
@@ -134,29 +134,18 @@ check(originalOld.events[52].zone==1,
 local restart=fixture()
 restart.setCurrent("NEW")
 restart.step();restart.step();restart.step()
-check(#restart.events==52 and restart.missing()==52,
-      "V26_START_WITH_NEW_POINTERS_NEW_QUERY_FIXTURE_OLD_PTR_CAPTURE_INJECTED")
--- The fixture above intentionally hardcodes the OLD pointer source in its
--- environment initial state; to model a new scan after changing the source,
--- we need a newly instantiated task binding NEW pointers *before* capture.
-local function newScan()
-    local n=fixture()
-    n.setCurrent("NEW")
-    return n
-end
--- Important refinement: fixture env captured the shared facade, so the
--- original local questData is NEW on first coroutine resume after setCurrent.
-local fresh=newScan()
-fresh.step();fresh.step();fresh.step()
-check(#fresh.events==52 and fresh.missing()==52,
-      "V27_FRESH_NEW_QUERY_WITH_OLD_ONLY_MODEL_SET_NOT_A_VALID_NEW_SCAN")
+check(#restart.events==52 and restart.missing()==0,
+      "V26_FRESH_NEW_POINTERS_NEW_QUERY_COHERENT")
+check(restart.events[1].id==101 and restart.events[52].id==152,
+      "V27_FRESH_NEW_POINTERS_EXCLUDE_OLD_IDS")
 -- Comms original expression guard and lookup, under a synthetic swap.
 local pointerExpression="QuestieDB.QuestPointers[questId]"
 local queryExpression='QuestieDB.QueryQuestSingle(questId, "zoneOrSort")'
 check(comms:find(pointerExpression,1,true)~=nil,
       "V28_COMMS_POINTER_EXPRESSION_AUTHENTIC")
-check(comms:find(queryExpression,1,true)~=nil,
-      "V29_COMMS_QUERY_EXPRESSION_AUTHENTIC")
+check(comms:find(queryExpression,1,true)~=nil and
+      comms:find("if entry.zoneOrSort > 0 then",1,true)~=nil,
+      "V29_COMMS_QUERY_AND_ZONE_COMPARE_AUTHENTIC")
 local c={QuestPointers=old.ptr}
 c.QueryQuestSingle=function(id,key)
     return old.data[id] and old.data[id][key]
@@ -170,8 +159,9 @@ local commsProbe=compile("return function(questId)\n"..
 check(commsProbe(1)=="ZONE",
       "V30_MATCHING_OLD_QUEST_COMMS_QUERY")
 c.QuestPointers=new.ptr
-check(commsProbe(101)=="MISSING",
-      "V31_NEW_PTR_OLD_QUERY_PASS_GUARD_RETURNS_MISSING")
+local mismatchOk,mismatchError=pcall(commsProbe,101)
+check(not mismatchOk and tostring(mismatchError):find("nil",1,true)~=nil,
+      "V31_NEW_PTR_OLD_QUERY_CAN_THROW_AT_ZONE_COMPARE")
 c.QueryQuestSingle=function(id,key)
     return new.data[id] and new.data[id][key]
 end
