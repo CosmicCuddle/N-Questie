@@ -21,6 +21,10 @@ local smooth=extract(qsrc,"function QuestieQuest:SmoothReset()",
 local update=extract(qsrc,"function QuestieQuest:UpdateQuest(questId)",
   "\n---@param questId number\nfunction QuestieQuest:SetObjectivesDirty")
 compatTimer=extract(csrc,"local activeTimers = {}","\nlocal mapIdToUiMapId = {}")
+local originalGetQuestLog=extract(qsrc,"function QuestieQuest:GetAllQuestIdsNoObjectives()",
+  "\n-- iterate all notes")
+local originalCheckSource=extract(qsrc,"function QuestieQuest:CheckQuestSourceItem(questId, makeObjective)",
+  "\nlocal function _GetIconScaleForAvailable()")
 local function compile(src,name,env)
   local f
   if _VERSION=="Lua 5.1" then f=assert(loadstring(src,name));setfenv(f,env)
@@ -38,6 +42,7 @@ local function scenario(mode,consumeStaleChild)
   local timers,errors,groups={},{},{}
   local tagReads,drawCalls=0,0
   local tooltipWrites,worldWrites={},{}
+  local bagSlotChecks,bagItemChecks,cacheReads=0,0,0
   -- Fabricated AnimationGroup objects, but original Compat timer functions.
   local frame={}
   function frame:CreateAnimationGroup()
@@ -65,6 +70,16 @@ local function scenario(mode,consumeStaleChild)
     return group
   end
   local compat={frame=frame}
+  function compat.GetContainerNumSlots(bag)
+    bagSlotChecks=bagSlotChecks+1
+    return mode=="authpresent" and bag==0 and 1 or 0
+  end
+  function compat.GetContainerItemInfo(bag,slot)
+    bagItemChecks=bagItemChecks+1
+    if mode=="authpresent" and bag==0 and slot==1 then
+      return nil,nil,nil,nil,nil,nil,nil,nil,nil,5
+    end
+  end
   local function ticker(delay,cb,iterations)
     -- The test observer below records all original Compat calls, including
     -- ThreadLib's direct reference; no double-counting in this adapter.
@@ -86,13 +101,14 @@ local function scenario(mode,consumeStaleChild)
     return false
   end
   local quest={Id=1,WasComplete=(mode=="wascomplete" or mode=="orphan" or mode=="orphanwriter"
-      or mode=="writererror" or mode=="childerror"),sourceItemId=mode=="missing" and 5 or 0,
+      or mode=="writererror" or mode=="childerror" or mode=="authwas"),
+    sourceItemId=(mode=="missing" or mode=="authmissing" or mode=="authpresent") and 5 or 0,
     Objectives={},SpecialObjectives={},Starts={NPC={1}}}
   function quest:IsComplete()return 0 end
   local db={QuestPointers={},autoBlacklist={},activeChildQuests={}}
   for i=1,26 do db.QuestPointers[i]=true end
   function db.GetQuest(id)
-    if id==1 then return quest end
+    if id==1 then cacheReads=cacheReads+1;return quest end
     if db.QuestPointers[id] then
       return {Id=id,Starts={NPC={id}},tagInfoWasCached=false,requiredLevel=1}
     end
@@ -109,6 +125,10 @@ local function scenario(mode,consumeStaleChild)
   end
   function db.GetObject()return nil end
   function db.QueryQuestSingle()return nil end
+  function db.QueryItemSingle(itemId,field)
+    if itemId==5 and field=="name" then return "SYNTHETIC_SOURCE_ITEM" end
+    return nil
+  end
   function db.IsComplete()return 0 end
   function db.IsRepeatable()return false end
   function db.IsPvPQuest()return false end
@@ -137,7 +157,8 @@ local function scenario(mode,consumeStaleChild)
     showRepeatableQuests=true,showPvPQuests=true,showDungeonQuests=true,
     showRaidQuests=true,showAQWarEffortQuests=true},
     char={complete={},hidden={}}},DEBUG_DEVELOP=1,DEBUG_INFO=2,
-    ICON_TYPE_AVAILABLE=1,IsClassic=false,IsSoD=false}
+    ICON_TYPE_AVAILABLE=1,IsClassic=false,IsSoD=false,
+    _sessionWarnings={}}
   function questie:Debug()end
   function questie:Error(_,why)errors[#errors+1]=tostring(why)end
   function questie:SendMessage()end
@@ -145,6 +166,7 @@ local function scenario(mode,consumeStaleChild)
   function reset:ClearAllNotes()end
   function reset:ClearAllToolTips()end
   function reset:GetAllQuestIdsNoObjectives()player.currentQuestlog[1]=quest end
+  function reset:GetAllLeaderBoardDetails()return {} end
   function reset:ShouldShowQuestNotes()return true end
   function reset:UpdateObjectiveNotes()end
   function reset:PopulateObjectiveNotes()end
@@ -174,7 +196,8 @@ local function scenario(mode,consumeStaleChild)
     GetQuestsCompleted=function()return {}end,
     _UpdateSpecials=function()end,
     QuestieDBMIntegration={ClearAll=function()end},
-    QuestLogCache={TestGameCache=function()return true end},
+    QuestLogCache={TestGameCache=function()return true end,
+      questLog_DO_NOT_MODIFY={[1]={title="SYNTHETIC_CACHE_QUEST"}}},
     QuestieMenu={OnLogin=function()end},
     QuestieProfessions={Update=function()end},
     QuestieReputation={Update=function()end},
@@ -220,10 +243,28 @@ local function scenario(mode,consumeStaleChild)
   end
   compile(smooth,"=original_335_SmoothReset",env)
   compile(update,"=original_335_UpdateQuest",env)
+  local authenticHelpers=(mode=="authwas" or mode=="authmissing" or mode=="authpresent")
+  if authenticHelpers then
+    -- Unchanged original function BODY; its unrelated two source-objective
+    -- helpers are mocked to focus on questlog and source-item ownership.
+    local fakeHelperLocals="local _AddSourceItemObjective=function()end\n"
+      .."local _AddRequiredSourceItemObjective=function()end\n"
+    compile(fakeHelperLocals..originalGetQuestLog,
+      "=original_335_GetAllQuestIdsNoObjectives_fake_objective_helpers",env)
+    compile(originalCheckSource,"=original_335_CheckQuestSourceItem_fake_bags",env)
+    local realCheck=reset.CheckQuestSourceItem
+    function reset:CheckQuestSourceItem(...)
+      sourceItemChecks=sourceItemChecks+1
+      return realCheck(self,...)
+    end
+  end
   reset:SmoothReset()
   local resetTicker=assert(timers[1],"RESET_TICKER_NOT_STARTED")
   for i=1,8 do assert(tick(resetTicker),"RESET_STEP_FAILED:"..i) end
   local before=assert(lastCalculatorTicker,"ORIGINAL_CALCULATOR_NOT_STARTED")
+  local logIdentityBefore=(player.currentQuestlog[1]==quest)
+  local localizedBefore=quest.LocalizedName
+  local wasCompleteBefore=quest.WasComplete
   assert(tick(before),"CALC_FIRST_RESUME_FAILED")
   local child=timers[3]
   local activeBefore=reset._resetNeedsAvailables==true
@@ -250,6 +291,10 @@ local function scenario(mode,consumeStaleChild)
     staleChildActiveAfter=child and active(child) or false,
     completionCalls=completionCalls,active=active,
     errors=errors,checks=sourceItemChecks,activeBefore=activeBefore,
+    authenticHelpers=authenticHelpers,logIdentityBefore=logIdentityBefore,
+    localizedBefore=localizedBefore,wasCompleteBefore=wasCompleteBefore,
+    cacheReads=cacheReads,bagSlotChecks=bagSlotChecks,
+    bagItemChecks=bagItemChecks,
     timers=timers,quest=quest}
 end
 local normal=scenario("normal")
@@ -497,3 +542,57 @@ assert(n==106,"PART46_WRITER_ASSERTION_CENSUS_CHANGED:"..n)
 print("PUBLIC G08 PART46 ORPHAN WRITER AND GUARDED MODEL: 106/106 PASS")
 print("PUBLIC G08 PART46 SOURCE: unchanged original tooltip and world-icon call sites reached AFTER original parent cancellation; synthetic NPC and sinks only.")
 print("PUBLIC G08 PART46 LIMITS: controlled fake tag/map errors and counterfactual guards, no native UI, gameplay data, SavedVariables or addon patch.")
+
+
+-- PART46 AUTHENTIC ORIGINAL QUEST-LOG AND ITEM-CHECK FUNCTION BODIES.
+-- Original QuestieDB.GetQuest and native 3.3.5 bag APIs are NOT executed.
+-- The synthetic GetQuest returns a stable in-memory object; original source
+-- functions read it through the same call sites as the original reset.
+check(originalGetQuestLog:find("QuestiePlayer.currentQuestlog[questId] = quest",1,true)~=nil,
+  "S62_ORIGINAL_LOG_SOURCE_STORES_QUEST_OBJECT")
+check(originalCheckSource:find("QuestieCompat.GetContainerItemInfo",1,true)~=nil,
+  "S63_ORIGINAL_SOURCE_ITEM_CALLSITE")
+local cacheWas=scenario("authwas",false)
+check(cacheWas.authenticHelpers and cacheWas.logIdentityBefore,
+  "S64_ORIGINAL_LOG_RETAINED_CACHED_OBJECT")
+check(cacheWas.localizedBefore=="SYNTHETIC_CACHE_QUEST",
+  "S65_ORIGINAL_LOG_STORED_FAKE_TITLE")
+check(cacheWas.cacheReads>=2,"S66_ORIGINAL_LOG_AND_UPDATE_REQUEST_SAME_MOCK_QUEST")
+check(cacheWas.wasCompleteBefore==true,"S67_PERSISTED_WASCOMPLETE_BEFORE_UPDATE")
+check(cacheWas.after~=cacheWas.before and not cacheWas.active(cacheWas.before),
+  "S68_AUTHENTIC_LOG_WASCOMPLETE_SUPERSEDES")
+check(cacheWas.quest.WasComplete==nil,"S69_AUTHENTIC_UPDATE_CLEARS_WASCOMPLETE")
+check(cacheWas.completionCalls==0 and cacheWas.reset._resetNeedsAvailables,
+  "S70_CACHED_FLAG_SUPERSESSION_LOST_CALLBACK")
+
+local bagMissing=scenario("authmissing",false)
+check(bagMissing.authenticHelpers and bagMissing.logIdentityBefore,
+  "S71_ORIGINAL_LOG_SOURCE_ITEM_QUEST_STORED")
+check(bagMissing.cacheReads>=3,"S72_ITEM_CHECKS_SAME_MOCK_QUEST")
+check(bagMissing.bagSlotChecks>=14 and bagMissing.bagItemChecks==0,
+  "S73_FAKE_EMPTY_BAGS_ALL_SCANNED")
+check(bagMissing.checks>=2,"S74_ORIGINAL_CHECK_ITEM_TWICE")
+check(bagMissing.quest.Objectives[1]~=nil and
+  bagMissing.quest.Objectives[1].Id==5 and
+  bagMissing.quest.Objectives[1].Description=="SYNTHETIC_SOURCE_ITEM",
+  "S75_ORIGINAL_MISSING_ITEM_OBJECTIVE_CREATED")
+check(bagMissing.after~=bagMissing.before and not bagMissing.active(bagMissing.before),
+  "S76_ORIGINAL_MISSING_ITEM_SUPERSESSION")
+check(bagMissing.completionCalls==0 and bagMissing.reset._resetNeedsAvailables,
+  "S77_MISSING_ITEM_CALLBACK_STILL_UNRESOLVED")
+
+local bagPresent=scenario("authpresent",false)
+check(bagPresent.authenticHelpers and bagPresent.logIdentityBefore,
+  "S78_ORIGINAL_LOG_WITH_PRESENT_ITEM")
+check(bagPresent.bagSlotChecks>=3 and bagPresent.bagItemChecks==1,
+  "S79_FAKE_BAG_RETURNS_PRESENT_SOURCE_ITEM")
+check(bagPresent.checks>=1,"S80_ORIGINAL_PRESENT_ITEM_CHECK_CALLED")
+check(bagPresent.after==bagPresent.before,"S81_PRESENT_ITEM_NO_SELF_SUPERSESSION")
+check(bagPresent.completionCalls==1,"S82_PRESENT_ITEM_NORMAL_CALLBACK")
+check(bagPresent.reset._resetNeedsAvailables==false and bagPresent.reset._isResetting==nil,
+  "S83_PRESENT_ITEM_NORMAL_RESET_RELEASE")
+check(bagPresent.quest.Objectives[1]==nil,"S84_PRESENT_ITEM_NO_FAKE_MISSING_OBJECTIVE")
+assert(n==129,"PART46_AUTHENTIC_QUESTLOG_SOURCEITEM_CENSUS_CHANGED:"..n)
+print("PUBLIC G08 PART46 AUTHENTIC QUESTLOG AND SOURCE ITEM: 129/129 PASS")
+print("PUBLIC G08 PART46 SOURCE FUNCTIONS: original GetAllQuestIdsNoObjectives and CheckQuestSourceItem bodies; fake source-objective helpers, cached quest and bag APIs.")
+print("PUBLIC G08 PART46 SOURCE LIMITS: no original whole QuestieDB, actual game bag/questlog cache, native timer timing or production fix.")
