@@ -180,6 +180,10 @@ check(#cache.questLog_DO_NOT_MODIFY[1].objectives==1,
   "J23_ORIGINAL_CACHED_PREVIOUS_OBJECTIVE_RETAINED")
 check(q:IsComplete()==0,
   "J24_ORIGINAL_QO_SEES_STILL_CACHED_OBJECTIVE")
+-- Original numeric zero is truthy. The zero-objectives "return 1" fallback
+-- is reachable only when isComplete is nil, not numeric zero. The following
+-- game-side nil is a controlled FAKE input, never a native event.
+game.complete=nil
 -- The authentic QuestLogCache.RemoveQuest is a real source function; the
 -- CALL to it is test-host-driven, not claimed to occur in a native reset.
 cache.RemoveQuest(1)
@@ -203,6 +207,9 @@ check(privateDB.questCache[1]==q and counts.query==1,
 -- Completed flag in game quest log wins the original expression, even though
 -- CheckQuestSourceItem still runs and finds the source item absent.
 game.complete=1
+-- The original cache does NOT update a zero-objective entry's status by
+-- CheckForChanges alone; explicitly invalidate in this fake test host.
+cache.RemoveQuest(1)
 local completeMiss,completeChanges=cache.CheckForChanges(nil)
 check(not completeMiss and completeChanges[1]~=nil,
   "J31_GAME_CACHE_COMPLETION_FLAG_UPDATES")
@@ -215,6 +222,7 @@ check(counts.bagSlot==beforeCompleteScan+7,
 -- ONLY the fixture injects WasComplete; no native completion event fires.
 q.WasComplete=true
 game.complete=0
+cache.RemoveQuest(1) -- FAKE HOST action; do not infer SmoothReset does this
 local backMiss,backChanges=cache.CheckForChanges(nil)
 check(not backMiss and backChanges[1]~=nil,
   "J34_GAME_CACHE_COMPLETION_RESET_TO_ZERO")
