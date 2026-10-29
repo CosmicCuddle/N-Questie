@@ -114,7 +114,7 @@ local function newHost()
   local announce={
     AcceptedQuest=function(_,id)assert(id==1);calls.announceAccept=calls.announceAccept+1 end,
     AbandonedQuest=function()end}
-  local states={QUEST_ACCEPTED="QUEST_ACCEPTED",
+  local states={QUEST_ACCEPTED="QUEST_ACCEPTED",QUEST_TURNED_IN="QUEST_TURNED_IN",
     QUEST_REMOVED="QUEST_REMOVED",QUEST_ABANDONED="QUEST_ABANDONED"}
   local gate={locked=false}
   local tracking={[1]={state=states.QUEST_ACCEPTED}}
@@ -239,13 +239,7 @@ h.frame:Fire("QUEST_ACCEPTED",1,1) -- Fabricated native-like delivery ONLY.
 check(h.event:FakeState(1)==nil and h.calls.accept==0,
   "I15_ORIGINAL_FRAME_PREINIT_ACCEPT_NO_EFFECT")
 h.frame:Fire("QUEST_REMOVED",1)
--- Explicitly expose both operands, rather than hiding a fake-frame mistake.
-local observedRemovalState=h.event:FakeState(1)
-local observedPendingCount=#h.tick.pending
-print("PUBLIC G08 PART47 SYNTHETIC I16 DIAGNOSTIC state=" ..
-  tostring(observedRemovalState) .. " expected=" .. tostring(h.states.QUEST_REMOVED) ..
-  " pending=" .. tostring(observedPendingCount) .. " broadcast=" .. tostring(h.calls.broadcast))
-check(observedRemovalState==h.states.QUEST_REMOVED and observedPendingCount==1,
+check(h.event:FakeState(1)==h.states.QUEST_REMOVED and #h.tick.pending==1,
   "I16_ORIGINAL_DISPATCH_PREINIT_REMOVAL_PENDING_TIMER")
 h.frame:Fire("QUEST_ACCEPTED",1,1)
 check(h.tick.pending[1].cancelled and h.calls.cancel==1,
