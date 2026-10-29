@@ -164,6 +164,11 @@ compat.C_Timer.After(0,function()afterCount=afterCount+1 end)
 check(#groups==2 and groups[1].playing and groups[1].anim.duration==0.01,
   "W31_REAL_TIMER_POOL_REUSES_CANCELLED_STAGE_ANIMATION")
 groups[1]:Fire()
+print("PUBLIC G08 PART47 SYNTHETIC W32 DIAG afterCount="..tostring(afterCount)..
+  " playing="..tostring(groups[1].playing)..
+  " stops="..tostring(groups[1].stops)..
+  " duration="..tostring(groups[1].anim.duration)..
+  " groups="..tostring(#groups))
 check(afterCount==1 and not groups[1].playing,
   "W32_REUSED_STAGE_ANIMATION_AFTER_ONE_SHOT_CANCELS")
 check(calls.initialized==1 and calls.registered==1,"W33_SOURCE_STAGE_REGISTER_INIT_ONCE")
