@@ -1,4 +1,4 @@
-name: N-Questie Part47 G08 original 335 compatibility quest hook routes (test only)
+name: N-Questie Part47 G08 authentic 335 animation timer ThreadLib and queue (test only)
 on:
   pull_request:
 permissions:
@@ -266,6 +266,21 @@ jobs:
             log="$RUNNER_TEMP/nq-part47-original-335-compat-hooks-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part47_original_335_compat_quest_hooks.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART47 ORIGINAL 335 COMPAT QUEST HOOKS: 30/30 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Execute authentic 335 animation ticker with original ThreadLib and CombatQueue
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part47_original_335_animation_timer_threadlib.lua
+            else
+              luac5.4 -p tests/compat/nq_part47_original_335_animation_timer_threadlib.lua
+            fi
+            log="$RUNNER_TEMP/nq-part47-335-original-animation-timers-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part47_original_335_animation_timer_threadlib.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART47 ORIGINAL 335 ANIMATION TIMER: 45/45 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
