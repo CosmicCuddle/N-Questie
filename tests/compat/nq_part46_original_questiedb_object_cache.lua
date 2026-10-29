@@ -37,7 +37,8 @@ check(authenticGetLog:find("QuestieDB.GetQuest(questId)",1,true)~=nil,
   "D05_RESET_CALLS_ORIGINAL_GETQUEST")
 
 local rawQuest={[1]={[1]={},[2]={},[3]=5}}
-local game={ready=true,title="SYNTHETIC_QUEST",complete=0,tag="normal"}
+local game={ready=true,title="SYNTHETIC_QUEST",complete=0,tag="normal",
+  objectives={{text="SYNTHETIC_OBJECTIVE",type="item",numFulfilled=0,numRequired=2,finished=false}}}
 local counts={query=0,questLogReads=0,objectiveReads=0,completeSound=0}
 local errors={}
 local modules={}
@@ -63,7 +64,7 @@ local compat={
   C_QuestLog={GetQuestObjectives=function(id,index)
     counts.objectiveReads=counts.objectiveReads+1
     assert(id==1 and index==1)
-    return {}
+    return game.objectives
   end}
 }
 local questie={DEBUG_DEVELOP=1,DEBUG_INFO=1,DEBUG_CRITICAL=1,
