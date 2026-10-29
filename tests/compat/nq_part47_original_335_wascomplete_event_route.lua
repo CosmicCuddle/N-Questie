@@ -38,7 +38,7 @@ local evtMethods=table.concat({
    "\nlocal _UnitQuestLogChangedCallback = function()"),
  original(evtSrc,"function _QuestEventHandler:UpdateAllQuests()",
    "\nlocal lastTimeQuestRelatedFrameClosedEvent = -1"),
- evtSrc:sub(assert(evtSrc:find("function _QuestEventHandler:OnEvent(event, ...)",1,true)))
+ evtSrc:sub((assert(evtSrc:find("function _QuestEventHandler:OnEvent(event, ...)",1,true))))
 } ,"\n")
 local count=0
 local function check(ok,name)assert(ok,name);count=count+1 end
