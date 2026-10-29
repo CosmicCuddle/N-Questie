@@ -1,4 +1,4 @@
-name: N-Questie Part47 G08 original event lifecycle and cache bridge (test only)
+name: N-Questie Part47 G08 original reaccept CombatQueue and cache lifecycle (test only)
 on:
   pull_request:
 permissions:
@@ -32,6 +32,7 @@ jobs:
           Database/QuestieDB.lua 5784cb65160175e1dce30fe20e8baada0af7e480
           Modules/Quest/AvailableQuests.lua 2664f09fdf1f5df4d94581414e9d5ea88e9af4e7
           Modules/Libs/ThreadLib.lua 8f564049ad2a4af49473fac939b7c276c4227dd7
+          Modules/Libs/QuestieCombatQueue.lua 5f3fcbac09b95561e4e778a94936627e3c4e0a0e
           Compat/Compat.lua b3e273e82cabbd5b7b351ae5aa3d94d4675387be
           BLOBS
           echo 'PUBLIC G08 PART45 COMBINED ORIGINAL SOURCE BLOBS VERIFIED'
@@ -188,6 +189,21 @@ jobs:
             log="$RUNNER_TEMP/nq-part47-original-event-lifecycle-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part47_original_turnin_abandon_cache_lifecycle.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART47 ORIGINAL TURNIN ABANDON CACHE LIFECYCLE: 30/30 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Execute original reacceptance, whole CombatQueue and QuestLogCache in fake scheduler
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part47_original_reaccept_combatqueue_cache.lua
+            else
+              luac5.4 -p tests/compat/nq_part47_original_reaccept_combatqueue_cache.lua
+            fi
+            log="$RUNNER_TEMP/nq-part47-original-combatqueue-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part47_original_reaccept_combatqueue_cache.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART47 ORIGINAL REACCEPT COMBAT QUEUE: 40/40 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
