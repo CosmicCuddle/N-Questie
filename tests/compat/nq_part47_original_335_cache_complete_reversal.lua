@@ -37,7 +37,7 @@ check(cacheSrc:find("if isComplete == 1 then",1,true)~=nil,
 local native={active=true,id=2101,name="Synthetic Quest",complete=0,
   rawText="Synthetic Objective: 0/2",finished=false,numObjectives=1}
 local sounds={complete=0,progress=0,quest=0}
-local lib={TrimObjectiveText=function(_,s)return s end}
+local lib={TrimObjectiveText=function(text,kind)return text end}
 local soundModule={
   PlayObjectiveComplete=function()sounds.complete=sounds.complete+1 end,
   PlayObjectiveProgress=function()sounds.progress=sounds.progress+1 end,
