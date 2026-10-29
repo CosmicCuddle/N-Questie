@@ -115,6 +115,7 @@ execute(cacheSrc,"@ORIGINAL_335/Modules/Quest/QuestLogCache.lua")
 execute(dbComplete,"=ORIGINAL_335_DB_ISCOMPLETE_FULL_BODY")
 execute(questMethods,"=ORIGINAL_335_QUEST_UPDATE_POPULATE_OBJECTIVE_FULL_BODIES")
 local cache=assert(modules.QuestLogCache)
+env.QuestLogCache=cache -- genuine DB and QuestieQuest bodies resolve the original module global.
 check(type(cache.CheckForChanges)=="function","P06_WHOLE_REAL_CACHE_LOADED")
 check(type(db.IsComplete)=="function","P07_REAL_DB_ISCOMPLETE_LOADED")
 check(type(quest.UpdateQuest)=="function","P08_REAL_QUEST_UPDATE_LOADED")
