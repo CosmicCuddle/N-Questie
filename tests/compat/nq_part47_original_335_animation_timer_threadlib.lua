@@ -103,14 +103,16 @@ check(type(ctimer.NewTicker)=="function" and type(ctimer.After)=="function",
 check(type(thread.ThreadError)=="function" and type(queue.Initialize)=="function",
   "A11_WHOLE_THREADLIB_AND_QUEUE_LOADED")
 local ticks=0
+local receivedID
 local id=ctimer.NewTicker(0,function(received)
   ticks=ticks+1
-  check(received==id,"A12_CALLBACK_HAS_ORIGINAL_TIMER_ID")
+  receivedID=received
 end)
 check(#created==1 and created[1].playing,"A13_ORIGINAL_TIMER_CREATES_FAKE_GROUP")
 check(created[1].animation.duration==0.01,"A14_ORIGINAL_TIMER_CLAMPS_ZERO_TO_POINT_ZERO_ONE")
 check(created[1].looping=="REPEAT","A15_ORIGINAL_TIMER_SET_REPEAT")
 created[1]:Fire()
+check(receivedID==id,"A12_CALLBACK_HAS_ORIGINAL_TIMER_ID")
 check(ticks==1,"A16_ORIGINAL_FIRST_TICK_FIRED")
 created[1]:Fire()
 check(ticks==2,"A17_ORIGINAL_REPEATING_TIMER_FIRED_TWICE")
