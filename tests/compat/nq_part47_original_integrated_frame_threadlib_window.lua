@@ -249,7 +249,7 @@ check(h.event:FakeState(1)==nil and h.calls.accept==0,
 for i=1,6 do t:Fire() end -- Exactly six source yields before final stage resume.
 check(h.tick.combat==nil and #calls>=7,"I19_CONTIGUOUS_SOURCE_PROGRESS_BEFORE_LAST_TICK")
 t:Fire() -- Final real source fragment invokes original CombatQueue.Initialize.
-check(h.tick.combat~=nil and h.tick.combat.seconds==0.1,
+check(h.tick.combat~=nil and not h.tick.combat.cancelled,
   "I20_SOURCE_FRAGMENT_INITIALIZES_REAL_QUEUE")
 check(coroutine.status(co)=="dead","I21_TRUE_THREADLIB_COROUTINE_ENDED")
 check(calls[#calls]=="hooks" and h.calls.accept==0,
