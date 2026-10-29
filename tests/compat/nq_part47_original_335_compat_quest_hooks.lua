@@ -58,7 +58,7 @@ local priv={
 local public={}
 local compat={frame=compatFrame}
 function compat.GetQuestIDFromName(s)if s=="Synthetic Quest" then return 1 end end
-local hooks={}, methodHooks={}
+local hooks, methodHooks = {}, {}
 local function hooksecure(a,b,c)
   if type(a)=="table" then
     assert(type(b)=="string" and type(c)=="function")
