@@ -1,4 +1,4 @@
-name: N-Questie Part47 G08 original registered frame and preinit queue (test only)
+name: N-Questie Part47 G08 integrated original frame and ThreadLib init window (test only)
 on:
   pull_request:
 permissions:
@@ -236,6 +236,21 @@ jobs:
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part47_original_registered_frame_dispatch.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART47 ORIGINAL REGISTER DISPATCH FRAME: 20/20 PASS' "$log"
             grep -Fx 'PUBLIC G08 PART47 ORIGINAL: 51/51 total original-source checks; original RegisterEvents/InitQuestLog/OnEvent + four methods, whole original CombatQueue/QuestLogCache under FAKE frame.' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Execute original frame handler and genuine ThreadLib init window in one fake host
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part47_original_integrated_frame_threadlib_window.lua
+            else
+              luac5.4 -p tests/compat/nq_part47_original_integrated_frame_threadlib_window.lua
+            fi
+            log="$RUNNER_TEMP/nq-part47-original-integrated-frame-threadlib-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part47_original_integrated_frame_threadlib_window.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART47 ORIGINAL FRAME THREADLIB INIT WINDOW: 30/30 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
