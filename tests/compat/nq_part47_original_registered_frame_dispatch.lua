@@ -21,8 +21,11 @@ local originalRegister=extract(handlerSource,
 local originalInitQuestLog=extract(handlerSource,
   "function _QuestEventHandler:InitQuestLog()",
   "\n--- Fires when a quest is accepted")
-local originalDispatch=handlerSource:sub(assert(
-  handlerSource:find("function _QuestEventHandler:OnEvent(",1,true)))
+-- Capture the FIRST string.find return explicitly. Without this local, Lua passes
+-- BOTH find indices through the final assert(...) argument into string.sub().
+local dispatchStart=assert(handlerSource:find(
+  "function _QuestEventHandler:OnEvent(",1,true))
+local originalDispatch=handlerSource:sub(dispatchStart)
 local accepted=extract(handlerSource,
   "function _QuestEventHandler:QuestAccepted(",
   "\n---@param questId number\n---@return boolean true")
