@@ -141,7 +141,7 @@ jobs:
             fi
             log="$RUNNER_TEMP/nq-part46-full-integrated-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_integrated_original_db_cache_completion_source.lua | tee "$log"
-            grep -Fx 'PUBLIC G08 PART46 INTEGRATED REAL CACHE COMPLETE ITEM: 42/42 PASS' "$log"
+            grep -Fx 'PUBLIC G08 PART46 INTEGRATED REAL CACHE COMPLETE ITEM: 46/46 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
