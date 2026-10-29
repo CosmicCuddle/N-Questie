@@ -1,4 +1,4 @@
-name: N-Questie Part46 G08 integrated original quest cache completion (test only)
+name: N-Questie Part46 G08 registered parent and original cache (test only)
 on:
   pull_request:
 permissions:
@@ -142,6 +142,21 @@ jobs:
             log="$RUNNER_TEMP/nq-part46-full-integrated-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_integrated_original_db_cache_completion_source.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART46 INTEGRATED REAL CACHE COMPLETE ITEM: 46/46 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Verify peer-surviving descendant parent and terminal registry model mutants
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part46_registered_parent_terminal_mutant_witness.lua
+            else
+              luac5.4 -p tests/compat/nq_part46_registered_parent_terminal_mutant_witness.lua
+            fi
+            log="$RUNNER_TEMP/nq-part46-registered-parent-$lua.log"
+            timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_registered_parent_terminal_mutant_witness.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART46 REGISTERED PARENT TERMINAL MUTANTS: 32/32 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
