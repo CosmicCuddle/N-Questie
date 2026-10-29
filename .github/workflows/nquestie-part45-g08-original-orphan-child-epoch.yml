@@ -1,4 +1,4 @@
-name: N-Questie Part46 G08 original reset and full QuestLogCache (test only)
+name: N-Questie Part46 G08 full original QuestieDB and QuestLogCache (test only)
 on:
   pull_request:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
           test "$(git rev-parse "$sha^{commit}")" = "$sha"
           root="$RUNNER_TEMP/nq-part45-original-reset"
-          mkdir -p "$root/Modules/Libs" "$root/Modules/Quest" "$root/Compat"
+          mkdir -p "$root/Modules/Libs" "$root/Modules/Quest" "$root/Compat" "$root/Database"
           while read -r path blob; do
             test "$(git rev-parse "$sha:$path")" = "$blob"
             git show "$sha:$path" > "$root/$path"
@@ -28,6 +28,7 @@ jobs:
           done <<'BLOBS'
           Modules/Quest/QuestieQuest.lua cd4239c5b40c1f5b1ced823dfa12d8a895091719
           Modules/Quest/QuestLogCache.lua 09e9989922731f899994e6eb09af24465ae196ce
+          Database/QuestieDB.lua 5784cb65160175e1dce30fe20e8baada0af7e480
           Modules/Quest/AvailableQuests.lua 2664f09fdf1f5df4d94581414e9d5ea88e9af4e7
           Modules/Libs/ThreadLib.lua 8f564049ad2a4af49473fac939b7c276c4227dd7
           Compat/Compat.lua b3e273e82cabbd5b7b351ae5aa3d94d4675387be
@@ -66,6 +67,21 @@ jobs:
             log="$RUNNER_TEMP/nq-part46-cache-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_original_questlogcache_readiness.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART46 AUTHENTIC FULL QUESTLOGCACHE: 43/43 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Execute whole original QuestieDB cache creation and original QuestLogCache integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part46_original_questiedb_object_cache.lua
+            else
+              luac5.4 -p tests/compat/nq_part46_original_questiedb_object_cache.lua
+            fi
+            log="$RUNNER_TEMP/nq-part46-db-cache-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_original_questiedb_object_cache.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART46 ORIGINAL FULL QUESTIEDB CACHE: 39/39 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
