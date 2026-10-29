@@ -36,7 +36,7 @@ local function newGroup()
     assert(not self.anim)
     local a={parent=self}
     function a:SetScript(s,fn)
-      assert(s=="OnFinished" and type(fn)=="function");self.callback=fn
+      assert(s=="OnFinished" and type(fn)=="function");self.onFinished=fn
     end
     function a:SetDuration(d)self.duration=d end
     function a:GetParent()return self.parent end
@@ -46,8 +46,8 @@ local function newGroup()
   function g:Play()self.playing=true;self.plays=self.plays+1 end
   function g:Stop()self.playing=false;self.stops=self.stops+1 end
   function g:Fire()
-    assert(self.playing and self.anim and self.anim.callback,"FAKE_ANIMATION_NOT_PLAYING")
-    self.anim.callback(self.anim)
+    assert(self.playing and self.anim and self.anim.onFinished,"FAKE_ANIMATION_NOT_PLAYING")
+    self.anim.onFinished(self.anim)
   end
   groups[#groups+1]=g
   return g
@@ -160,21 +160,10 @@ check(not groups[1].playing and groups[1].stops==1,
   "W29_REAL_THREADLIB_CANCELS_COMPLETED_STAGE_TIMER")
 check(groups[2].playing,"W30_QUEUE_ANIMATION_REMAINS_ACTIVE")
 local afterCount=0
-local newAfterID=compat.C_Timer.After(0,function()afterCount=afterCount+1 end)
-local afterBeforeIter=groups[1].anim.iterations
-local beforeIDShares=(newAfterID==groups[1].anim.id)
+compat.C_Timer.After(0,function()afterCount=afterCount+1 end)
 check(#groups==2 and groups[1].playing and groups[1].anim.duration==0.01,
   "W31_REAL_TIMER_POOL_REUSES_CANCELLED_STAGE_ANIMATION")
 groups[1]:Fire()
-print("PUBLIC G08 PART47 SYNTHETIC W32 DIAG afterCount="..tostring(afterCount)..
-  " playing="..tostring(groups[1].playing)..
-  " stops="..tostring(groups[1].stops)..
-  " duration="..tostring(groups[1].anim.duration)..
-  " groups="..tostring(#groups)..
-  " beforeIter="..tostring(afterBeforeIter)..
-  " afterIter="..tostring(groups[1].anim.iterations)..
-  " idMatchedBefore="..tostring(beforeIDShares)..
-  " idMatchedAfter="..tostring(newAfterID==groups[1].anim.id))
 check(afterCount==1 and not groups[1].playing,
   "W32_REUSED_STAGE_ANIMATION_AFTER_ONE_SHOT_CANCELS")
 check(calls.initialized==1 and calls.registered==1,"W33_SOURCE_STAGE_REGISTER_INIT_ONCE")
