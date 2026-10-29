@@ -11,7 +11,8 @@ end
 local ledger=extract("local function registeredLedger(unsafe)",
   "\n-- Positive nested owner/child/grandchild path.")
 local function replaceOne(s,a,b)
-  local i,j=assert(s:find(a,1,true),"MUTATION_ANCHOR_MISSING")
+  local i,j=s:find(a,1,true)
+  assert(i and j,"MUTATION_ANCHOR_MISSING")
   assert(not s:find(a,j+1,true),"MUTATION_ANCHOR_AMBIGUOUS")
   return s:sub(1,i-1)..b..s:sub(j+1)
 end
