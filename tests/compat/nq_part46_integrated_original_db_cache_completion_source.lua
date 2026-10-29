@@ -174,69 +174,81 @@ check(q:IsComplete()==0,
   "J21_PRESENT_ITEM_WITH_OBJECTIVE_STILL_INCOMPLETE")
 game.objectives={}
 local emptyMiss,emptyChanges=cache.CheckForChanges(nil)
-check(not emptyMiss and emptyChanges[1]~=nil,
-  "J22_ORIGINAL_CACHE_TRANSITION_TO_EMPTY_OBJECTIVES")
+check(not emptyMiss and next(emptyChanges)==nil,
+  "J22_ORIGINAL_ZERO_OBJECTIVES_TRANSITION_NOT_RECORDED")
+check(#cache.questLog_DO_NOT_MODIFY[1].objectives==1,
+  "J23_ORIGINAL_CACHED_PREVIOUS_OBJECTIVE_RETAINED")
+check(q:IsComplete()==0,
+  "J24_ORIGINAL_QO_SEES_STILL_CACHED_OBJECTIVE")
+-- The authentic QuestLogCache.RemoveQuest is a real source function; the
+-- CALL to it is test-host-driven, not claimed to occur in a native reset.
+cache.RemoveQuest(1)
+check(cache.questLog_DO_NOT_MODIFY[1]==nil,
+  "J25_EXPLICIT_ORIGINAL_REMOVEQUEST_INVALIDATES")
+local rebuiltMiss,rebuiltChanges=cache.CheckForChanges(nil)
+check(not rebuiltMiss and rebuiltChanges[1]~=nil,
+  "J26_ORIGINAL_CACHE_REBUILDS_AFTER_EXPLICIT_REMOVE")
 check(#cache.questLog_DO_NOT_MODIFY[1].objectives==0,
-  "J23_ORIGINAL_CACHE_EMPTY_OBJECTIVES")
+  "J27_REBUILT_CACHE_HAS_ZERO_OBJECTIVES")
 check(q:IsComplete()==1,
-  "J24_ORIGINAL_GETQUEST_ISCOMPLETE_EMPTY_OBJS_PRESENT_SOURCE")
+  "J28_REAL_QO_SEES_REBUILT_EMPTY_OBJECTIVES_WITH_ITEM")
 
 -- Original source item disappears; same cached original DB QO now computes 0.
 game.haveItem=false
 check(q:IsComplete()==0,
-  "J25_ORIGINAL_QO_NOW_INCOMPLETE_WHEN_SOURCE_REMOVED")
+  "J29_ORIGINAL_QO_NOW_INCOMPLETE_WHEN_SOURCE_REMOVED")
 check(privateDB.questCache[1]==q and counts.query==1,
-  "J26_ORIGINAL_CACHED_OBJECT_IDENTITY_PERSISTS_CHANGE")
+  "J30_ORIGINAL_CACHED_OBJECT_IDENTITY_PERSISTS_CHANGE")
 
 -- Completed flag in game quest log wins the original expression, even though
 -- CheckQuestSourceItem still runs and finds the source item absent.
 game.complete=1
 local completeMiss,completeChanges=cache.CheckForChanges(nil)
 check(not completeMiss and completeChanges[1]~=nil,
-  "J27_GAME_CACHE_COMPLETION_FLAG_UPDATES")
+  "J31_GAME_CACHE_COMPLETION_FLAG_UPDATES")
 local beforeCompleteScan=counts.bagSlot
 check(q:IsComplete()==1,
-  "J28_REAL_ISCOMPLETE_RETURNS_COMPLETE_FROM_GAME_CACHE")
+  "J32_REAL_ISCOMPLETE_RETURNS_COMPLETE_FROM_GAME_CACHE")
 check(counts.bagSlot==beforeCompleteScan+7,
-  "J29_REAL_ISCOMPLETE_STILL_INSPECTS_FAKE_BAGS")
+  "J33_REAL_ISCOMPLETE_STILL_INSPECTS_FAKE_BAGS")
 
 -- ONLY the fixture injects WasComplete; no native completion event fires.
 q.WasComplete=true
 game.complete=0
 local backMiss,backChanges=cache.CheckForChanges(nil)
 check(not backMiss and backChanges[1]~=nil,
-  "J30_GAME_CACHE_COMPLETION_RESET_TO_ZERO")
+  "J34_GAME_CACHE_COMPLETION_RESET_TO_ZERO")
 check(q:IsComplete()==0 and q.WasComplete==true,
-  "J31_REAL_METHOD_INCOMPLETE_BUT_TEST_FLAG_STILL_SET")
+  "J35_REAL_METHOD_INCOMPLETE_BUT_TEST_FLAG_STILL_SET")
 reset:GetAllQuestIdsNoObjectives()
 check(player.currentQuestlog[1]==q and q.WasComplete==true,
-  "J32_ORIGINAL_RESET_REUSES_TEST_FLAGGED_ORIGINAL_OBJECT")
+  "J36_ORIGINAL_RESET_REUSES_TEST_FLAGGED_ORIGINAL_OBJECT")
 check(not reset:CheckQuestSourceItem(1,true),
-  "J33_REAL_SOURCE_CHECK_MISSING_ITEM_CREATES_OPTIONAL_OBJECTIVE")
+  "J37_REAL_SOURCE_CHECK_MISSING_ITEM_CREATES_OPTIONAL_OBJECTIVE")
 check(q.Objectives[1] and q.Objectives[1].Id==5 and
   q.Objectives[1].Description=="SYNTHETIC_ITEM",
-  "J34_ORIGINAL_SOURCE_MISSING_ITEM_OBJECTIVE_STORED_ON_QO")
-check(counts.query==1,"J35_NO_EXTRA_QUERY_DURING_RESET_OR_ITEM_CHECK")
+  "J38_ORIGINAL_SOURCE_MISSING_ITEM_OBJECTIVE_STORED_ON_QO")
+check(counts.query==1,"J39_NO_EXTRA_QUERY_DURING_RESET_OR_ITEM_CHECK")
 
 -- Fake host-only database cache clear, never asserted to be a reset operation.
 privateDB.questCache={}
 local replacement=db.GetQuest(1)
 check(replacement~=q and replacement.WasComplete==nil,
-  "J36_FAKE_DB_INVALIDATION_CHANGES_QUEST_IDENTITY")
+  "J40_FAKE_DB_INVALIDATION_CHANGES_QUEST_IDENTITY")
 check(counts.query==2 and privateDB.questCache[1]==replacement,
-  "J37_REPLACEMENT_CREATED_BY_WHOLE_ORIGINAL_GETQUEST")
+  "J41_REPLACEMENT_CREATED_BY_WHOLE_ORIGINAL_GETQUEST")
 check(replacement:IsComplete()==0,
-  "J38_NEW_ORIGINAL_QUEST_OBJECT_READS_SAME_GAME_CACHE_STATE")
+  "J42_NEW_ORIGINAL_QUEST_OBJECT_READS_SAME_GAME_CACHE_STATE")
 reset:GetAllQuestIdsNoObjectives()
 check(player.currentQuestlog[1]==replacement and
   player.currentQuestlog[1].WasComplete==nil,
-  "J39_ORIGINAL_RESET_REBINDS_NEW_SOURCE_QUEST_OBJECT")
+  "J43_ORIGINAL_RESET_REBINDS_NEW_SOURCE_QUEST_OBJECT")
 check(q.WasComplete==true and q~=replacement,
-  "J40_OLD_TEST_INJECTED_FLAG_STAYS_ON_UNREFERENCED_OBJECT")
-check(#errors==0,"J41_NO_MOCK_ERROR_IN_INTEGRATED_SOURCE_CHAIN")
+  "J44_OLD_TEST_INJECTED_FLAG_STAYS_ON_UNREFERENCED_OBJECT")
+check(#errors==0,"J45_NO_MOCK_ERROR_IN_INTEGRATED_SOURCE_CHAIN")
 check(counts.completeSound==0,
-  "J42_NUMERIC_COMPLETION_NOT_TRIGGERING_OLD_CACHED_SOUND")
-assert(n==42,"PART46_INTEGRATED_SOURCE_CHECK_CENSUS:"..n)
-print("PUBLIC G08 PART46 INTEGRATED REAL CACHE COMPLETE ITEM: 42/42 PASS")
+  "J46_NUMERIC_COMPLETION_NOT_TRIGGERING_OLD_CACHED_SOUND")
+assert(n==46,"PART46_INTEGRATED_SOURCE_CHECK_CENSUS:"..n)
+print("PUBLIC G08 PART46 INTEGRATED REAL CACHE COMPLETE ITEM: 46/46 PASS")
 print("PUBLIC G08 PART46 REAL SOURCES: full unchanged QuestieDB.GetQuest, IsComplete/_IsComplete, QuestieQuest.CheckQuestSourceItem, whole QuestLogCache, original reset GetAllQuestIdsNoObjectives; fake APIs.")
 print("PUBLIC G08 PART46 NO NATIVE CLAIM: game log, inventory, query database, frame timing and WasComplete flag trigger remain synthetic.")
