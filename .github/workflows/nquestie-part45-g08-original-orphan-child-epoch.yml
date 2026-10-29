@@ -1,4 +1,4 @@
-name: N-Questie Part47 G08 original 335 objective cache complete reversal (test only)
+name: N-Questie Part47 G08 original 335 WasComplete cache and DB integration (test only)
 on:
   pull_request:
 permissions:
@@ -341,6 +341,21 @@ jobs:
             log="$RUNNER_TEMP/nq-part47-335-cache-complete-reversal-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part47_original_335_cache_complete_reversal.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART47 ORIGINAL 335 CACHE COMPLETE REVERSAL: 35/35 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Execute original 335 WasComplete and QuestieDB completion source against synthetic questlog reversal
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part47_original_335_wascomplete_cache_db_update.lua
+            else
+              luac5.4 -p tests/compat/nq_part47_original_335_wascomplete_cache_db_update.lua
+            fi
+            log="$RUNNER_TEMP/nq-part47-original-335-wascomplete-cache-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part47_original_335_wascomplete_cache_db_update.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART47 ORIGINAL 335 WASCOMPLETE SOURCE INTEGRATION: 39/39 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
