@@ -160,7 +160,9 @@ check(not groups[1].playing and groups[1].stops==1,
   "W29_REAL_THREADLIB_CANCELS_COMPLETED_STAGE_TIMER")
 check(groups[2].playing,"W30_QUEUE_ANIMATION_REMAINS_ACTIVE")
 local afterCount=0
-compat.C_Timer.After(0,function()afterCount=afterCount+1 end)
+local newAfterID=compat.C_Timer.After(0,function()afterCount=afterCount+1 end)
+local afterBeforeIter=groups[1].anim.iterations
+local beforeIDShares=(newAfterID==groups[1].anim.id)
 check(#groups==2 and groups[1].playing and groups[1].anim.duration==0.01,
   "W31_REAL_TIMER_POOL_REUSES_CANCELLED_STAGE_ANIMATION")
 groups[1]:Fire()
@@ -168,7 +170,11 @@ print("PUBLIC G08 PART47 SYNTHETIC W32 DIAG afterCount="..tostring(afterCount)..
   " playing="..tostring(groups[1].playing)..
   " stops="..tostring(groups[1].stops)..
   " duration="..tostring(groups[1].anim.duration)..
-  " groups="..tostring(#groups))
+  " groups="..tostring(#groups)..
+  " beforeIter="..tostring(afterBeforeIter)..
+  " afterIter="..tostring(groups[1].anim.iterations)..
+  " idMatchedBefore="..tostring(beforeIDShares)..
+  " idMatchedAfter="..tostring(newAfterID==groups[1].anim.id))
 check(afterCount==1 and not groups[1].playing,
   "W32_REUSED_STAGE_ANIMATION_AFTER_ONE_SHOT_CANCELS")
 check(calls.initialized==1 and calls.registered==1,"W33_SOURCE_STAGE_REGISTER_INIT_ONCE")
