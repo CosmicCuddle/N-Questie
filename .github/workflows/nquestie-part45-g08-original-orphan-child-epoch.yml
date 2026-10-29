@@ -1,4 +1,4 @@
-name: N-Questie Part46 G08 original event handler cache bridge (test only)
+name: N-Questie Part47 G08 original event lifecycle and cache bridge (test only)
 on:
   pull_request:
 permissions:
@@ -173,6 +173,21 @@ jobs:
             log="$RUNNER_TEMP/nq-part46-original-event-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_original_eventhandler_updateall_cache_bridge.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART46 ORIGINAL EVENTHANDLER CACHE BRIDGE: 38/38 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Execute original QuestTurnedIn and abandonment cache lifecycle (fake host only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part47_original_turnin_abandon_cache_lifecycle.lua
+            else
+              luac5.4 -p tests/compat/nq_part47_original_turnin_abandon_cache_lifecycle.lua
+            fi
+            log="$RUNNER_TEMP/nq-part47-original-event-lifecycle-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part47_original_turnin_abandon_cache_lifecycle.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART47 ORIGINAL TURNIN ABANDON CACHE LIFECYCLE: 30/30 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
