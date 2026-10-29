@@ -1,4 +1,4 @@
-name: N-Questie Part46 G08 registered parent and original cache (test only)
+name: N-Questie Part46 G08 original event handler cache bridge (test only)
 on:
   pull_request:
 permissions:
@@ -28,6 +28,7 @@ jobs:
           done <<'BLOBS'
           Modules/Quest/QuestieQuest.lua cd4239c5b40c1f5b1ced823dfa12d8a895091719
           Modules/Quest/QuestLogCache.lua 09e9989922731f899994e6eb09af24465ae196ce
+          Modules/Quest/QuestEventHandler.lua fa3950ad5078ed299226fe384ea20eba2674b853
           Database/QuestieDB.lua 5784cb65160175e1dce30fe20e8baada0af7e480
           Modules/Quest/AvailableQuests.lua 2664f09fdf1f5df4d94581414e9d5ea88e9af4e7
           Modules/Libs/ThreadLib.lua 8f564049ad2a4af49473fac939b7c276c4227dd7
@@ -157,6 +158,21 @@ jobs:
             log="$RUNNER_TEMP/nq-part46-registered-parent-$lua.log"
             timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_registered_parent_terminal_mutant_witness.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART46 REGISTERED PARENT TERMINAL MUTANTS: 32/32 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Execute unchanged original event handler UpdateAllQuests over original cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part46_original_eventhandler_updateall_cache_bridge.lua
+            else
+              luac5.4 -p tests/compat/nq_part46_original_eventhandler_updateall_cache_bridge.lua
+            fi
+            log="$RUNNER_TEMP/nq-part46-original-event-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_original_eventhandler_updateall_cache_bridge.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART46 ORIGINAL EVENTHANDLER CACHE BRIDGE: 38/38 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
