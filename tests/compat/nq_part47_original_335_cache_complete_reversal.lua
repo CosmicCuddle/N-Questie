@@ -58,7 +58,8 @@ local env={
       native.complete,false,native.id
   end,
   GetNumQuestLeaderBoards=function(index)
-    assert(index==1);return native.numObjectives
+    if index==1 and native.active then return native.numObjectives end
+    return 0 -- fake empty end-of-quest-log index; genuine 335 wrapper still queries it.
   end,
   GetQuestLogLeaderBoard=function(i,index)
     assert(i==1 and index==1)
