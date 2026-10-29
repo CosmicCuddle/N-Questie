@@ -110,7 +110,7 @@ check(full.isComplete==1 and full.objectives[1].finished==true
 check(full.objectives[1].raw_numFulfilled==0
   and full.objectives[1].raw_finished==false,
   "R16_FORCED_DERIVED_RETAINS_DIFFERENT_RAW")
-check(sounds.quest==1,"R17_QUEST_COMPLETE_SOUND_FROM_ZERO_TO_ONE")
+check(sounds.quest==0,"R17_SOURCE_NOT_ZERO_PREVENTS_COMPLETE_SOUND")
 native.complete=0 -- FABRICATED reversal: leaderboard raw remains IDENTICAL.
 missed,delta=scan()
 local reverted=cache.questLog_DO_NOT_MODIFY[native.id]
@@ -125,7 +125,7 @@ check(reverted.objectives[1].numFulfilled==2 and
 check(reverted.objectives[1].raw_numFulfilled==0
   and reverted.objectives[1].raw_finished==false,
   "R22_RAW_REMAINS_INCOMPLETE_DESPITE_STALE_DERIVED")
-check(sounds.quest==1,"R23_NO_SECOND_QUEST_COMPLETION_SOUND_ON_REVERSAL")
+check(sounds.quest==0,"R23_SOURCE_STILL_NO_COMPLETE_SOUND_ON_REVERSAL")
 native.rawText="Synthetic Objective: 1/2" -- Fresh raw data now changes.
 missed,delta=scan()
 local fresh=cache.questLog_DO_NOT_MODIFY[native.id]
