@@ -1,4 +1,4 @@
-name: N-Questie Part46 G08 full original QuestieDB and QuestLogCache (test only)
+name: N-Questie Part46 G08 QuestieDB and epoch negative mutants (test only)
 on:
   pull_request:
 permissions:
@@ -82,6 +82,21 @@ jobs:
             log="$RUNNER_TEMP/nq-part46-db-cache-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_original_questiedb_object_cache.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART46 ORIGINAL FULL QUESTIEDB CACHE: 39/39 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Model-only forged current-owner ticket mutation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part46_g08_epoch_forged_ticket_mutant_controls.lua
+            else
+              luac5.4 -p tests/compat/nq_part46_g08_epoch_forged_ticket_mutant_controls.lua
+            fi
+            log="$RUNNER_TEMP/nq-part46-epoch-model-$lua.log"
+            timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part46_g08_epoch_forged_ticket_mutant_controls.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART46 EPOCH FORGED TICKET MODEL: 32/32 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
