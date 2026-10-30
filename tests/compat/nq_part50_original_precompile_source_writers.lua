@@ -142,7 +142,7 @@ check(not rawMissing:find("coroutine.yield()",1,true) and
   not rawGather:find("coroutine.yield()",1,true),
   "TWO_METHOD_BODIES_HAVE_NO_INTERNAL_EXPLICIT_YIELD")
 
-assert(total==16,"PART50_SOURCE_WRITER_ASSERTION_COUNT:"..total)
-print("PUBLIC G08 PART50 ORIGINAL PRECOMPILE SOURCE WRITERS: 16/16 PASS")
+assert(total==17,"PART50_SOURCE_WRITER_ASSERTION_COUNT:"..total)
+print("PUBLIC G08 PART50 ORIGINAL PRECOMPILE SOURCE WRITERS: 17/17 PASS")
 print("PUBLIC G08 PART50 FACT: original methods replace 12 selected raw quest rows and remove spawn fields from 24 selected object records; original startup order has yields between stages.")
 print("PUBLIC G08 PART50 NOT NATIVE: invented inputs; no production missing row, owner overwrite, untrusted writer race, published bytes, client, package or server change.")
