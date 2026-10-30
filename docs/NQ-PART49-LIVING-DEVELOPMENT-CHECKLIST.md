@@ -47,3 +47,9 @@
 - [x] Audited original `ValidateNPCs`, `ValidateObjects`, `ValidateItems`, `ValidateQuests`: ordinary successful exits release **1/1/3/1** reader streams, but early mismatch/missing-drop returns occur **before** release. The three-reader `ValidateItems` case is an important conditional ownership boundary. Actual client leakage and pool impact **UNKNOWN**.
 - [x] [Part49 Gate08 debug-validator writer / lease boundary](research/NQ-PART49-G08-DEBUG-VALIDATOR-SOURCE-WRITER-LEASE-BOUNDARY.md) records falsifiable W01/W02 and L01–L04 acceptance checks. SOURCE-ONLY, no test/client/code modification or Gate08 advancement.
 - [ ] No further pure synthetic test unless it covers **genuinely untested original method bodies** and adds a discriminating result. Preserve source immutability and obtain separate user approval for future original addon changes or native verification.
+
+## G. Part50 evergreen living handover pointer (30 October 2026)
+
+- [x] Created the [single CURRENT living continuation document](HANDOVERS/CURRENT.md) as a DOCS-only child of frozen Part49 research PR #430; it links Part48→49 history, owner boundaries, open release gates, and new Part49 findings from separate test PR #431.
+- [ ] At each later chat, recheck the *newest reviewed draft branch/PR head*, read `HANDOVERS/CURRENT.md` first, refresh its dated snapshot in a NEW controlled DOCS-only branch, and keep this historical Part49 checklist unchanged unless a precise missing checkpoint requires an addition.
+- [ ] Do not assume the living doc or prior development drafts are merged into protected `335`, and do not infer native QA or release from isolated GitHub Actions success.
