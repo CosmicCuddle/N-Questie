@@ -37,6 +37,7 @@ jobs:
           Compat/Compat.lua b3e273e82cabbd5b7b351ae5aa3d94d4675387be
           Database/compiler.lua abba0249f44d14711dbdd46bbde969ccffbc2963
           Database/Corrections/classicQuestFixes.lua b4c72c3e6fcc297e0e7677a15b18e17c3458dbdd
+          Database/Corrections/QuestieCorrections.lua 0584d2d6c0ff8c6e04c0fd0152d9c524bbf0345d
           BLOBS
           echo 'PUBLIC G08 PART45 COMBINED ORIGINAL SOURCE BLOBS VERIFIED'
       - name: Install clean Lua interpreters
