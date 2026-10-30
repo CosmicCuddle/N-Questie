@@ -388,6 +388,21 @@ jobs:
             grep -Fx 'PUBLIC G08 PART47 ORIGINAL 335 EVENT QUEUE TIMER: 77/77 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
+      - name: Exercise original 335 reward title scanner and completion routing under fabricated quest log
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part49_original_335_reward_title_lookup.lua
+            else
+              luac5.4 -p tests/compat/nq_part49_original_335_reward_title_lookup.lua
+            fi
+            log="$RUNNER_TEMP/nq-part49-original-reward-title-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part49_original_335_reward_title_lookup.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART49 ORIGINAL 335 REWARD TITLE SOURCE: 30/30 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
       - name: Assert no distributed build or modified source
         shell: bash
         run: |
