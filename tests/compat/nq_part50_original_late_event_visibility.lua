@@ -167,7 +167,7 @@ check(dbEnv.QuestieCorrectionshiddenQuests~=corrections.hiddenQuests,
   "REPLACEMENT_IS_NOT_IN_PLACE_MUTATION")
 check(#compiler.calls==4,"SIMULATED_REPLACEMENT_WITHOUT_DB_REINITIALIZE")
 
-assert(n==24,"PART50_EVENT_ASSERTION_COUNT:"..n)
-print("PUBLIC G08 PART50 ORIGINAL LATE EVENT VISIBILITY: 24/24 PASS")
+assert(n==26,"PART50_EVENT_ASSERTION_COUNT:"..n)
+print("PUBLIC G08 PART50 ORIGINAL LATE EVENT VISIBILITY: 26/26 PASS")
 print("PUBLIC G08 PART50 WOTLK-SHAPED FAKE HOST: original Load mutates the bound hidden-quest table; a hypothetical root replacement detaches the captured reader alias.")
 print("PUBLIC G08 PART50 NOT NATIVE: mocked event timing, date, compiled DB handles and APIs; no actual WotLK event bug, Darkmoon writer execution, saved variables or runtime release proof.")
