@@ -74,3 +74,10 @@
 - If new work is unmerged, record the branch and pull request link in the next update; do **not** say it has reached the protected default branch.
 
 **Handover preparation/source check:** 30 October 2026 UTC, after #431 original-head workflow review. **Status:** continuation documented, original addon and protected `335` unchanged, major gates still open.
+
+## Part50 continued source review — validator result boundary (30 October 2026 UTC)
+
+- **New source finding, documentation-only:** four historical original debug validators emit `Questie:Warning/Error` and bare `return` on handled mismatches or missing item-drop references, but all ordinary success paths also return `nil`. Enclosing `runValidator()` neither checks those results nor stops the next validator; Stage1 can still print `Load and Validation complete.` before `QuestieCleanup:Run()`. This message is **not proof all four validations passed**. An actual thrown exception is a different control path.
+- Read the new [Part50 source/diagnostic/lease acceptance memo](../research/NQ-PART50-G08-VALIDATOR-RESULT-STARTUP-STATUS-BOUNDARY.md) for exact original source pins and proposed future V01–V06 tests. No client mismatch, active stream leak or gameplay issue is claimed. The legacy debug validator is post-compile; it must not be treated as a future transactional prepublication success receipt.
+- This is a separate **DOCS-only review child of frozen original Part50 living-handover [#432](https://github.com/CosmicCuddle/N-Questie/pull/432)** exact first head `329b479d58771218d960317629ac262ff53b2b79`. Its review branch is `docs/part50-g08-validator-status-propagation-cs01-20261030`; preserve #432 and #430 originals. After a new PR is opened, verify its exact-head checks and append its URL on the NEXT fresh review branch (do not rewrite submitted first heads).
+- **Prioritize remaining Gate08 source ownership, driver leases, eight-field+metadata publication and native recovery evidence.** The V01–V06 diagnostic source distinction **does not** pass Gate08, authorize a code change or justify a cross-project Maintenance Issue.
