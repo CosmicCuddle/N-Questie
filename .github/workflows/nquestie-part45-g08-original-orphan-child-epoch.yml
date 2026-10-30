@@ -38,6 +38,7 @@ jobs:
           Database/compiler.lua abba0249f44d14711dbdd46bbde969ccffbc2963
           Database/Corrections/classicQuestFixes.lua b4c72c3e6fcc297e0e7677a15b18e17c3458dbdd
           Database/Corrections/QuestieCorrections.lua 0584d2d6c0ff8c6e04c0fd0152d9c524bbf0345d
+          Database/Corrections/QuestieEvent.lua b953353db9d063556611d6032d8f691578531dc0
           BLOBS
           echo 'PUBLIC G08 PART45 COMBINED ORIGINAL SOURCE BLOBS VERIFIED'
       - name: Install clean Lua interpreters
@@ -434,6 +435,21 @@ jobs:
             log="$RUNNER_TEMP/nq-part50-original-writers-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part50_original_precompile_source_writers.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART50 ORIGINAL PRECOMPILE SOURCE WRITERS: 17/17 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Exercise genuine original 335 late event visibility and initialized DB alias
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part50_original_late_event_visibility.lua
+            else
+              luac5.4 -p tests/compat/nq_part50_original_late_event_visibility.lua
+            fi
+            log="$RUNNER_TEMP/nq-part50-original-event-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part50_original_late_event_visibility.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART50 ORIGINAL LATE EVENT VISIBILITY: 26/26 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
