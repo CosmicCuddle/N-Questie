@@ -33,6 +33,7 @@
 5. [ ] Keep all drafts unmerged and production unchanged. Gate08 remains the release blocker.
 
 **This checklist is a plan, not evidence of native testing, a successful build or a merge.**
+
 ## E. Part49 distinct reward identity observation gate (30 October 2026)
 
 - [x] Original first-party `Compat/Compat.lua` source confirmed: first-title quest-log ID resolver, reward post-hook title→ID cache, later localized completion message consumes and clears the entry. **Missing lookup does not clear a previously cached same-title ID**, and no independent expiry exists in that module. This is an original-source conditional, NOT a reproduced native 3.3.5a bug.
