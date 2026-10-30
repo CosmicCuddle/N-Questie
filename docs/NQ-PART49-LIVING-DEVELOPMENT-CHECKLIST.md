@@ -33,3 +33,9 @@
 5. [ ] Keep all drafts unmerged and production unchanged. Gate08 remains the release blocker.
 
 **This checklist is a plan, not evidence of native testing, a successful build or a merge.**
+## E. Part49 distinct reward identity observation gate (30 October 2026)
+
+- [x] Original first-party `Compat/Compat.lua` source confirmed: first-title quest-log ID resolver, reward post-hook title→ID cache, later localized completion message consumes and clears the entry. **Missing lookup does not clear a previously cached same-title ID**, and no independent expiry exists in that module. This is an original-source conditional, NOT a reproduced native 3.3.5a bug.
+- [x] Archived 3.3.5 Blizzard **ordinary reward button and expense-confirmation popup both call `GetQuestReward`**; their post-hook quest-log/title state and client/server ordering remain UNKNOWN.
+- [x] New [Part49 Reward Completion Identity Evidence Gate](research/NQ-PART49-335-REWARD-COMPLETION-IDENTITY-EVIDENCE-GATE.md) documents R1–R6 distinguishing unique match, missing match, actual same-title collision, stale map, overwrite and expense popup; sets strict future-only observation requirements. **DOCS-ONLY, no native QA authorization.**
+- [ ] Only if separately owner-approved with disposable staging scope, real test quests, verified addon/WTF/DBC/DB backups and restoration, collect native hook-order/after-state evidence. No source patch, fabricated duplicate quest state, Journey replay, build, install, merge or release.
