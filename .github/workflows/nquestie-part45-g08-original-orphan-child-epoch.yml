@@ -35,6 +35,7 @@ jobs:
           Modules/Libs/QuestieCombatQueue.lua 5f3fcbac09b95561e4e778a94936627e3c4e0a0e
           Modules/QuestieInit.lua 22fffa1b1bbeb81ba067f34151949c0938a316c1
           Compat/Compat.lua b3e273e82cabbd5b7b351ae5aa3d94d4675387be
+          Database/compiler.lua abba0249f44d14711dbdd46bbde969ccffbc2963
           BLOBS
           echo 'PUBLIC G08 PART45 COMBINED ORIGINAL SOURCE BLOBS VERIFIED'
       - name: Install clean Lua interpreters
@@ -401,6 +402,21 @@ jobs:
             log="$RUNNER_TEMP/nq-part49-original-reward-title-$lua.log"
             NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part49_original_335_reward_title_lookup.lua | tee "$log"
             grep -Fx 'PUBLIC G08 PART49 ORIGINAL 335 REWARD TITLE SOURCE: 30/30 PASS' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Exercise original 335 Gate08 validator source-writer and early-exit reader leases
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part49_original_g08_validator_writer_lease.lua
+            else
+              luac5.4 -p tests/compat/nq_part49_original_g08_validator_writer_lease.lua
+            fi
+            log="$RUNNER_TEMP/nq-part49-original-validators-$lua.log"
+            NQ_PART45_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part45-original-reset" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part49_original_g08_validator_writer_lease.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART49 ORIGINAL 335 VALIDATORS: 31/31 PASS' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
           done
       - name: Assert no distributed build or modified source
