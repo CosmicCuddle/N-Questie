@@ -124,13 +124,18 @@ originalQuesties.objectData[prune[1]]=rowRefs[prune[1]]
 
 -- Source-backed startup sequence: loaders are separated by yields and
 -- are not a single atomic snapshot/transaction.
-local a=uniqueAt(startupSrc,"QuestieInit:LoadBaseDB()","STARTUP_BASE_LOAD")
-local b=uniqueAt(startupSrc,"QuestieCorrections:Initialize()","STARTUP_CORRECTIONS")
-local c=uniqueAt(startupSrc,"QuestieDB.private:DeleteGatheringNodes()","STARTUP_PRUNE")
-local d=uniqueAt(startupSrc,"QuestieCorrections:PreCompile()","STARTUP_PRECOMPILE")
+local loadStart=uniqueAt(startupSrc,"local function loadFullDatabase()",
+  "ORIGINAL_STARTUP_LOAD_FUNCTION")
+local loadEnd=assert(startupSrc:find("\n---Run the validator",loadStart,true),
+  "ORIGINAL_STARTUP_LOAD_BOUNDARY")
+local startupLoad=startupSrc:sub(loadStart,loadEnd-1)
+local a=uniqueAt(startupLoad,"QuestieInit:LoadBaseDB()","STARTUP_BASE_LOAD")
+local b=uniqueAt(startupLoad,"QuestieCorrections:Initialize()","STARTUP_CORRECTIONS")
+local c=uniqueAt(startupLoad,"QuestieDB.private:DeleteGatheringNodes()","STARTUP_PRUNE")
+local d=uniqueAt(startupLoad,"QuestieCorrections:PreCompile()","STARTUP_PRECOMPILE")
 check(a<b and b<c and c<d,"ORIGINAL_STARTUP_RAW_WRITER_ORDER")
-check(startupSrc:sub(b,c):find("coYield()",1,true)~=nil and
-  startupSrc:sub(c,d):find("coYield()",1,true)~=nil,
+check(startupLoad:sub(b,c):find("coYield()",1,true)~=nil and
+  startupLoad:sub(c,d):find("coYield()",1,true)~=nil,
   "STARTUP_WRITER_OPERATIONS_HAVE_YIELD_GAPS")
 local corrCall=uniqueAt(correctionsSrc,
   "QuestieQuestFixes:LoadMissingQuests()","CORRECTION_MISSING_QUEST_CALL")
