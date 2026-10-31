@@ -12,9 +12,28 @@ test -z "$(git status --porcelain --untracked-files=all)" || {
 command -v "$LUA" >/dev/null || { echo "REFUSE: Lua unavailable" >&2; exit 2; }
 T="$(mktemp -d)"
 chmod 700 "$T"
-trap 'chmod -R u+rwx "$T" 2>/dev/null || :; rm -rf -- "$T"' EXIT
+# Preserve short, public-source-only failure evidence before temporary cleanup.
+STAGE="initialize"
+gate10_finish() {
+  local status=$?
+  trap - EXIT
+  if [ "$status" -ne 0 ]; then
+    printf 'FAIL: Gate10 v2 at stage %s (exit %s)\n' "$STAGE" "$status" >&2
+    for log in "$T/export.err" "$T/coverage.err" "$T/verify.err" "$T/base-stderr"; do
+      if [ -f "$log" ]; then
+        printf 'DIAGNOSTIC %s (last 12 lines):\n' "${log##*/}" >&2
+        tail -n 12 "$log" >&2 || :
+      fi
+    done
+  fi
+  chmod -R u+rwx "$T" 2>/dev/null || :
+  rm -rf -- "$T"
+  exit "$status"
+}
+trap gate10_finish EXIT
 mkdir -m 700 "$T/export" "$T/coverage"
 F="$T/export/v2.lua"
+STAGE="initial effective v2 public export"
 expect() { grep -qx -- "$1" "$2" || { echo "FAIL: $1" >&2; exit 1; }; }
 env NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 NQ_EXPORT_SCHEMA_VERSION=2 \
  NQ_EXPORT_V2_OUT="$F" "$LUA" cli/validate-335.lua \
@@ -23,6 +42,7 @@ test -f "$F" && test ! -L "$F"
 test "$(stat -c %a "$F")" = 600
 grep -q "PASS: 232 checks" "$T/export.err"
 grep -Eq '^quests exported +9162$' "$T/export.out"
+STAGE="existing quest ID-set fingerprint"
 "$LUA" tests/check_m2_v2_export_file.lua ids "$F" >"$T/all-ids"
 test "$(wc -l <"$T/all-ids")" -eq 9162
 for id in 1207 1208 1209; do test "$(grep -xc -- "$id" "$T/all-ids")" -eq 1; done
@@ -32,6 +52,7 @@ test "$(sha256sum "$T/base-ids" | cut -d ' ' -f1)" = "$PIN_SHA"
 # Exact public objective projection check: source-closure pilot is five item
 # objectives in 3 quests. This does not establish server-required counts or
 # native quest-log text/order; those remain separate owner/3.3.5a gates.
+STAGE="five Gate10 item objective identities and order"
 "$LUA" - "$F" <<'NQ_GATE10_OBJECTIVES'
 local p = assert(arg[1], "expected a validated v2 export file")
 local f = assert(io.open(p, "rb"))
@@ -67,17 +88,20 @@ assert(found[1207] and found[1208] and found[1209], "Gate10 quest missing")
 assert(total == 5, "not exactly five Gate10 item objectives")
 print("PASS: Gate10 3 quests, 5 item objectives, exact IDs/order/levels in v2")
 NQ_GATE10_OBJECTIVES
+STAGE="M2 supported/unsupported counts and reasons"
 "$LUA" tests/check_m2_v2_export_file.lua counts "$F" >"$T/counts"
 for kv in quests=9162 questCount=9162 supported=8404 unsupported=758 sorted=1 \
  reason.EXTRA_CREATURE_REF=359 reason.EXTRA_OBJECT_REF=243 \
  reason.REPUTATION_OBJECTIVE=181 reason.KILLCREDIT_FIRST_REORDER=16 \
  reason.DUPLICATE_CREATURE=7 reason.DUPLICATE_OBJECT=1; do expect "$kv" "$T/counts"; done
 test "$(grep -c '^reason\.' "$T/counts")" -eq 6
+STAGE="M2 coverage manifest consistency"
 env NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 \
  NQ_COVERAGE_MANIFEST_OUT="$T/coverage/manifest.lua" \
  "$LUA" cli/validate-335.lua >"$T/coverage.out" 2>"$T/coverage.err"
 "$LUA" tests/check_m2_v2_export_file.lua coverage "$F" "$T/coverage/manifest.lua" >"$T/covcheck"
 for kv in compared=9162 differing=0 manifestOnly=0; do expect "$kv" "$T/covcheck"; done
+STAGE="M2 v2 verify and v1 equivalence"
 env NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 NQ_V2_VERIFY_IN="$F" \
  "$LUA" cli/validate-335.lua >"$T/verify.out" 2>"$T/verify.err"
 grep -q "v2 verify PASS" "$T/verify.err"
@@ -92,6 +116,7 @@ for spec in \
 # Optional deep control: compare every inherited v2 quest record against a
 # fresh PUBLIC 335 export, not only the original 9159-ID fingerprint.
 # Slow and opt-in. Refuse any non-0/1 mode rather than silently skipping it.
+STAGE="optional original-335 record-level parity"
 COMPARE_335="$(printenv NQ_GATE10_COMPARE_335 2>/dev/null || printf 0)"
 case "$COMPARE_335" in
 0) : ;;
@@ -151,6 +176,7 @@ NQ_GATE10_RECORD_COMPARE
   ;;
 *) echo "REFUSE: NQ_GATE10_COMPARE_335 must be 0 or 1" >&2; exit 2 ;;
 esac
+STAGE="confirm original checkout remains clean"
 test -z "$(git status --porcelain --untracked-files=all)"
 echo "PASS: Gate10 = protected 9159-ID set + exactly three new quests"
 echo "PASS: 8404 supported; 758 unsupported; 0 reason/manifest/round-trip differences"
