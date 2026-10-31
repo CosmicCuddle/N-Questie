@@ -1,0 +1,27 @@
+name: N-Questie Part52 available-quest scan (test only)
+on:
+  pull_request:
+    paths:
+      - "tests/compat/nq_part52_available_quest_filter_scan.lua"
+      - ".github/workflows/nquestie-part52-available-quest-scan.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-real-source:
+    name: Real AvailableQuests.lua with synthetic source rows
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.1 and 5.4 with bounded apt calls
+        run: |
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y lua5.1 lua5.4
+      - name: Execute source-based filter/index cases under both runtimes
+        run: |
+          set -eu
+          for ver in 5.1 5.4; do
+            "luac$ver" -p tests/compat/nq_part52_available_quest_filter_scan.lua
+            timeout --signal=TERM --kill-after=5s 120s "lua$ver" tests/compat/nq_part52_available_quest_filter_scan.lua
+          done
