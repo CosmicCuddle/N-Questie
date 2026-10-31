@@ -89,6 +89,68 @@ for spec in \
  '^v1 equivalence: quests differing +0$' \
  '^file provenance matches this checkout +yes$' \
  '^write/process attempts blocked +0$'; do grep -Eq "$spec" "$T/verify.out"; done
+# Optional deep control: compare every inherited v2 quest record against a
+# fresh PUBLIC 335 export, not only the original 9159-ID fingerprint.
+# Slow and opt-in. Refuse any non-0/1 mode rather than silently skipping it.
+COMPARE_335="$(printenv NQ_GATE10_COMPARE_335 2>/dev/null || printf 0)"
+case "$COMPARE_335" in
+0) : ;;
+1)
+  git clone -q --no-hardlinks "$(pwd -P)" "$T/pinned-335"
+  (cd "$T/pinned-335" &&
+    git checkout -q --detach 26053bd28b0df3a01e5859f779d5f3cb4f57b221 &&
+    test -z "$(git status --porcelain --untracked-files=all)")
+  mkdir -m 700 "$T/base-export"
+  (cd "$T/pinned-335" &&
+    env NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 NQ_EXPORT_SCHEMA_VERSION=2 \
+      NQ_EXPORT_V2_OUT="$T/base-export/v2.lua" "$LUA" cli/validate-335.lua \
+      >"$T/base-stdout" 2>"$T/base-stderr")
+  test -f "$T/base-export/v2.lua"
+  grep -q "PASS: 232 checks" "$T/base-stderr"
+  "$LUA" - "$T/base-export/v2.lua" "$F" <<'NQ_GATE10_RECORD_COMPARE'
+local Export = dofile("tools/validation/ExportV2.lua")
+local Schema = dofile("tools/validation/EffectiveSchemaV2.lua")
+local function doc(path)
+    local f = assert(io.open(path, "rb"))
+    local text = assert(f:read("*a"))
+    f:close()
+    local d, errors = Export.ParseAndValidate(text)
+    assert(d, table.concat(errors or {}, ";"))
+    return d
+end
+local base, proposed = doc(arg[1]), doc(arg[2])
+assert(#base.quests == 9159 and #proposed.quests == 9162, "unexpected quest count")
+local before, after = {}, {}
+for _, q in ipairs(base.quests) do
+    assert(not before[q.ID], "duplicate ID in original 335")
+    before[q.ID] = q
+end
+for _, q in ipairs(proposed.quests) do
+    assert(not after[q.ID], "duplicate ID in Gate10")
+    after[q.ID] = q
+end
+local compared = 0
+for id, q in pairs(before) do
+    assert(after[id], "original quest disappeared: " .. id)
+    assert(Schema.Canonical(q, {}) == Schema.Canonical(after[id], {}),
+        "existing v2 quest record changed: " .. id)
+    compared = compared + 1
+end
+assert(compared == 9159)
+local additions, expected = {}, { [1207]=true, [1208]=true, [1209]=true }
+for id in pairs(after) do
+    if not before[id] then
+        assert(expected[id], "unexpected new quest: " .. id)
+        additions[id] = true
+    end
+end
+for id in pairs(expected) do assert(additions[id], "missing new quest: " .. id) end
+print("PASS: all 9159 inherited v2 structural quest records unchanged")
+print("PASS: exactly 1207,1208,1209 added; provenance intentionally excluded")
+NQ_GATE10_RECORD_COMPARE
+  ;;
+*) echo "REFUSE: NQ_GATE10_COMPARE_335 must be 0 or 1" >&2; exit 2 ;;
+esac
 test -z "$(git status --porcelain --untracked-files=all)"
 echo "PASS: Gate10 = protected 9159-ID set + exactly three new quests"
 echo "PASS: 8404 supported; 758 unsupported; 0 reason/manifest/round-trip differences"
