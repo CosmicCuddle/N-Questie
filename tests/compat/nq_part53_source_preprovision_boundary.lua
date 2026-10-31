@@ -35,7 +35,7 @@ end
 local function sourceNpc() return {[1]="Invented NPC"} end
 local function sourceItem() return {[1]="Invented item, no drop locations"} end
 
-local function scenario(itemBeforeFirstCall, npcBeforeFirstCall, includePublicPrerequisite, includeExistingRaw2001)
+local function scenario(itemBeforeFirstCall, npcBeforeFirstCall, includePublicPrerequisite, includeExistingRaw2001, beforeFirstApproval)
     local npcData = {
         [2121]={[1]="Existing public 2001 giver"},
         [1868]={[1]="Existing public 2001 objective A"},
@@ -65,6 +65,14 @@ local function scenario(itemBeforeFirstCall, npcBeforeFirstCall, includePublicPr
         [2001]=public2001(), [inventedQuest]=inventedRecord(),
     }}
     assert(loadfile(loaderPath))()
+    -- Synthetic source-provision seam for CS02 review. The hook runs AFTER
+    -- original loader callback registration and BEFORE any callback can invoke
+    -- memoized approvedQuests(). It does not run inside/modify the loader,
+    -- nor simulate a guaranteed post-correction production integration.
+    if beforeFirstApproval ~= nil then
+        assert(type(beforeFirstApproval) == "function", "invalid preapproval hook")
+        beforeFirstApproval(db, callbacks)
+    end
     return db, callbacks
 end
 local function contains(list, id)
@@ -142,6 +150,35 @@ check("exact public 2001 fingerprint survives pre-existing raw 2001",
     occupiedResult[2001][Q.name] == "Ravenclaw Cleanup")
 check("the protected collision exception does not change the raw source row",
     occupiedDB.questData[2001][Q.name] == "Preexisting upstream 2001 row")
+-- CS02-requested optional before-first-approval injection seam. It permits
+-- synthetic source batches to be injected AFTER unchanged real loader setup
+-- but BEFORE any of its registered callbacks. This is not a production fix.
+local injectedCalls = 0
+local injectedDb, injectedCallbacks = scenario(false, false, true, false,
+    function(sourceDb, registered)
+        injectedCalls = injectedCalls + 1
+        assert(registered.questData and registered.npcData and registered.objectData)
+        assert(sourceDb.npcData[inventedNpc] == nil and
+            sourceDb.itemData[inventedItem] == nil)
+        sourceDb.npcData[inventedNpc] = sourceNpc()
+        sourceDb.itemData[inventedItem] = sourceItem()
+    end)
+local injectedFirst = injectedCallbacks.objectData() -- callback order variation
+local injectedQuests = injectedCallbacks.questData()
+local injectedNpc = injectedCallbacks.npcData()
+check("preapproval hook executes exactly once before first correction callback",
+    injectedCalls == 1)
+check("preapproval injected sources admit invented quest regardless of first group",
+    injectedQuests[inventedQuest] and
+    injectedQuests[inventedQuest][Q.objectives][3][1][1] == inventedItem)
+check("preapproval source gets both NPC reverse links",
+    injectedNpc[inventedNpc] and
+    contains(injectedNpc[inventedNpc][N.questStarts], inventedQuest) and
+    contains(injectedNpc[inventedNpc][N.questEnds], inventedQuest))
+check("preapproval retains original 2001 and injected raw source without mutation",
+    injectedQuests[2001] and injectedQuests[2001][Q.name] == "Ravenclaw Cleanup" and
+    injectedDb.questData[inventedQuest] == nil and
+    injectedDb.itemData[inventedItem][1] == "Invented item, no drop locations")
 print("ALL " .. checks .. " AUTHENTIC-LOADER SYNTHETIC PREPROVISION CHECKS PASS")
 print("NOT PROVEN: source provenance, native 3.3.5a, item drop locations,")
 print("             correction-group order, compiler persistence, IP or Gate08")
