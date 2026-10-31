@@ -18,8 +18,8 @@ This document is a public-safe operational handover for N-Questie Part 55, based
 | Gate10 Lua synthetic loader + failure-latch | **CS02-reported PASS:** 94/94 normal, both adversarial modes, 24/24 mutations, Lua 5.1 and 5.4, at `d815548c`. Not native client evidence. |
 | Existing M2 Busted framework | **RED:** completed run [41227924456](https://github.com/CosmicCuddle/N-Questie/actions/runs/41227924456) reports 169 successes and 2 failures in frozen 9,159-count-dependent real-DB tests; no private stdout in wrapper. |
 | Prior CS01 simplified opt-in M2 test `98b0aebb` | **CS02-reported Lua5.1 PASS** at its exact head; not proof of the later 5-objective or all-record checks. |
-| Part55 5-objective Gate10 / strict-latch M2 test | **NOT YET VERIFIED:** genuine Lua 5.1 export must prove 9,162 total / 8,404 supported / 758 unsupported, five item objective IDs and order, unchanged six refusal aggregates, and zero internal round-trip differences. |
-| Optional full old-record comparison | **NOT YET VERIFIED:** independently export protected `335@26053bd28b0df3a01e5859f779d5f3cb4f57b221` from a temporary checkout and compare all **9,159** complete *v2 structural* old quest records; exactly 1207–1209 may be added. |
+| Part55 5-objective Gate10 / strict-latch M2 test | **VERIFIED PASS** — real Lua5.1 exact-head source test at `68c10f61`: 9,162 total / 8,404 supported / 758 unsupported, three proposed quests, five ordered item objective IDs, six unchanged unsupported reason aggregates, zero manifest/round-trip differences. GitHub run [41231357608](https://github.com/CosmicCuddle/N-Questie/actions/runs/41231357608), job `124626066356` successful. |
+| Optional full old-record comparison | **VERIFIED PASS** — same exact-head CI job ran `NQ_GATE10_COMPARE_335=1` and logged "all 9159 inherited v2 structural quest records unchanged" against protected `335@26053bd2`; exactly 1207–1209 added. This does **not** compare native map/quest descriptions, server SQL or IP conditions. |
 | Native WoW 3.3.5a/IP marker/loot/phase | **UNKNOWN:** no authorization or evidence here. |
 | Gate08 atomic compiled cache / saved-variable recovery / RAM-GC | **MAJOR RED.** |
 
@@ -32,9 +32,9 @@ bash tests/test_nquestie_m2_gate10_delta.sh
 NQ_GATE10_COMPARE_335=1 bash tests/test_nquestie_m2_gate10_delta.sh
 ```
 
-GitHub's PR-triggered-commit-run connector query does **not** list push-only Actions runs. **Do not call this test PASS merely because the branch and workflow files exist.** Inspect an actual Actions run and job logs and record the precise test head and first failure, if any. No package, artifact upload, native game test, server write or release step was added.
+The PR-triggered-commit-run connector query does **not** list push-only Actions runs, but the dedicated push run ID was provided by CS02 and **independently verified through GitHub Actions job steps and logs**: run [41231357608](https://github.com/CosmicCuddle/N-Questie/actions/runs/41231357608), job `124626066356`, source `68c10f61`, every step SUCCESS including both Lua5.1 proof commands. The full-record parity PASS lines were visible directly in the returned log. No package, artifact upload, native game test, server write or release step was added.
 
-**Decision rule:** If it passes, record that the public M2 *structural* data delta is isolated. That still does **not** clear the original two RED frozen 335 Busted acceptance tests; a separately reviewed Gate10-specific variant is required. Never globally re-pin the historical test file `tests/test_nquestie_m2_v2_export_integration.sh` or `tools/validation/M2V2RoundTrip.test.lua`.
+**Decision rule applied:** The dedicated public M2 *structural* data delta is **verified isolated**. This still does **not** clear the original two RED frozen 335 Busted acceptance tests; a separately reviewed Gate10-specific variant is required. Never globally re-pin the historical test file `tests/test_nquestie_m2_v2_export_integration.sh` or `tools/validation/M2V2RoundTrip.test.lua`.
 
 ## Missing Vanilla quests — diagnosis not blanket approval
 
@@ -48,10 +48,10 @@ GitHub's PR-triggered-commit-run connector query does **not** list push-only Act
 
 Queued **after** the missing-quest proof: evaluate each quest target's *actual active* world spawns, not every historical/shared template spawn. Compare server map/phase/conditions to Questie zone-local coordinate transforms, then spot-check both minimap and world-map markers in an owner-approved disposable native 3.3.5a test. Do not fabricate exact spawns or remove unrelated legitimate pins simply to reduce clutter.
 
-## Next evidence request to CS02
+## Next Gate10 actions
 
-1. Inspect branch-specific Actions/logs for the **Part55 test branch** and report actual Lua5.1 PASS/FAIL for each command, including exact source SHA.
-2. If RED, provide the *first failing assertion/log*, classify as script, dependency, baseline or real field-delta failure. Fix only on a new reviewable test branch.
-3. Only after a confirmed complete data-delta run, propose a **separate Gate10-specific M2 variant** retaining the frozen original 335 baseline. No merge/packaging/native trial without owner approval.
+1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
+2. **Outstanding (Maintenance/CS02 implementation review):** propose a **separate Gate10-specific M2 acceptance variant** for 9,162/8,404 while retaining the frozen original 335 tests. The original two Busted RED tests are still RED on the candidate.
+3. **Outstanding (owner/native):** verify 1207 count-vs-prose and 1209 objective labels without unsanctioned SQL changes; native quest availability/IP, map/loot and Gate08 require separate acceptance. No merge/packaging/native trial without owner approval.
 
 All feedback belongs in the **existing PR #457** discussion; do not create a duplicate cross-project Issue.
