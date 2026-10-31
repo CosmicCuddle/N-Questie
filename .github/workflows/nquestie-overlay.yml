@@ -46,6 +46,11 @@ jobs:
         run: |
           luac5.1 -p tests/compat/nq_public_2001_compiled.lua
           timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_public_2001_compiled.lua
+      - name: Gate10 1207-1209 source provisioning contract and mutation check
+        run: |
+          luac5.1 -p tests/compat/nq_gate10_source_provision.lua
+          timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_gate10_source_provision.lua
+          timeout --signal=TERM --kill-after=5s 300s python3 tests/compat/run_nq_gate10_mutations.py
       - name: Test available quest starter marker source contract (Lua 5.1)
         run: |
           luac5.1 -p tests/compat/nq_available_starter_marker_contract.lua
