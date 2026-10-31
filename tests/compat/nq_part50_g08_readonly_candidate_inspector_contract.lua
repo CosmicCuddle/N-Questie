@@ -40,7 +40,7 @@ local function fresh(scope)
         }
     }
     for _,kind in ipairs(kinds) do
-        local bin="BIN:"..kind..":invented",ptrs="PTR:"..kind..":invented"
+        local bin, ptrs = "BIN:"..kind..":invented", "PTR:"..kind..":invented"
         stage.fields[kind.."Bin"]=bin
         stage.fields[kind.."Ptrs"]=ptrs
         stage.receipts[kind]={
