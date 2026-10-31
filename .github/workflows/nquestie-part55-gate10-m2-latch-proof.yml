@@ -32,6 +32,8 @@ jobs:
         run: timeout --signal=TERM --kill-after=5s 720s bash tests/test_nquestie_m2_gate10_delta.sh
       - name: Compare all 9159 old v2 quest records to protected 335 (Lua 5.1)
         run: timeout --signal=TERM --kill-after=5s 720s env NQ_GATE10_COMPARE_335=1 bash tests/test_nquestie_m2_gate10_delta.sh
+      - name: Candidate Gate10 M2 A1 read-only v2 round-trip (Lua 5.1)
+        run: timeout --signal=TERM --kill-after=5s 720s bash tests/test_nquestie_m2_gate10_roundtrip.sh
       - name: Original protected 335 M2 A1/A2 frozen controls (not Gate10 acceptance)
         run: timeout --signal=TERM --kill-after=5s 1350s bash tests/test_nquestie_m2_frozen335_control.sh
       - name: Confirm no checkout changes
