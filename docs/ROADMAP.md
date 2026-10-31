@@ -158,6 +158,9 @@
 
 ## Phase 3 — Objectives, custom rules and accuracy
 
+**Owner follow-up (31 October 2026):** [NQ-MAP-ACCURACY-001 — wrong/excessive quest objective map pins](NQ-LIVING-PROJECT-MASTER-CHECKLIST.md#part53-forward-queue--current-31-october-2026-supersedes-dated-historical-status-above) is **QUEUED AFTER missing-quest pilot work**. For quests that show many creature-kill icons although only a few creatures seem to exist locally, investigate real spawn/source records, effective compiled Questie target locations, event/pool/phase/IP eligibility, map coordinate conversion and UI clustering. Use read-only private evidence and reviewed narrow corrections, never guessed points or blanket deletions. Not implemented/tested in game.
+
+
 - [ ] Support NPC kill objectives, gameobject interactions, item drops, location-based objectives when confirmed by source.
 - [ ] Account for quest prerequisites, custom faction/race/class requirements and Individual Progression availability; never claim that client markers reflect server-authoritative unlock state until verified.
 - [ ] Handle multiple spawns/maps and time/phasing carefully; choose truthful pin visibility rules.
