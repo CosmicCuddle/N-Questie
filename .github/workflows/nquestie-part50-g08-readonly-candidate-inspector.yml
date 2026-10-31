@@ -1,0 +1,66 @@
+name: N-Questie Part50 G08 readonly candidate inspector (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  readonly-candidate-inspector:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Pin authentic original 335 compiler, reader and Stage1 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=8b23c6e2cfa00bb81cb26d40c44fef154e9e0070
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          root="$RUNNER_TEMP/nq-part50-readonly-source"
+          mkdir -p "$root/Database" "$root/Modules"
+          while read -r path blob; do
+            test "$(git rev-parse "$sha:$path")" = "$blob"
+            git show "$sha:$path" > "$root/$path"
+            test "$(git hash-object "$root/$path")" = "$blob"
+          done <<'BLOBS'
+          Database/compiler.lua abba0249f44d14711dbdd46bbde969ccffbc2963
+          Database/QuestieDB.lua 5784cb65160175e1dce30fe20e8baada0af7e480
+          Modules/QuestieInit.lua 22fffa1b1bbeb81ba067f34151949c0938a316c1
+          BLOBS
+          echo 'PUBLIC G08 PART50 CANDIDATE INSPECTOR ORIGINAL SOURCE BLOBS AUTHENTICATED'
+      - name: Install clean Lua 5.1 and 5.4 interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+      - name: Exercise strict read-only candidate admission and explicit known-gap witnesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part50_g08_readonly_candidate_inspector.lua
+              luac5.1 -p tests/compat/nq_part50_g08_readonly_candidate_inspector_contract.lua
+            else
+              luac5.4 -p tests/compat/nq_part50_g08_readonly_candidate_inspector.lua
+              luac5.4 -p tests/compat/nq_part50_g08_readonly_candidate_inspector_contract.lua
+            fi
+            log="$RUNNER_TEMP/nq-part50-readonly-$lua.log"
+            NQ_PART50_ORIGINAL_ROOT="$RUNNER_TEMP/nq-part50-readonly-source" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part50_g08_readonly_candidate_inspector_contract.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART50 READONLY CANDIDATE INSPECTOR: 61/61 PASS' "$log"
+            grep -Fx 'PUBLIC G08 PART50 KNOWN UNPROTECTED: forged resealed receipts and unregistered A-B-A both accepted by structural check.' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Confirm repository untouched and no deliverable produced
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d dist
+          test ! -d releases
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
