@@ -150,6 +150,7 @@ def main():
     print("PUBLIC NQ PART50 ALPHA0 XML REPEAT SCRIPT REFERENCES: %d (NOT REJECTED)" %
           duplicates)
     print("PUBLIC NQ PART50 ALPHA0 BLOCKED: raw Lua5.1 BOM compatibility and native startup NOT PROVEN")
+    print("PUBLIC NQ PART50 ALPHA0 STATIC ONLY: no XML widget semantics, native startup, or build")
 
 if __name__ == "__main__":
     main()
