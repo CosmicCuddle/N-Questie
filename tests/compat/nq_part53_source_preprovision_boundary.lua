@@ -35,16 +35,20 @@ end
 local function sourceNpc() return {[1]="Invented NPC"} end
 local function sourceItem() return {[1]="Invented item, no drop locations"} end
 
-local function scenario(itemBeforeFirstCall, npcBeforeFirstCall, includePublicPrerequisite)
+local function scenario(itemBeforeFirstCall, npcBeforeFirstCall, includePublicPrerequisite, includeExistingRaw2001)
     local npcData = {
         [2121]={[1]="Existing public 2001 giver"},
         [1868]={[1]="Existing public 2001 objective A"},
         [1869]={[1]="Existing public 2001 objective B"},
     }
     if npcBeforeFirstCall then npcData[inventedNpc] = sourceNpc() end
+    local rawQuests = (includePublicPrerequisite == false) and {} or {[437]={[Q.name]="Historical prerequisite"}}
+    if includeExistingRaw2001 then
+        rawQuests[2001] = {[Q.name]="Preexisting upstream 2001 row"}
+    end
     local db = {
         questKeys=Q, npcKeys=N, objectKeys=G,
-        questData=(includePublicPrerequisite == false) and {} or {[437]={[Q.name]="Historical prerequisite"}},
+        questData=rawQuests,
         npcData=npcData, objectData={}, itemData={},
     }
     if itemBeforeFirstCall then db.itemData[inventedItem] = sourceItem() end
@@ -125,6 +129,19 @@ check("grandfathered public 2001 remains accepted without raw prerequisite 437",
     no437Quests[2001] and no437Quests[2001][Q.preQuestSingle][1] == 437)
 check("no implicit raw 437 source row is written by the validation exception",
     no437Db.questData[437] == nil)
+-- Closing CS02's second 2001 collision branch mutation gap: the narrowly
+-- grandfathered correction must still supersede a pre-existing raw 2001.
+-- This is a synthetic raw row and does NOT alter a real source database.
+local occupiedDB, occupiedCallbacks = scenario(true, true, true, true)
+local occupiedResult = occupiedCallbacks.questData()
+check("synthetic raw quest 2001 collision deliberately exists",
+    occupiedDB.questData[2001] and
+    occupiedDB.questData[2001][Q.name] == "Preexisting upstream 2001 row")
+check("exact public 2001 fingerprint survives pre-existing raw 2001",
+    occupiedResult[2001] and
+    occupiedResult[2001][Q.name] == "Ravenclaw Cleanup")
+check("the protected collision exception does not change the raw source row",
+    occupiedDB.questData[2001][Q.name] == "Preexisting upstream 2001 row")
 print("ALL " .. checks .. " AUTHENTIC-LOADER SYNTHETIC PREPROVISION CHECKS PASS")
 print("NOT PROVEN: source provenance, native 3.3.5a, item drop locations,")
 print("             correction-group order, compiler persistence, IP or Gate08")
