@@ -215,10 +215,13 @@ end
 -- Allow-list of (database, id, field) that the N-Questie callbacks may change.
 -- field "*" = whole record may be new (custom quest).
 local ALLOWED = {
-    questData = { [2001] = "*", [1203] = { [QK.objectivesText] = true, [QK.objectives] = true } },
-    npcData = { [2121] = { [10] = true, [11] = true } }, -- questStarts / questEnds
-    objectData = {},
-    itemData = {},
+    -- Gate10: quests 1207-1209 and their provisioned sources (Compat loader batch).
+    questData = { [2001] = "*", [1207] = "*", [1208] = "*", [1209] = "*",
+        [1203] = { [QK.objectivesText] = true, [QK.objectives] = true } },
+    npcData = { [2121] = { [10] = true, [11] = true }, -- questStarts / questEnds
+        [1209] = "*", [3506] = "*", [3526] = "*", [3677] = "*" },
+    objectData = { [2013] = "*" },
+    itemData = { [160] = "*", [161] = "*", [162] = "*", [166] = "*", [167] = "*" },
 }
 -- Allow-list only the level fields that actually change.
 for id, v in pairs(LEVEL_CORRECTIONS) do

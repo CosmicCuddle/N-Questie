@@ -178,12 +178,210 @@ end
 
 -- Verify new records against the existing source database without assuming
 -- correction callback execution order (which uses pairs, not ipairs).
+-- Gate10 source provisioning. New quests may need NPC/object/item source rows
+-- that the inherited database lacks. They are validated as one batch against
+-- the effective (post-inherited-correction) tables and written only together,
+-- before the quest list is first built; on any failure nothing is written.
+local sourceSpecs = {
+    npcs = {
+        db = "npcData", keys = "npcKeys",
+        fields = {name = "string", minLevel = "u8", maxLevel = "u8", rank = "rank",
+            factionID = "u16", npcFlags = "u32", zoneID = "u16", spawns = "spawns"},
+        required = {"name", "minLevel", "maxLevel", "zoneID", "spawns"},
+    },
+    objects = {
+        db = "objectData", keys = "objectKeys",
+        fields = {name = "string", zoneID = "u16", spawns = "spawns"},
+        required = {"name", "zoneID", "spawns"},
+    },
+    items = {
+        db = "itemData", keys = "itemKeys",
+        fields = {name = "string", class = "u8", subClass = "u8",
+            npcDrops = "ids", objectDrops = "ids"},
+        required = {"name"},
+    },
+}
+local sourceKinds = {"npcs", "objects", "items"}
+
+local function validSpawns(value)
+    if type(value) ~= "table" then return nil end
+    local output, zones = {}, 0
+    for zone, list in pairs(value) do
+        if not integerInRange(zone, 1, 65535) or type(list) ~= "table" then return nil end
+        zones = zones + 1
+        if zones > MAX_LIST then return nil end
+        local count = 0
+        for _ in pairs(list) do count = count + 1 end
+        if count == 0 or count > 65535 then return nil end
+        local copy = {}
+        for index = 1, count do
+            local point = list[index]
+            if type(point) ~= "table" or #point ~= 2 then return nil end
+            local keys = 0
+            for _ in pairs(point) do keys = keys + 1 end
+            if keys ~= 2 then return nil end
+            for _, c in ipairs(point) do
+                if type(c) ~= "number" or c ~= c or c < 0 or c > 100 then return nil end
+            end
+            copy[index] = {point[1], point[2]}
+        end
+        output[zone] = copy
+    end
+    if zones == 0 then return nil end
+    return output
+end
+
+local sourceValidators = {
+    string = function(v)
+        if type(v) == "string" and #v > 0 and #v <= 255 and v ~= "nil" then return v end
+    end,
+    u8 = function(v) if integerInRange(v, 0, 255) then return v end end,
+    u16 = function(v) if integerInRange(v, 0, 65535) then return v end end,
+    u32 = function(v) if integerInRange(v, 0, 4294967295) then return v end end,
+    rank = function(v) if integerInRange(v, 0, 4) then return v end end,
+    spawns = validSpawns,
+    ids = function(v)
+        local list = denseIdList(v)
+        if list and #list > 0 then return list end
+    end,
+}
+
+-- Returns the validated write set (possibly empty) and the pending ID sets,
+-- or nil when anything in the batch is invalid or collides.
+local function buildSourceBatch()
+    local sources = custom.sources
+    local pending = {npcs = {}, objects = {}, items = {}}
+    if sources == nil then return {}, pending end
+    if type(sources) ~= "table" then return nil end
+    for kind in pairs(sources) do
+        if not sourceSpecs[kind] then return nil end
+    end
+    local batch = {}
+    for _, kind in ipairs(sourceKinds) do
+        local spec, rows = sourceSpecs[kind], sources[kind]
+        if rows ~= nil then
+            local db, keys = QuestieDB[spec.db], QuestieDB[spec.keys]
+            if type(rows) ~= "table" or type(db) ~= "table" or type(keys) ~= "table" then
+                return nil
+            end
+            for id, row in pairs(rows) do
+                if not integerInRange(id, 1, MAX_ID) or type(row) ~= "table" then return nil end
+                if db[id] ~= nil then return nil end -- effective ID collision
+                local record = {}
+                for field, value in pairs(row) do
+                    local check, key = spec.fields[field], keys[field]
+                    if not check or type(key) ~= "number" then return nil end
+                    local normalized = sourceValidators[check](value)
+                    if normalized == nil then return nil end
+                    record[key] = normalized
+                end
+                for _, field in ipairs(spec.required) do
+                    if row[field] == nil then return nil end
+                end
+                if kind == "npcs" and row.minLevel > row.maxLevel then return nil end
+                if kind == "items" and row.npcDrops == nil and row.objectDrops == nil then
+                    return nil
+                end
+                batch[#batch + 1] = {kind = kind, db = spec.db, id = id, record = record, row = row}
+                pending[kind][id] = true
+            end
+        end
+    end
+    for _, entry in ipairs(batch) do
+        if entry.kind == "items" then
+            for _, id in ipairs(entry.row.npcDrops or {}) do
+                if not (pending.npcs[id] or hasId(QuestieDB.npcData, id)) then return nil end
+            end
+            for _, id in ipairs(entry.row.objectDrops or {}) do
+                if not (pending.objects[id] or hasId(QuestieDB.objectData, id)) then return nil end
+            end
+        end
+    end
+    return batch, pending
+end
+
 local approved
-local function approvedQuests()
-    if approved then return approved end
+
+-- Every provisioned source must be used by an approved quest (directly, or as
+-- the drop source of a provisioned objective item) and every quest that uses a
+-- provisioned source must be approved. Otherwise the batch is rolled back.
+local function sourceBatchClosed(batch, pending)
+    local used = {npcs = {}, objects = {}, items = {}}
+    for id in pairs(custom.quests) do
+        local entry = approved[id]
+        local q = custom.quests[id]
+        local touches = false
+        for _, pair in ipairs({{"startedByNpcs", "npcs"}, {"finishedByNpcs", "npcs"},
+                {"killNpcs", "npcs"}, {"startedByGameObjects", "objects"},
+                {"finishedByGameObjects", "objects"}, {"objectObjectives", "objects"},
+                {"itemObjectives", "items"}}) do
+            local list = type(q) == "table" and denseIdList(q[pair[1]]) or nil
+            for _, ref in ipairs(list or {}) do
+                if pending[pair[2]][ref] then
+                    touches = true
+                    if entry then used[pair[2]][ref] = true end
+                end
+            end
+        end
+        if touches and not entry then return false end
+    end
+    for _, item in ipairs(batch) do
+        if item.kind == "items" and used.items[item.id] then
+            for _, id in ipairs(item.row.npcDrops or {}) do used.npcs[id] = true end
+            for _, id in ipairs(item.row.objectDrops or {}) do used.objects[id] = true end
+        end
+    end
+    for _, item in ipairs(batch) do
+        if not used[item.kind][item.id] then return false end
+    end
+    return true
+end
+
+-- Quests that depend on the declared source batch: any reference to an ID
+-- declared under `sources`. Collected best-effort from the raw declaration so
+-- it also works when the batch itself is malformed. `all` is true when the
+-- declaration is unreadable, in which case every custom quest except the
+-- exact frozen public 2001 record is treated as dependent (fail closed).
+local sourceRefFields = {{"startedByNpcs", "npcs"}, {"finishedByNpcs", "npcs"},
+    {"killNpcs", "npcs"}, {"startedByGameObjects", "objects"},
+    {"finishedByGameObjects", "objects"}, {"objectObjectives", "objects"},
+    {"itemObjectives", "items"}}
+local function batchDependentQuests()
+    local sources, excluded = custom.sources, {}
+    if sources == nil then return excluded end
+    local declared = {npcs = {}, objects = {}, items = {}}
+    local all = type(sources) ~= "table"
+    if not all then
+        for kind, rows in pairs(sources) do
+            -- Unknown or malformed groups still mark their IDs as declared in
+            -- every kind, so nothing that may depend on them slips through.
+            if type(rows) == "table" then
+                for id in pairs(rows) do
+                    for _, set in pairs(declared) do
+                        if declared[kind] == nil or set == declared[kind] then set[id] = true end
+                    end
+                end
+            end
+        end
+    end
+    for id, q in pairs(custom.quests) do
+        if all then
+            if not isPublic2001(id, q) then excluded[id] = true end
+        elseif type(q) == "table" then
+            for _, pair in ipairs(sourceRefFields) do
+                for _, ref in ipairs(denseIdList(q[pair[1]]) or {}) do
+                    if declared[pair[2]][ref] then excluded[id] = true end
+                end
+            end
+        end
+    end
+    return excluded
+end
+
+local function computeApproved(excluded)
     approved = {}
     for id, q in pairs(custom.quests) do
-        local entry = parseQuest(id, q)
+        local entry = not (excluded and excluded[id]) and parseQuest(id, q) or nil
         if entry then approved[id] = entry end
     end
 
@@ -296,6 +494,64 @@ local function approvedQuests()
             if not resolved(entry) then approved[id] = nil; changed = true end
         end
     end
+    return approved
+end
+
+-- Latched for the rest of this loader lifetime after any failed or
+-- interrupted source batch, so a later callback never re-provisions or admits
+-- the batch quests. Only a clean reload re-evaluates the batch from scratch.
+local sourceBatchFailed = false
+
+-- Admission without the batch-dependent quests. A fault here must not leave a
+-- partial memo behind, so the memo is cleared before the error propagates.
+local function approvedWithoutBatch()
+    local ok, result = pcall(computeApproved, batchDependentQuests())
+    if not ok then
+        approved = nil
+        error(result, 0)
+    end
+    return result
+end
+
+local function approvedQuests()
+    if approved then return approved end
+    if sourceBatchFailed then return approvedWithoutBatch() end
+    local batch, pending = buildSourceBatch()
+    if not batch then
+        -- Fail closed: a failed batch (collision, invalid row, unresolved drop)
+        -- writes nothing and rejects every quest depending on it, even if the
+        -- referenced IDs happen to exist from another source.
+        sourceBatchFailed = true
+        return approvedWithoutBatch()
+    end
+    local written = {}
+    local function rollback()
+        for index = #written, 1, -1 do
+            QuestieDB[written[index].db][written[index].id] = nil
+        end
+        written = {}
+    end
+    local ok, err = pcall(function()
+        for _, entry in ipairs(batch) do
+            QuestieDB[entry.db][entry.id] = entry.record
+            written[#written + 1] = entry
+        end
+        computeApproved()
+        if #written > 0 and not sourceBatchClosed(batch, pending) then
+            rollback()
+            sourceBatchFailed = true
+            approved = nil
+        end
+    end)
+    if not ok then
+        -- Interrupted write or admission: undo every source row, latch the
+        -- failure and re-raise.
+        rollback()
+        sourceBatchFailed = true
+        approved = nil
+        error(err, 0)
+    end
+    if sourceBatchFailed then return approvedWithoutBatch() end
     return approved
 end
 
