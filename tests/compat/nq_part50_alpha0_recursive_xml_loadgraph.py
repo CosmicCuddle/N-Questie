@@ -95,8 +95,9 @@ def main():
         for n, path in enumerate(sorted(scripts), 1):
             f = pathlib.Path(temp) / ("script-%04d.lua" % n)
             f.write_bytes(file_at(path))
-            p = subprocess.run([args.luac, "-p", str(f)], capture_output=True, text=True)
-            ensure(p.returncode == 0, "LUA_SYNTAX:" + path + ":" + p.stderr[:280])
+            p = subprocess.run([args.luac, "-p", str(f)], capture_output=True)
+            diagnostic = p.stderr.decode("utf-8", "backslashreplace")
+            ensure(p.returncode == 0, "LUA_SYNTAX:" + path + ":" + diagnostic[:280])
     print("PUBLIC NQ PART50 ALPHA0 RECURSIVE TOC DIRECT: 143/143 RESOLVED")
     print("PUBLIC NQ PART50 ALPHA0 RECURSIVE XML: %d XML, %d ACTIVE REFS RESOLVED" %
           (len(seen_xml), total_edges))
