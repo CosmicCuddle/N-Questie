@@ -1,0 +1,29 @@
+name: N-Questie Part51 private pilot offline checks
+
+on:
+  push:
+    branches:
+      - tools/part51-private-vanilla-quest-pilot-inspector-20261031-cs01
+
+permissions:
+  contents: read
+
+jobs:
+  offline-pilot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout source without credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify exact read-only Python tool and synthetic fixtures
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/inspect_missing_quest_pilot.py tools/test_inspect_missing_quest_pilot.py
+          python3 tools/test_inspect_missing_quest_pilot.py
+      - name: Never assemble or publish addons from this workflow
+        run: |
+          set -euo pipefail
+          test ! -e dist/N-Questie.zip
+          echo "PART51 PILOT TEST ONLY — no server data, build, artifact, or release"
