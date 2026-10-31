@@ -29,6 +29,44 @@ for id in 1207 1208 1209; do test "$(grep -xc -- "$id" "$T/all-ids")" -eq 1; don
 grep -Ev '^(1207|1208|1209)$' "$T/all-ids" >"$T/base-ids"
 test "$(wc -l <"$T/base-ids")" -eq 9159
 test "$(sha256sum "$T/base-ids" | cut -d ' ' -f1)" = "$PIN_SHA"
+# Exact public objective projection check: source-closure pilot is five item
+# objectives in 3 quests. This does not establish server-required counts or
+# native quest-log text/order; those remain separate owner/3.3.5a gates.
+"$LUA" - "$F" <<'NQ_GATE10_OBJECTIVES'
+local p = assert(arg[1], "expected a validated v2 export file")
+local f = assert(io.open(p, "rb"))
+local txt = assert(f:read("*a"))
+f:close()
+local Export = dofile("tools/validation/ExportV2.lua")
+local doc, errs = Export.ParseAndValidate(txt)
+assert(doc, "v2 document invalid: " .. table.concat(errs or {}, ";"))
+local expected = {
+    [1207] = {166},
+    [1208] = {167},
+    [1209] = {160, 161, 162},
+}
+local found, total = {}, 0
+for _, q in ipairs(doc.quests) do
+    local wants = expected[q.ID]
+    if wants then
+        assert(not found[q.ID], "duplicate Gate10 quest")
+        found[q.ID] = true
+        assert(q.m1Status == "SUPPORTED", "Gate10 objective is not M1-supported")
+        assert(q.requiredLevel == 18 and q.questLevel == 21,
+            "unexpected level in Gate10 quest")
+        assert(#q.objectives == #wants, "wrong objective count for Gate10 quest")
+        for i, objective in ipairs(q.objectives) do
+            assert(objective.kind == "item" and objective.slotIndex == i
+                and objective.id == wants[i],
+                "objective identity/order differs from reviewed Gate10 source")
+            total = total + 1
+        end
+    end
+end
+assert(found[1207] and found[1208] and found[1209], "Gate10 quest missing")
+assert(total == 5, "not exactly five Gate10 item objectives")
+print("PASS: Gate10 3 quests, 5 item objectives, exact IDs/order/levels in v2")
+NQ_GATE10_OBJECTIVES
 "$LUA" tests/check_m2_v2_export_file.lua counts "$F" >"$T/counts"
 for kv in quests=9162 questCount=9162 supported=8404 unsupported=758 sorted=1 \
  reason.EXTRA_CREATURE_REF=359 reason.EXTRA_OBJECT_REF=243 \
