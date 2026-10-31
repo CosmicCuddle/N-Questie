@@ -43,6 +43,15 @@ grep -q "PASS: 232 checks" "$T/r1.err"
 grep -q "PASS: 232 checks" "$T/r2.err"
 grep -q "v2 round trip PASS (read-only, nothing written)" "$T/r1.err"
 grep -q "v2 round trip PASS (read-only, nothing written)" "$T/r2.err"
+# An M0 PASS does not guarantee the declared Gate10 source batch survived.
+STAGE="verify the complete Gate10 source batch was admitted"
+grep -Fqx '[validate-335] questData IDs added by N-Questie: 1207,1208,1209,2001; removed: none' "$T/r1.out" || {
+  echo "FAIL: candidate Questie custom batch missing despite M0 PASS" >&2
+  grep -F 'questData IDs added by N-Questie:' "$T/r1.out" >&2 || :
+  exit 1
+}
+grep -Fqx '[validate-335] questData IDs added by N-Questie: 1207,1208,1209,2001; removed: none' "$T/r2.out"
+STAGE="assert actual mode and counts"
 expect() { grep -Eq -- "^$1 +$2$" "$T/r1.out" || { echo "FAIL: expected $1 = $2" >&2; exit 1; }; }
 expect "quests processed" 9162
 expect "compiled quest IDs" 9162
