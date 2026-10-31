@@ -170,7 +170,7 @@ check(not pcall(verifier,stage,oldToken),
 check(saved.nQuestieDataRevision==57 and saved.dbCompiledCount==9
     and saved.itemBin=="PUBLISHED_OLD_BIN_item",
     "FINAL_LEGACY_FIELDS_AND_METADATA_UNTOUCHED")
-assert(checks==38,"EXPECTED_38_CHECKS_GOT_"..checks)
-print("PUBLIC G08 PART50 AUTHENTIC SERIALIZER READER REFUSAL BRIDGE: 38/38 PASS")
+assert(checks==42,"EXPECTED_42_CHECKS_GOT_"..checks)
+print("PUBLIC G08 PART50 AUTHENTIC SERIALIZER READER REFUSAL BRIDGE: 42/42 PASS")
 print("PUBLIC G08 PART50 GENUINE: original draft #185 four writers, reader handles, and local stage receipt methods executed.")
 print("PUBLIC G08 PART50 REFUSED: real staged bytes lack source ownership, full metadata, reader leases, and crash/relog proof.")
