@@ -35,7 +35,10 @@ jobs:
             timeout --signal=TERM --kill-after=5s 150s python3 tests/compat/nq_part50_alpha0_recursive_xml_loadgraph.py --luac "$luac" | tee "$out"
             grep -Fx 'PUBLIC NQ PART50 ALPHA0 RECURSIVE TOC DIRECT: 143/143 RESOLVED' "$out"
             grep -E '^PUBLIC NQ PART50 ALPHA0 RECURSIVE XML: [0-9]+ XML, [0-9]+ ACTIVE REFS RESOLVED$' "$out"
-            grep -E '^PUBLIC NQ PART50 ALPHA0 RECURSIVE LUA: [0-9]+/[0-9]+ PARSE PASS luac5\.[14]$' "$out"
+            grep -E '^PUBLIC NQ PART50 ALPHA0 RECURSIVE LUA: [0-9]+/[0-9]+ PARSE WITH TEMP BOM DIAG luac5\.[14]$' "$out"
+            grep -E '^PUBLIC NQ PART50 ALPHA0 RAW LUA PASSES: [0-9]+; BOM-ONLY REJECTIONS: [0-9]+$' "$out"
+            grep -Fx 'PUBLIC NQ PART50 ALPHA0 KNOWN XML LUA BOM: Compat/Libs/LibSharedMedia-3.0/LibSharedMedia-3.0.lua' "$out"
+            grep -Fx 'PUBLIC NQ PART50 ALPHA0 BLOCKED: raw Lua5.1 BOM compatibility and native startup NOT PROVEN' "$out"
             grep -Fx 'PUBLIC NQ PART50 ALPHA0 STATIC ONLY: no XML widget semantics, native startup, or build' "$out"
           done
       - name: No files modified, no packaging or download artifacts
