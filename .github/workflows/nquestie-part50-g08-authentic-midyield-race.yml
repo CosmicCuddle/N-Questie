@@ -1,0 +1,65 @@
+name: N-Questie Part50 G08 authentic mid-yield source race (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  authentic-yield-source-race:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate six exact original optional draft #185 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=610e490e8625276f4f86e69af056ab8ccd5a621a
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          root="$RUNNER_TEMP/nq-part50-source-race"
+          mkdir -p "$root/Database" "$root/Modules"
+          while read -r path blob; do
+            test "$(git rev-parse "$sha:$path")" = "$blob"
+            git show "$sha:$path" > "$root/$path"
+            test "$(git hash-object "$root/$path")" = "$blob"
+          done <<'BLOBS'
+          Modules/QuestieStream.lua 1819aeea11148eae0742810dbd2338410edda238
+          Database/npcDB.lua ace50953a6bb0bc3ebdd349576681f10e8f44443
+          Database/objectDB.lua 70cd760ec046d3c9fcea1bb6d0a22595811261d0
+          Database/questDB.lua 9503b16031e739d9c0f046939058229b1a18d9b1
+          Database/itemDB.lua a714c1a11ce0513276de3f9ce9015d7db22efa80
+          Database/compiler.lua a29f8b68d5ea2c12e9ca50521818059d5a18e15f
+          BLOBS
+          echo 'PUBLIC G08 PART50 YIELD RACE SIX ORIGINAL CODE BLOBS VERIFIED'
+      - name: Install actual Lua interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+      - name: Reproduce index-capture omission and torn data after coroutine yields
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then luac5.1 -p tests/compat/nq_part50_g08_authentic_midyield_source_race.lua
+            else luac5.4 -p tests/compat/nq_part50_g08_authentic_midyield_source_race.lua; fi
+            log="$RUNNER_TEMP/nq-part50-midyield-$lua.log"
+            NQ_PART50_STAGE185_ROOT="$RUNNER_TEMP/nq-part50-source-race" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part50_g08_authentic_midyield_source_race.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART50 AUTHENTIC MID-YIELD SOURCE RACE: 30/30 PASS' "$log"
+            grep -Fx 'PUBLIC G08 PART50 VERIFIED RACE: original writer captured 60 IDs before yield, skipped late inserted row, encoded an A-B-A-mutated quest.' "$log"
+            grep -Fx 'PUBLIC G08 PART50 FAIL CLOSED: original local receipts can pass torn source, but new bridge refuses; no original addon change or native game proof.' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Assert no distributions or modified code
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d dist
+          test ! -d releases
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
