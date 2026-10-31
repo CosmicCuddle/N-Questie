@@ -35,7 +35,7 @@ end
 local function sourceNpc() return {[1]="Invented NPC"} end
 local function sourceItem() return {[1]="Invented item, no drop locations"} end
 
-local function scenario(itemBeforeFirstCall, npcBeforeFirstCall)
+local function scenario(itemBeforeFirstCall, npcBeforeFirstCall, includePublicPrerequisite)
     local npcData = {
         [2121]={[1]="Existing public 2001 giver"},
         [1868]={[1]="Existing public 2001 objective A"},
@@ -44,7 +44,7 @@ local function scenario(itemBeforeFirstCall, npcBeforeFirstCall)
     if npcBeforeFirstCall then npcData[inventedNpc] = sourceNpc() end
     local db = {
         questKeys=Q, npcKeys=N, objectKeys=G,
-        questData={[437]={[Q.name]="Historical prerequisite"}},
+        questData=(includePublicPrerequisite == false) and {} or {[437]={[Q.name]="Historical prerequisite"}},
         npcData=npcData, objectData={}, itemData={},
     }
     if itemBeforeFirstCall then db.itemData[inventedItem] = sourceItem() end
@@ -115,6 +115,16 @@ check("late NPC source remains rejected in the same memoized loader",
 -- hasId() even though actual drop/position provenance is absent.
 check("a placeholder item record is accepted by existence-only check",
     readyQuest[inventedQuest] ~= nil and readyDb.itemData[inventedItem][2] == nil)
+-- Closing CS02's equivalent-mutant gap: the protected 2001/437
+-- exception must work even when a baseline 437 quest row is absent.
+local no437Db, no437Callbacks = scenario(true, true, false)
+local no437Quests = no437Callbacks.questData()
+check("fixture does not contain public 2001 prerequisite 437",
+    no437Db.questData[437] == nil)
+check("grandfathered public 2001 remains accepted without raw prerequisite 437",
+    no437Quests[2001] and no437Quests[2001][Q.preQuestSingle][1] == 437)
+check("no implicit raw 437 source row is written by the validation exception",
+    no437Db.questData[437] == nil)
 print("ALL " .. checks .. " AUTHENTIC-LOADER SYNTHETIC PREPROVISION CHECKS PASS")
 print("NOT PROVEN: source provenance, native 3.3.5a, item drop locations,")
 print("             correction-group order, compiler persistence, IP or Gate08")
