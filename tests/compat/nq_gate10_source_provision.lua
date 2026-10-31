@@ -194,22 +194,56 @@ for _, qid in ipairs(NEW_QUESTS) do
         and r.db.questData[qid][QK.name] == "Pre-existing quest")
 end
 
--- Part54 RED regression witness (invented in-memory rows only):
--- If *all* source IDs are already occupied before the first callback,
--- source-batch validation fails, yet existence-only quest validation must NOT
--- admit the three unverified candidates through those occupied source rows.
--- This distinguishes a full collision from older one-at-a-time collisions,
--- which incidentally rejected the quests because nine sources were still absent.
-local fullyOccupied = run({preDb = function(db)
-    for kind, ids in pairs(SOURCES) do
-        for _, id in ipairs(ids) do
-            db[DBNAME[kind]][id] = {[1] = "Synthetic occupied, unverified source"}
+-- Part54 adversarial checks are opt-in, so the normal 68-check suite
+-- remains unchanged. Run each negative case independently with:
+--   NQ_GATE10_ADVERSARIAL=full_collision lua5.1 tests/compat/nq_gate10_source_provision.lua
+--   NQ_GATE10_ADVERSARIAL=write_fault lua5.1 tests/compat/nq_gate10_source_provision.lua
+-- Both are expected to FAIL on the initial #457 loader; do not claim PASS
+-- until a corrected loader rejects invalid batches without partial writes.
+local adversarial = os.getenv("NQ_GATE10_ADVERSARIAL")
+if adversarial == "full_collision" then
+    -- Part54 RED regression witness (invented in-memory rows only):
+    -- If *all* source IDs are already occupied before the first callback,
+    -- source-batch validation fails, yet existence-only quest validation must NOT
+    -- admit the three unverified candidates through those occupied source rows.
+    -- This distinguishes a full collision from older one-at-a-time collisions,
+    -- which incidentally rejected the quests because nine sources were still absent.
+    local fullyOccupied = run({preDb = function(db)
+        for kind, ids in pairs(SOURCES) do
+            for _, id in ipairs(ids) do
+                db[DBNAME[kind]][id] = {[1] = "Synthetic occupied, unverified source"}
+            end
         end
-    end
-end})
-check("all ten source IDs preoccupied: reject all three Gate10 quests, preserve 2001 and raw sources",
-    noneApproved(fullyOccupied) and sourcesUntouched(fullyOccupied)
-    and fullyOccupied.results.questData[2001] ~= nil)
+    end})
+    check("all ten source IDs preoccupied: reject all three Gate10 quests, preserve 2001 and raw sources",
+        noneApproved(fullyOccupied) and sourcesUntouched(fullyOccupied)
+        and fullyOccupied.results.questData[2001] ~= nil)
+
+
+elseif adversarial == "write_fault" then
+    -- A fabricated host throws *on the second NPC source insertion*.
+    -- This proves whether a mid-provision failure can strand the first row.
+    -- The source table is a local fixture, never the player's saved database.
+    local captured, originalNpcData, attemptedWrites
+    attemptedWrites = 0
+    local success = pcall(function()
+        run({preDb = function(db)
+            captured = db
+            originalNpcData = deepcopy(db.npcData)
+            setmetatable(db.npcData, {__newindex = function(t, id, value)
+                attemptedWrites = attemptedWrites + 1
+                if attemptedWrites == 2 then error("synthetic write interruption") end
+                rawset(t, id, value)
+            end})
+        end})
+    end)
+    check("second-write failure leaves no source rows partially inserted",
+        not success and attemptedWrites == 2 and captured ~= nil
+        and sameTables(captured.npcData, originalNpcData)
+        and count(captured.itemData) == 0 and count(captured.objectData) == 0)
+elseif adversarial ~= nil and adversarial ~= "" then
+    error("unknown NQ_GATE10_ADVERSARIAL mode: " .. tostring(adversarial))
+end
 
 -- 5. Invalid batch content
 local invalid = {
