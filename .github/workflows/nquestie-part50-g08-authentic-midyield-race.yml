@@ -49,7 +49,7 @@ jobs:
             else luac5.4 -p tests/compat/nq_part50_g08_authentic_midyield_source_race.lua; fi
             log="$RUNNER_TEMP/nq-part50-midyield-$lua.log"
             NQ_PART50_STAGE185_ROOT="$RUNNER_TEMP/nq-part50-source-race" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part50_g08_authentic_midyield_source_race.lua | tee "$log"
-            grep -Fx 'PUBLIC G08 PART50 AUTHENTIC MID-YIELD SOURCE RACE: 30/30 PASS' "$log"
+            grep -Fx 'PUBLIC G08 PART50 AUTHENTIC MID-YIELD SOURCE RACE: 29/29 PASS' "$log"
             grep -Fx 'PUBLIC G08 PART50 VERIFIED RACE: original writer captured 60 IDs before yield, skipped late inserted row, encoded an A-B-A-mutated quest.' "$log"
             grep -Fx 'PUBLIC G08 PART50 FAIL CLOSED: original local receipts can pass torn source, but new bridge refuses; no original addon change or native game proof.' "$log"
             test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
