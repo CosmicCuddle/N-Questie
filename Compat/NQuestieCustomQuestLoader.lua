@@ -334,11 +334,11 @@ local function sourceBatchClosed(batch, pending)
     return true
 end
 
-local function computeApproved()
+local function computeApproved(excluded)
     approved = {}
     for id, q in pairs(custom.quests) do
         local entry = parseQuest(id, q)
-        if entry then approved[id] = entry end
+        if entry and not (excluded and excluded[id]) then approved[id] = entry end
     end
 
     -- Remove unresolved dependencies and all dependants until stable.
@@ -453,22 +453,83 @@ local function computeApproved()
     return approved
 end
 
+-- Quests that depend on the declared source batch. When the batch fails for
+-- any reason they are rejected explicitly; existence of pre-occupied rows
+-- (from raw data or another addon) must never admit them indirectly.
+local function sourceDependentQuests()
+    local sources = custom.sources
+    local excluded = {}
+    if sources == nil then return excluded end
+    local declared, malformed = {npcs = {}, objects = {}, items = {}}, type(sources) ~= "table"
+    if not malformed then
+        for kind, rows in pairs(sources) do
+            if declared[kind] == nil or type(rows) ~= "table" then
+                malformed = true
+            else
+                for id in pairs(rows) do declared[kind][id] = true end
+            end
+        end
+    end
+    for id, q in pairs(custom.quests) do
+        if malformed then
+            -- Unknown batch shape: keep only the exact public 2001 baseline.
+            if not isPublic2001(id, q) then excluded[id] = true end
+        elseif type(q) == "table" then
+            for _, pair in ipairs({{"startedByNpcs", "npcs"}, {"finishedByNpcs", "npcs"},
+                    {"killNpcs", "npcs"}, {"startedByGameObjects", "objects"},
+                    {"finishedByGameObjects", "objects"}, {"objectObjectives", "objects"},
+                    {"itemObjectives", "items"}}) do
+                local list = q[pair[1]]
+                if type(list) == "table" then
+                    for _, ref in pairs(list) do
+                        if declared[pair[2]][ref] then excluded[id] = true end
+                    end
+                end
+            end
+        end
+    end
+    return excluded
+end
+
+-- Latched after any failed or interrupted provisioning so that a retry can
+-- never re-attempt (and partially or fully admit) the source batch.
+local sourceBatchFailed = false
+
+local function rollback(written)
+    for index = #written, 1, -1 do
+        rawset(QuestieDB[written[index].db], written[index].id, nil)
+    end
+end
+
 local function approvedQuests()
     if approved then return approved end
+    if sourceBatchFailed then
+        return computeApproved(sourceDependentQuests())
+    end
     local batch, pending = buildSourceBatch()
+    if not batch then
+        sourceBatchFailed = true
+        return computeApproved(sourceDependentQuests())
+    end
     local written = {}
-    if batch then
+    local ok, err = pcall(function()
         for _, entry in ipairs(batch) do
             QuestieDB[entry.db][entry.id] = entry.record
             written[#written + 1] = entry
         end
-    end
-    computeApproved()
-    if #written > 0 and not sourceBatchClosed(batch, pending) then
-        for index = #written, 1, -1 do
-            QuestieDB[written[index].db][written[index].id] = nil
-        end
         computeApproved()
+        if #written > 0 and not sourceBatchClosed(batch, pending) then
+            error("NQ_SOURCE_BATCH_NOT_CLOSED", 0)
+        end
+    end)
+    if not ok then
+        rollback(written)
+        sourceBatchFailed = true
+        approved = nil
+        if err == "NQ_SOURCE_BATCH_NOT_CLOSED" then
+            return computeApproved(sourceDependentQuests())
+        end
+        error(err, 0) -- unexpected fault: propagate after full rollback
     end
     return approved
 end

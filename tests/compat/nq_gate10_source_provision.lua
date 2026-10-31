@@ -71,6 +71,7 @@ local function run(opts)
     end}
     NQuestieCustomQuestData = data
     assert(loadfile(loaderPath))()
+    if opts.captureCallbacks then opts.captureCallbacks(callbacks) end
     local results = {}
     for _, group in ipairs(opts.order or {"questData", "npcData", "objectData"}) do
         results[group] = {}
@@ -226,8 +227,9 @@ elseif adversarial == "write_fault" then
     -- The source table is a local fixture, never the player's saved database.
     local captured, originalNpcData, attemptedWrites
     attemptedWrites = 0
+    local capturedCallbacks
     local success = pcall(function()
-        run({preDb = function(db)
+        run({captureCallbacks = function(cb) capturedCallbacks = cb end, preDb = function(db)
             captured = db
             originalNpcData = deepcopy(db.npcData)
             setmetatable(db.npcData, {__newindex = function(t, id, value)
@@ -240,6 +242,15 @@ elseif adversarial == "write_fault" then
     check("second-write failure leaves no source rows partially inserted",
         not success and attemptedWrites == 2 and captured ~= nil
         and sameTables(captured.npcData, originalNpcData)
+        and count(captured.itemData) == 0 and count(captured.objectData) == 0)
+    -- CS02 retry contract: after the interrupted write, a later callback on the
+    -- same loaded loader (host table now writable) must not re-provision or
+    -- admit any Gate10 quest, while 2001 stays approved.
+    setmetatable(captured.npcData, nil)
+    local retryOk, retry = pcall(function() return capturedCallbacks.questData[1]() end)
+    check("retry after interrupted write stays fail-closed: no Gate10 quest, no source write, 2001 kept",
+        retryOk and retry[1207] == nil and retry[1208] == nil and retry[1209] == nil
+        and retry[2001] ~= nil and sameTables(captured.npcData, originalNpcData)
         and count(captured.itemData) == 0 and count(captured.objectData) == 0)
 elseif adversarial ~= nil and adversarial ~= "" then
     error("unknown NQ_GATE10_ADVERSARIAL mode: " .. tostring(adversarial))

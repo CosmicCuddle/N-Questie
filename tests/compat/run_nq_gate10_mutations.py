@@ -10,7 +10,7 @@ DATA = (ROOT / "Compat/NQuestieCustomQuestData.lua").read_text()
 TEST = ROOT / "tests/compat/nq_gate10_source_provision.lua"
 M = [
  ("loader", "no provisioning write", "            QuestieDB[entry.db][entry.id] = entry.record\n", ""),
- ("loader", "provision after approval", "    computeApproved()\n    if #written > 0", "    if #written > 0"),
+ ("loader", "provision after approval", "        computeApproved()\n        if #written > 0", "        if #written > 0"),
  ("loader", "skip collision check", "if db[id] ~= nil then return nil end", "if false then return nil end"),
  ("loader", "skip rollback", "if #written > 0 and not sourceBatchClosed(batch, pending) then", "if false then"),
  ("loader", "closure always true", "local function sourceBatchClosed(batch, pending)\n", "local function sourceBatchClosed(batch, pending)\n    do return true end\n"),
@@ -20,11 +20,22 @@ M = [
  ("loader", "drop memo guard", "local function approvedQuests()\n    if approved then return approved end\n", "local function approvedQuests()\n"),
  ("loader", "remove 2001/437 exemption", "        not isPublic2001(id, q) then return nil end", "        true then return nil end"),
  ("loader", "skip minLevel<=maxLevel", "row.minLevel > row.maxLevel", "false"),
+ ("loader", "failed batch not excluded", "        sourceBatchFailed = true\n        return computeApproved(sourceDependentQuests())\n    end\n    local written", "        sourceBatchFailed = true\n        return computeApproved()\n    end\n    local written"),
+ ("loader", "no rollback on fault", "        rollback(written)\n", ""),
+ ("loader", "no failure latch", "    if sourceBatchFailed then\n", "    if false then\n"),
+ ("loader", "swallow unexpected fault", "        error(err, 0) -- unexpected", "        do return computeApproved(sourceDependentQuests()) end --"),
+ ("loader", "dependants not detected", "                        if declared[pair[2]][ref] then excluded[id] = true end", ""),
  ("data", "revision not bumped", "revision = 10", "revision = 9"),
 ]
+MODES = ("", "full_collision", "write_fault")
 def run(lua, loader, data):
-    env = dict(os.environ, NQ_LOADER_PATH=loader, NQ_DATA_PATH=data)
-    return subprocess.run([lua, str(TEST)], cwd=ROOT, env=env, capture_output=True).returncode
+    # A mutant is killed if the normal suite or any Part54 adversarial mode fails.
+    worst = 0
+    for mode in MODES:
+        env = dict(os.environ, NQ_LOADER_PATH=loader, NQ_DATA_PATH=data, NQ_GATE10_ADVERSARIAL=mode)
+        rc = subprocess.run([lua, str(TEST)], cwd=ROOT, env=env, capture_output=True).returncode
+        worst = worst or rc
+    return worst
 killed = 0
 luas = [l for l in ("lua5.1", "lua5.4") if shutil.which(l)]
 with tempfile.TemporaryDirectory() as tmp:
