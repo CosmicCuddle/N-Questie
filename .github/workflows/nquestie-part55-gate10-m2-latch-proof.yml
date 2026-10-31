@@ -32,11 +32,16 @@ jobs:
         run: timeout --signal=TERM --kill-after=5s 720s bash tests/test_nquestie_m2_gate10_delta.sh
       - name: Compare all 9159 old v2 quest records to protected 335 (Lua 5.1)
         run: timeout --signal=TERM --kill-after=5s 720s env NQ_GATE10_COMPARE_335=1 bash tests/test_nquestie_m2_gate10_delta.sh
+      - name: Original protected 335 M2 A1/A2 frozen controls (not Gate10 acceptance)
+        run: timeout --signal=TERM --kill-after=5s 1350s bash tests/test_nquestie_m2_frozen335_control.sh
       - name: Confirm no checkout changes
         if: always()
         run: git status --porcelain --untracked-files=all
 
 # This workflow deliberately has NO pull_request trigger, package, build,
 # upload-artifact, release, tag, secret, deployment, client or server step.
-# It is a disposable research gate, not a substitute for the frozen M2
-# baseline acceptance, Gate08 or native WoW 3.3.5a/IP QA.
+# The frozen A1/A2 controls execute only in a detached temporary clone of
+# protected 335 and do not repin or modify any old test or golden. This
+# deliberately does NOT assert that the candidate passes those old baselines.
+# Not a substitute for a reviewed Gate10-specific M2 acceptance variant,
+# Gate08 or native WoW 3.3.5a/IP QA.
