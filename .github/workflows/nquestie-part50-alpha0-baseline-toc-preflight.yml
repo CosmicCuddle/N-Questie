@@ -1,0 +1,50 @@
+name: N-Questie Part50 protected baseline direct TOC preflight (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  protected-baseline-toc-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Fetch protected baseline by immutable commit and verify real 3.3.5a manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=26053bd28b0df3a01e5859f779d5f3cb4f57b221
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          test "$(git rev-parse "$sha:Questie-335.toc")" = f59dc1c2b1987697e133297831224e6f0957bae8
+          test "$(git rev-parse "$sha:Modules/QuestieInit.lua")" = 22fffa1b1bbeb81ba067f34151949c0938a316c1
+          echo 'PUBLIC NQ PART50 ALPHA0 PINNED SOURCE AND MANIFEST VERIFIED'
+      - name: Install both original Lua runtimes
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+      - name: Validate exact TOC direct paths and Lua 5.1 syntax without packaging or install
+        shell: bash
+        run: |
+          set -euo pipefail
+          for luac in luac5.1 luac5.4; do
+            log="$RUNNER_TEMP/nq-part50-alpha0-$luac.log"
+            timeout --signal=TERM --kill-after=5s 120s python3 tests/compat/nq_part50_alpha0_baseline_manifest_preflight.py --luac "$luac" | tee "$log"
+            grep -Fx 'PUBLIC NQ PART50 ALPHA0 PROTECTED BASELINE TOC: 143/143 RESOLVED' "$log"
+            grep -E '^PUBLIC NQ PART50 ALPHA0 DIRECT LUA PARSE: [0-9]+/[0-9]+ PASS luac5\.[14]$' "$log"
+            grep -Fx 'PUBLIC NQ PART50 ALPHA0 NO NATIVE GAMEPLAY PROOF / NO BUILD / NO RELEASE' "$log"
+          done
+      - name: Verify source and workspace unchanged and no release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d dist
+          test ! -d releases
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
