@@ -179,6 +179,31 @@ check("preapproval retains original 2001 and injected raw source without mutatio
     injectedQuests[2001] and injectedQuests[2001][Q.name] == "Ravenclaw Cleanup" and
     injectedDb.questData[inventedQuest] == nil and
     injectedDb.itemData[inventedItem][1] == "Invented item, no drop locations")
+-- Part54: close CS02's surviving non-2001 raw-collision mutation gap.
+-- This synthetic occupied ID must not be admitted or added to reverse indexes,
+-- even though all proposed NPC and item sources are already present.
+-- The hook writes a *fake* quest row only; original loader stays unchanged.
+local collidingDb, collidingCallbacks = scenario(true, true, true, false,
+    function(sourceDb)
+        sourceDb.questData[inventedQuest] = {[Q.name]="Preexisting invented raw quest"}
+    end)
+check("fabricated non-2001 raw quest ID is occupied before approval",
+    collidingDb.questData[inventedQuest] and
+    collidingDb.questData[inventedQuest][Q.name] == "Preexisting invented raw quest")
+local collidingQuestUpdates = collidingCallbacks.questData()
+check("occupied non-2001 raw quest ID rejects proposed custom quest",
+    collidingQuestUpdates[inventedQuest] == nil)
+local collidingNpcUpdates = collidingCallbacks.npcData()
+local collidingNpcRow = collidingNpcUpdates[inventedNpc]
+check("rejected collision cannot create invented NPC quest reverse links",
+    collidingNpcRow == nil or
+    (not contains(collidingNpcRow[N.questStarts], inventedQuest) and
+     not contains(collidingNpcRow[N.questEnds], inventedQuest)))
+check("raw occupied quest row remains unchanged by correction callbacks",
+    collidingDb.questData[inventedQuest][Q.name] == "Preexisting invented raw quest")
+check("public quest 2001 remains approved despite unrelated raw collision",
+    collidingQuestUpdates[2001] and
+    collidingQuestUpdates[2001][Q.name] == "Ravenclaw Cleanup")
 print("ALL " .. checks .. " AUTHENTIC-LOADER SYNTHETIC PREPROVISION CHECKS PASS")
 print("NOT PROVEN: source provenance, native 3.3.5a, item drop locations,")
 print("             correction-group order, compiler persistence, IP or Gate08")
