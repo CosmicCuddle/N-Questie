@@ -194,6 +194,23 @@ for _, qid in ipairs(NEW_QUESTS) do
         and r.db.questData[qid][QK.name] == "Pre-existing quest")
 end
 
+-- Part54 RED regression witness (invented in-memory rows only):
+-- If *all* source IDs are already occupied before the first callback,
+-- source-batch validation fails, yet existence-only quest validation must NOT
+-- admit the three unverified candidates through those occupied source rows.
+-- This distinguishes a full collision from older one-at-a-time collisions,
+-- which incidentally rejected the quests because nine sources were still absent.
+local fullyOccupied = run({preDb = function(db)
+    for kind, ids in pairs(SOURCES) do
+        for _, id in ipairs(ids) do
+            db[DBNAME[kind]][id] = {[1] = "Synthetic occupied, unverified source"}
+        end
+    end
+end})
+check("all ten source IDs preoccupied: reject all three Gate10 quests, preserve 2001 and raw sources",
+    noneApproved(fullyOccupied) and sourcesUntouched(fullyOccupied)
+    and fullyOccupied.results.questData[2001] ~= nil)
+
 -- 5. Invalid batch content
 local invalid = {
     {"unknown field", function(d) d.sources.npcs[1209].lootid = 1 end},
