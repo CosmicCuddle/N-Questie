@@ -1,0 +1,65 @@
+name: N-Questie Part50 G08 real four-kind staging bridge (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  authentic-four-kind-bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate exact frozen compiler, stream, and four schemas
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=610e490e8625276f4f86e69af056ab8ccd5a621a
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          root="$RUNNER_TEMP/nq-part50-real-stage185"
+          mkdir -p "$root/Modules" "$root/Database"
+          while read -r path blob; do
+            test "$(git rev-parse "$sha:$path")" = "$blob"
+            git show "$sha:$path" > "$root/$path"
+            test "$(git hash-object "$root/$path")" = "$blob"
+          done <<'BLOBS'
+          Modules/QuestieStream.lua 1819aeea11148eae0742810dbd2338410edda238
+          Database/npcDB.lua ace50953a6bb0bc3ebdd349576681f10e8f44443
+          Database/objectDB.lua 70cd760ec046d3c9fcea1bb6d0a22595811261d0
+          Database/questDB.lua 9503b16031e739d9c0f046939058229b1a18d9b1
+          Database/itemDB.lua a714c1a11ce0513276de3f9ce9015d7db22efa80
+          Database/compiler.lua a29f8b68d5ea2c12e9ca50521818059d5a18e15f
+          BLOBS
+          echo 'PUBLIC G08 PART50 REAL STAGE185 SIX ORIGINAL SOURCE BLOBS VERIFIED'
+      - name: Install Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+      - name: Run genuine compiler, binary reader and refusing admission under both Lua versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then luac5.1 -p tests/compat/nq_part50_g08_real_four_kind_bridge.lua
+            else luac5.4 -p tests/compat/nq_part50_g08_real_four_kind_bridge.lua; fi
+            log="$RUNNER_TEMP/nq-part50-real-stage185-$lua.log"
+            NQ_PART50_STAGE185_ROOT="$RUNNER_TEMP/nq-part50-real-stage185" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part50_g08_real_four_kind_bridge.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART50 AUTHENTIC SERIALIZER READER REFUSAL BRIDGE: 42/42 PASS' "$log"
+            grep -Fx 'PUBLIC G08 PART50 GENUINE: original draft #185 four writers, reader handles, and local stage receipt methods executed.' "$log"
+            grep -Fx 'PUBLIC G08 PART50 REFUSED: real staged bytes lack source ownership, full metadata, reader leases, and crash/relog proof.' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: Assert no distributed package, release or source modification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d dist
+          test ! -d releases
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
