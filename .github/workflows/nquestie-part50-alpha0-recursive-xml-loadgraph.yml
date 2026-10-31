@@ -1,0 +1,49 @@
+name: N-Questie Part50 protected baseline recursive XML loadgraph (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  protected-baseline-xml-loadgraph:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Pin real protected addon source and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=26053bd28b0df3a01e5859f779d5f3cb4f57b221
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          test "$(git rev-parse "$sha:Questie-335.toc")" = f59dc1c2b1987697e133297831224e6f0957bae8
+      - name: Install Lua 5.1 and 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+      - name: Follow all reachable XML Include and Script edges and statically parse Lua
+        shell: bash
+        run: |
+          set -euo pipefail
+          for luac in luac5.1 luac5.4; do
+            out="$RUNNER_TEMP/nq-part50-xml-$luac.log"
+            timeout --signal=TERM --kill-after=5s 150s python3 tests/compat/nq_part50_alpha0_recursive_xml_loadgraph.py --luac "$luac" | tee "$out"
+            grep -Fx 'PUBLIC NQ PART50 ALPHA0 RECURSIVE TOC DIRECT: 143/143 RESOLVED' "$out"
+            grep -E '^PUBLIC NQ PART50 ALPHA0 RECURSIVE XML: [0-9]+ XML, [0-9]+ ACTIVE REFS RESOLVED$' "$out"
+            grep -E '^PUBLIC NQ PART50 ALPHA0 RECURSIVE LUA: [0-9]+/[0-9]+ PARSE PASS luac5\.[14]$' "$out"
+            grep -Fx 'PUBLIC NQ PART50 ALPHA0 STATIC ONLY: no XML widget semantics, native startup, or build' "$out"
+          done
+      - name: No files modified, no packaging or download artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d dist
+          test ! -d releases
+          test ! -e N-Questie.zip
+          test ! -e Questie.zip
