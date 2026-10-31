@@ -103,7 +103,7 @@ def main():
         for n, path in enumerate(sorted(scripts), 1):
             f = pathlib.Path(temp) / ("script-%04d.lua" % n)
             data = file_at(path)
-            has_bom = data.startswith(b"\\xef\\xbb\\xbf")
+            has_bom = data.startswith(b"\xef\xbb\xbf")
             if has_bom:
                 bom_scripts.append(path)
             f.write_bytes(data)
