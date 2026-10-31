@@ -1,0 +1,42 @@
+name: N-Questie Part55 Gate10 M2 strict-latch proof (test only)
+
+on:
+  push:
+    branches:
+      - "test/part55-gate10-m2-latch-proof-20261031-cs01"
+
+permissions:
+  contents: read
+
+jobs:
+  gate10-m2-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact test-only source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install genuine Lua 5.1 and bit32 dependency
+        run: |
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y lua5.1 lua-bit32
+          lua5.1 -e 'assert(type(require("bit32")) == "table")'
+      - name: Validate exact reviewed script and source isolation
+        run: |
+          git status --porcelain --untracked-files=all
+          test -z "$(git status --porcelain --untracked-files=all)"
+          grep -Fq 'NQ_GATE10_COMPARE_335' tests/test_nquestie_m2_gate10_delta.sh
+          git diff --exit-code
+      - name: Gate10 public M2 export and five objective identities (Lua 5.1)
+        run: timeout --signal=TERM --kill-after=5s 720s bash tests/test_nquestie_m2_gate10_delta.sh
+      - name: Compare all 9159 old v2 quest records to protected 335 (Lua 5.1)
+        run: timeout --signal=TERM --kill-after=5s 720s env NQ_GATE10_COMPARE_335=1 bash tests/test_nquestie_m2_gate10_delta.sh
+      - name: Confirm no checkout changes
+        if: always()
+        run: git status --porcelain --untracked-files=all
+
+# This workflow deliberately has NO pull_request trigger, package, build,
+# upload-artifact, release, tag, secret, deployment, client or server step.
+# It is a disposable research gate, not a substitute for the frozen M2
+# baseline acceptance, Gate08 or native WoW 3.3.5a/IP QA.
