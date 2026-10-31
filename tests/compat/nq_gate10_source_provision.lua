@@ -315,12 +315,16 @@ do
     armed = false
     local db, cb = LAST_RUN.db, LAST_RUN.callbacks
     local okRetry, res = pcall(cb.questData[1])
-    check("retry after transient write fault: approves 1207-1209 with all 10 sources",
-        okRetry and res[1207] and res[1208] and res[1209] and res[2001]
-        and count(db.itemData) == 5 and count(db.objectData) == 1 and count(db.npcData) == 8)
+    check("retry after transient write fault stays fail-closed: no Gate10 quest, no source row, 2001 kept",
+        okRetry and res[1207] == nil and res[1208] == nil and res[1209] == nil and res[2001]
+        and count(db.itemData) == 0 and count(db.objectData) == 0 and count(db.npcData) == 4)
+    local okAgain, again = pcall(cb.npcData[1])
+    check("later source callback after the fault writes nothing and still rejects 1207-1209",
+        okAgain and count(db.itemData) == 0 and count(db.objectData) == 0 and count(db.npcData) == 4
+        and again[1209] == nil and LAST_RUN.callbacks.questData[1]()[1207] == nil)
 end
 
--- Fault during admission (after source rows were written): rollback and re-raise; retry succeeds.
+-- Fault during admission (after source rows were written): rollback and re-raise; retry stays fail-closed.
 do
     local captured, armed = nil, true
     local okRun = pcall(function()
@@ -337,8 +341,29 @@ do
         and count(captured.npcData) == 4)
     armed = false
     local okRetry, res = pcall(LAST_RUN.callbacks.questData[1])
-    check("retry after admission fault: approves 1207-1209, 2001 kept, sources written once",
-        okRetry and res[1207] and res[1209] and res[2001] and count(captured.itemData) == 5)
+    check("retry after admission fault stays fail-closed: 1207-1209 rejected, 2001 kept, no source row",
+        okRetry and res[1207] == nil and res[1208] == nil and res[1209] == nil and res[2001]
+        and count(captured.itemData) == 0 and count(captured.objectData) == 0 and count(captured.npcData) == 4)
+end
+-- Fault while admitting the remaining quests after a failed batch: the error
+-- propagates and no partial memo is cached for the next callback.
+do
+    local armed = true
+    local okRun = pcall(function()
+        run({preDb = function(db)
+            occupyAll(db)
+            setmetatable(db.questData, {__index = function(_, id)
+                if armed then error("synthetic fallback admission fault") end
+                return nil
+            end})
+        end})
+    end)
+    armed = false
+    local okRetry, res = pcall(LAST_RUN.callbacks.questData[1])
+    check("fault during fail-closed admission: error raised, retry recomputes 2001 and keeps 1207-1209 rejected",
+        not okRun and okRetry and res[2001] ~= nil and res[1207] == nil and res[1208] == nil and res[1209] == nil
+        and count(LAST_RUN.db.npcData) == 8 and count(LAST_RUN.db.objectData) == 1
+        and count(LAST_RUN.db.itemData) == 5 and LAST_RUN.db.npcData[1209][1] == "Synthetic occupied row")
 end
 -- 5. Invalid batch content
 local invalid = {

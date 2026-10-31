@@ -497,14 +497,32 @@ local function computeApproved(excluded)
     return approved
 end
 
+-- Latched for the rest of this loader lifetime after any failed or
+-- interrupted source batch, so a later callback never re-provisions or admits
+-- the batch quests. Only a clean reload re-evaluates the batch from scratch.
+local sourceBatchFailed = false
+
+-- Admission without the batch-dependent quests. A fault here must not leave a
+-- partial memo behind, so the memo is cleared before the error propagates.
+local function approvedWithoutBatch()
+    local ok, result = pcall(computeApproved, batchDependentQuests())
+    if not ok then
+        approved = nil
+        error(result, 0)
+    end
+    return result
+end
+
 local function approvedQuests()
     if approved then return approved end
+    if sourceBatchFailed then return approvedWithoutBatch() end
     local batch, pending = buildSourceBatch()
     if not batch then
         -- Fail closed: a failed batch (collision, invalid row, unresolved drop)
         -- writes nothing and rejects every quest depending on it, even if the
         -- referenced IDs happen to exist from another source.
-        return computeApproved(batchDependentQuests())
+        sourceBatchFailed = true
+        return approvedWithoutBatch()
     end
     local written = {}
     local function rollback()
@@ -521,15 +539,19 @@ local function approvedQuests()
         computeApproved()
         if #written > 0 and not sourceBatchClosed(batch, pending) then
             rollback()
-            computeApproved(batchDependentQuests())
+            sourceBatchFailed = true
+            approved = nil
         end
     end)
     if not ok then
-        -- Interrupted write or admission: undo every source row and re-raise.
+        -- Interrupted write or admission: undo every source row, latch the
+        -- failure and re-raise.
         rollback()
+        sourceBatchFailed = true
         approved = nil
         error(err, 0)
     end
+    if sourceBatchFailed then return approvedWithoutBatch() end
     return approved
 end
 
