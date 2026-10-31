@@ -1,0 +1,61 @@
+name: N-Questie Part50 G08 authentic flat-stage refusal bridge (test only)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  flat-stage-refusal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Authenticate exact frozen draft compiler staging API
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=610e490e8625276f4f86e69af056ab8ccd5a621a
+          blob=a29f8b68d5ea2c12e9ca50521818059d5a18e15f
+          timeout --signal=TERM --kill-after=5s 90s git fetch --no-tags --depth=1 origin "$sha"
+          test "$(git rev-parse "$sha^{commit}")" = "$sha"
+          test "$(git rev-parse "$sha:Database/compiler.lua")" = "$blob"
+          root="$RUNNER_TEMP/nq-part50-original-flat-stage"
+          mkdir -p "$root/Database"
+          git show "$sha:Database/compiler.lua" > "$root/Database/compiler.lua"
+          test "$(git hash-object "$root/Database/compiler.lua")" = "$blob"
+          echo 'PUBLIC G08 PART50 FLAT STAGE DRAFT COMPILER BLOB VERIFIED'
+      - name: Install Lua interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y --no-install-recommends lua5.1 lua5.4
+      - name: Execute original #185 staging methods against refusing adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in lua5.1 lua5.4; do
+            if test "$lua" = lua5.1; then
+              luac5.1 -p tests/compat/nq_part50_g08_legacy_stage_failclosed_probe.lua
+              luac5.1 -p tests/compat/nq_part50_g08_authentic_flat_stage_failclosed.lua
+            else
+              luac5.4 -p tests/compat/nq_part50_g08_legacy_stage_failclosed_probe.lua
+              luac5.4 -p tests/compat/nq_part50_g08_authentic_flat_stage_failclosed.lua
+            fi
+            log="$RUNNER_TEMP/nq-part50-flat-$lua.log"
+            NQ_PART50_FLAT_STAGE_SOURCE="$RUNNER_TEMP/nq-part50-original-flat-stage" timeout --signal=TERM --kill-after=5s 90s "$lua" tests/compat/nq_part50_g08_authentic_flat_stage_failclosed.lua | tee "$log"
+            grep -Fx 'PUBLIC G08 PART50 AUTHENTIC FLAT STAGE FAIL-CLOSED BRIDGE: 34/34 PASS' "$log"
+            grep -Fx 'PUBLIC G08 PART50 BRIDGE ALWAYS REFUSES: original #185 receipts contain no certified source epoch, metadata or reader lifetime.' "$log"
+            test "$(grep -Ec '^PUBLIC G08 ' "$log")" -eq 3
+          done
+      - name: No build, package, file modifications or artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d dist
+          test ! -d releases
+          test ! -e Questie.zip
+          test ! -e N-Questie.zip
