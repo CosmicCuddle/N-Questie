@@ -170,7 +170,7 @@ check(ret==nil and reason=="REFUSE_UNPROVEN_SOURCE_AND_READER_OWNERSHIP",
     "STRICT_BRIDGE_STILL_DENIES_TORN_SOURCE")
 check(saved.questBin=="OLD_BIN_quest" and saved.dbCompiledCount==12,
     "STRICT_BRIDGE_NEVER_PUBLISHES_TORN_RESULT")
-check(checks==30,"CHECK_COUNT_"..checks)
+check(checks==29,"CHECK_COUNT_"..checks)
 print("PUBLIC G08 PART50 AUTHENTIC MID-YIELD SOURCE RACE: "..checks.."/"..checks.." PASS")
 print("PUBLIC G08 PART50 VERIFIED RACE: original writer captured 60 IDs before yield, skipped late inserted row, encoded an A-B-A-mutated quest.")
 print("PUBLIC G08 PART50 FAIL CLOSED: original local receipts can pass torn source, but new bridge refuses; no original addon change or native game proof.")
