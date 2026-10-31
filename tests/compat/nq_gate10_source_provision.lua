@@ -71,6 +71,7 @@ local function run(opts)
     end}
     NQuestieCustomQuestData = data
     assert(loadfile(loaderPath))()
+    LAST_RUN = {db = db, callbacks = callbacks}
     local results = {}
     for _, group in ipairs(opts.order or {"questData", "npcData", "objectData"}) do
         results[group] = {}
@@ -245,10 +246,108 @@ elseif adversarial ~= nil and adversarial ~= "" then
     error("unknown NQ_GATE10_ADVERSARIAL mode: " .. tostring(adversarial))
 end
 
+-- 4b. Fail-closed guard (always run). Covers the preoccupied-source and
+-- interrupted-write cases from the Part54 review plus retries and admission faults.
+local function occupyAll(db)
+    for kind, ids in pairs(SOURCES) do
+        for _, id in ipairs(ids) do db[DBNAME[kind]][id] = {[1] = "Synthetic occupied row"} end
+    end
+end
+local extraQuest = 99001
+local function withExtraQuest(d)
+    d.quests[extraQuest] = {name = "Synthetic unrelated quest", requiredLevel = 1, questLevel = 2,
+        zoneOrSort = 130, requiredRaces = 0, questFlags = 0,
+        startedByNpcs = {2121}, finishedByNpcs = {2121}, killNpcs = {1868}}
+end
+local fc = run({preDb = occupyAll, mutate = withExtraQuest})
+check("fail-closed: all ten preoccupied rejects 1207-1209, keeps 2001 and an unrelated quest, rows untouched",
+    noneApproved(fc) and sourcesUntouched(fc) and fc.results.questData[2001] ~= nil
+    and fc.results.questData[extraQuest] ~= nil)
+check("fail-closed: occupied giver gets no Gate10 relations", fc.results.npcData[1209] == nil)
+for _, case in ipairs({
+    {"unknown source group", function(d) d.sources.quests = {} end},
+    {"source group not a table", function(d) d.sources.items = true end},
+    {"invalid row", function(d) d.sources.npcs[3506].spawns[17][1][1] = 101 end},
+}) do
+    local r = run({preDb = occupyAll, mutate = function(d) withExtraQuest(d) case[2](d) end})
+    check("fail-closed with all rows preoccupied (" .. case[1] .. "): 1207-1209 rejected, 2001 and unrelated quest kept",
+        noneApproved(r) and sourcesUntouched(r) and r.results.questData[2001] ~= nil
+        and r.results.questData[extraQuest] ~= nil)
+end
+local nt = run({preDb = occupyAll, mutate = function(d) withExtraQuest(d) d.sources = 5 end})
+check("unreadable sources declaration: every custom quest except frozen 2001 rejected (documented fail-closed)",
+    noneApproved(nt) and sourcesUntouched(nt) and nt.results.questData[2001] ~= nil
+    and nt.results.questData[extraQuest] == nil)
+local un = run({mutate = withExtraQuest})
+check("unrelated custom quest also approved on the success path", questsApproved(un) and un.results.questData[extraQuest] ~= nil)
+
+-- Interrupted write: every write position, then a clean retry.
+local totalWrites = 10
+for failAt = 1, totalWrites do
+    local captured, writes, armed = nil, 0, true
+    local okRun = pcall(function()
+        run({preDb = function(db)
+            captured = db
+            for _, name in ipairs({"npcData", "objectData", "itemData"}) do
+                setmetatable(db[name], {__newindex = function(t, id, value)
+                    writes = writes + 1
+                    if armed and writes == failAt then error("synthetic write interruption") end
+                    rawset(t, id, value)
+                end})
+            end
+        end})
+    end)
+    local clean = captured and count(captured.objectData) == 0 and count(captured.itemData) == 0
+        and count(captured.npcData) == 4
+    check("write fault at write " .. failAt .. "/10: error raised, no source row left behind", not okRun and clean)
+end
+do
+    -- Retry on the same loaded loader after a transient write fault.
+    local armed = true
+    pcall(function()
+        run({preDb = function(db)
+            setmetatable(db.itemData, {__newindex = function(t, id, value)
+                if armed then error("synthetic write interruption") end
+                rawset(t, id, value)
+            end})
+        end})
+    end)
+    armed = false
+    local db, cb = LAST_RUN.db, LAST_RUN.callbacks
+    local okRetry, res = pcall(cb.questData[1])
+    check("retry after transient write fault: approves 1207-1209 with all 10 sources",
+        okRetry and res[1207] and res[1208] and res[1209] and res[2001]
+        and count(db.itemData) == 5 and count(db.objectData) == 1 and count(db.npcData) == 8)
+end
+
+-- Fault during admission (after source rows were written): rollback and re-raise; retry succeeds.
+do
+    local captured, armed = nil, true
+    local okRun = pcall(function()
+        run({preDb = function(db)
+            captured = db
+            setmetatable(db.questData, {__index = function(_, id)
+                if armed and rawget(db.npcData, 1209) ~= nil then error("synthetic admission fault") end
+                return nil
+            end})
+        end})
+    end)
+    check("admission fault after writes: error raised and every source row rolled back",
+        not okRun and captured and count(captured.objectData) == 0 and count(captured.itemData) == 0
+        and count(captured.npcData) == 4)
+    armed = false
+    local okRetry, res = pcall(LAST_RUN.callbacks.questData[1])
+    check("retry after admission fault: approves 1207-1209, 2001 kept, sources written once",
+        okRetry and res[1207] and res[1209] and res[2001] and count(captured.itemData) == 5)
+end
 -- 5. Invalid batch content
 local invalid = {
     {"unknown field", function(d) d.sources.npcs[1209].lootid = 1 end},
     {"coordinate > 100", function(d) d.sources.npcs[3506].spawns[17][1][1] = 100.5 end},
+    {"spawn point with extra key", function(d) d.sources.npcs[3526].spawns[17][1].z = 1 end},
+    {"sparse spawn list", function(d) d.sources.npcs[3677].spawns[17][30] = {1, 1} end},
+    {"spawn list with non-index key", function(d) d.sources.objects[2013].spawns[17].extra = {1, 1} end},
+    {"spawn point with 3 coordinates", function(d) d.sources.npcs[1209].spawns[17][1] = {1, 2, 3} end},
     {"flat (not zone-keyed) spawns", function(d) d.sources.objects[2013].spawns = {{50, 50}} end},
     {"unresolved item drop", function(d) d.sources.items[162].npcDrops = {999999} end},
     {"item without any drop source", function(d) d.sources.items[166].npcDrops = nil end},

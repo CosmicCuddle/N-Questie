@@ -50,6 +50,8 @@ jobs:
         run: |
           luac5.1 -p tests/compat/nq_gate10_source_provision.lua
           timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_gate10_source_provision.lua
+          NQ_GATE10_ADVERSARIAL=full_collision timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_gate10_source_provision.lua
+          NQ_GATE10_ADVERSARIAL=write_fault timeout --signal=TERM --kill-after=5s 120s lua5.1 tests/compat/nq_gate10_source_provision.lua
           timeout --signal=TERM --kill-after=5s 300s python3 tests/compat/run_nq_gate10_mutations.py
       - name: Test available quest starter marker source contract (Lua 5.1)
         run: |

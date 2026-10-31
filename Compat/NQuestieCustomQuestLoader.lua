@@ -217,6 +217,9 @@ local function validSpawns(value)
         for index = 1, count do
             local point = list[index]
             if type(point) ~= "table" or #point ~= 2 then return nil end
+            local keys = 0
+            for _ in pairs(point) do keys = keys + 1 end
+            if keys ~= 2 then return nil end
             for _, c in ipairs(point) do
                 if type(c) ~= "number" or c ~= c or c < 0 or c > 100 then return nil end
             end
@@ -334,10 +337,51 @@ local function sourceBatchClosed(batch, pending)
     return true
 end
 
-local function computeApproved()
+-- Quests that depend on the declared source batch: any reference to an ID
+-- declared under `sources`. Collected best-effort from the raw declaration so
+-- it also works when the batch itself is malformed. `all` is true when the
+-- declaration is unreadable, in which case every custom quest except the
+-- exact frozen public 2001 record is treated as dependent (fail closed).
+local sourceRefFields = {{"startedByNpcs", "npcs"}, {"finishedByNpcs", "npcs"},
+    {"killNpcs", "npcs"}, {"startedByGameObjects", "objects"},
+    {"finishedByGameObjects", "objects"}, {"objectObjectives", "objects"},
+    {"itemObjectives", "items"}}
+local function batchDependentQuests()
+    local sources, excluded = custom.sources, {}
+    if sources == nil then return excluded end
+    local declared = {npcs = {}, objects = {}, items = {}}
+    local all = type(sources) ~= "table"
+    if not all then
+        for kind, rows in pairs(sources) do
+            -- Unknown or malformed groups still mark their IDs as declared in
+            -- every kind, so nothing that may depend on them slips through.
+            if type(rows) == "table" then
+                for id in pairs(rows) do
+                    for _, set in pairs(declared) do
+                        if declared[kind] == nil or set == declared[kind] then set[id] = true end
+                    end
+                end
+            end
+        end
+    end
+    for id, q in pairs(custom.quests) do
+        if all then
+            if not isPublic2001(id, q) then excluded[id] = true end
+        elseif type(q) == "table" then
+            for _, pair in ipairs(sourceRefFields) do
+                for _, ref in ipairs(denseIdList(q[pair[1]]) or {}) do
+                    if declared[pair[2]][ref] then excluded[id] = true end
+                end
+            end
+        end
+    end
+    return excluded
+end
+
+local function computeApproved(excluded)
     approved = {}
     for id, q in pairs(custom.quests) do
-        local entry = parseQuest(id, q)
+        local entry = not (excluded and excluded[id]) and parseQuest(id, q) or nil
         if entry then approved[id] = entry end
     end
 
@@ -456,19 +500,35 @@ end
 local function approvedQuests()
     if approved then return approved end
     local batch, pending = buildSourceBatch()
+    if not batch then
+        -- Fail closed: a failed batch (collision, invalid row, unresolved drop)
+        -- writes nothing and rejects every quest depending on it, even if the
+        -- referenced IDs happen to exist from another source.
+        return computeApproved(batchDependentQuests())
+    end
     local written = {}
-    if batch then
+    local function rollback()
+        for index = #written, 1, -1 do
+            QuestieDB[written[index].db][written[index].id] = nil
+        end
+        written = {}
+    end
+    local ok, err = pcall(function()
         for _, entry in ipairs(batch) do
             QuestieDB[entry.db][entry.id] = entry.record
             written[#written + 1] = entry
         end
-    end
-    computeApproved()
-    if #written > 0 and not sourceBatchClosed(batch, pending) then
-        for index = #written, 1, -1 do
-            QuestieDB[written[index].db][written[index].id] = nil
-        end
         computeApproved()
+        if #written > 0 and not sourceBatchClosed(batch, pending) then
+            rollback()
+            computeApproved(batchDependentQuests())
+        end
+    end)
+    if not ok then
+        -- Interrupted write or admission: undo every source row and re-raise.
+        rollback()
+        approved = nil
+        error(err, 0)
     end
     return approved
 end

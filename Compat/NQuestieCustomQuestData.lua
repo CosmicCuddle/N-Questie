@@ -16,6 +16,8 @@ NQuestieCustomQuestData = {
             finishedByNpcs = {2121},
             killNpcs = {1868, 1869}, -- Ravenclaw Servant/Champion; 8 of each
         },
+        -- POTENTIAL ISSUE: the required item count and the quest prose disagree.
+        -- Kept as the server requirement; not changed here. Needs an owner decision.
         [1207] = {
             name = "The Kirin Tor Aid",
             requiredLevel = 18, questLevel = 21, zoneOrSort = 17, -- The Barrens
@@ -30,6 +32,10 @@ NQuestieCustomQuestData = {
             startedByNpcs = {1209}, finishedByNpcs = {1209},
             itemObjectives = {167},
         },
+        -- POTENTIAL ISSUE: item objectives keep server slot order 160, 161, 162,
+        -- but the server's objective description labels name different targets
+        -- than these items. Not reordered; wording vs item assignment is an owner
+        -- decision. NOT TESTED in-game.
         [1209] = {
             name = "WANTED: The Northwatch Guard",
             requiredLevel = 18, questLevel = 21, zoneOrSort = 17,
