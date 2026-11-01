@@ -44,9 +44,9 @@ grep -q "PASS: 232 checks" "$T/export.err"
 # The M0 checker can remain green when the all-or-nothing Gate10 batch is
 # rejected. Verify the actual expected four quest additions before totals.
 STAGE="exact custom quest admission; reject silently dropped Gate10 batch"
-grep -Fqx '[validate-335] questData IDs added by N-Questie: 1207,1208,1209,2001; removed: none' "$T/export.out" || {
+grep -Fqx '[validate-335] questData IDs added by N-Questie: 1207,1208,1209,2001; removed: none' "$T/export.err" || {
   echo "FAIL: Gate10 batch not fully admitted despite M0 PASS" >&2
-  grep -F 'questData IDs added by N-Questie:' "$T/export.out" >&2 || :
+  grep -F 'questData IDs added by N-Questie:' "$T/export.err" >&2 || :
   exit 1
 }
 STAGE="initial public v2 export has 9162 quests"
