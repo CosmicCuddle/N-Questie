@@ -103,7 +103,7 @@ A new owner-private checker combines these **fixed** bounds with the **original 
 ## Next Gate10 actions
 
 1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
-2. **Outstanding (Maintenance/CS02 implementation review):** propose a **separate Gate10-specific M2 acceptance variant** for 9,162/8,404 while retaining the frozen original 335 tests. The original two Busted RED tests are still RED on the candidate.
+2. **Isolated candidate A2 now authored, NOT RUN / NOT VERIFIED:** `tests/test_nquestie_m2_gate10_a2_export_integration.sh` retains the full F1–F8 real-DB safety cases, pins the inherited 9,159 ID digest, requires 1207–1209 exactly once and expects 9,162/8,404. A separate `tests/check_nquestie_m2_gate10_f7.py` compares unchanged original 335 CLI golden by its Git blob SHA with only six specifically allowed Gate10 source/field changes. The push-only test workflow now includes candidate A2 **after** the frozen-335 controls; Lua5.1 CI results and independent CS02 review are still required. The original candidate two Busted specs remain 169/171 RED by old-count assumptions; neither old test nor golden was repinned or modified.
 3. **Outstanding (owner/native):** verify 1207 count-vs-prose and 1209 objective labels without unsanctioned SQL changes; native quest availability/IP, map/loot and Gate08 require separate acceptance. No merge/packaging/native trial without owner approval.
 
 All feedback belongs in the **existing PR #457** discussion; do not create a duplicate cross-project Issue.
