@@ -39,7 +39,21 @@ for number, (new, old) in enumerate(zip(a, b), 1):
             raise SystemExit("FAIL F7: unrelated default output changed on line %d" % number)
     else:
         if not re.fullmatch(allowed[label], new):
-            raise SystemExit("FAIL F7: invalid Gate10 change on line %d: %s" % (number, label.decode()))
+            # A source-typed summary contains only public record counts and
+            # 32-bit source digests; reveal it on mismatch so that a real CI
+            # run can distinguish a source-provision timing change from drift.
+            # Never dump unvalidated CLI output or raw quest/SQL data.
+            summary = rb"\[validate-335\] (?:questData  |npcData    |objectData |itemData   )records=[0-9]{1,8} before=[0-9a-f]{8} after=[0-9a-f]{8} unexpected=[0-9]+"
+            if re.fullmatch(summary, new):
+                observed = new.decode("ascii")
+                raise SystemExit(
+                    "FAIL F7: source-summary mismatch on line %d: %s; observed: %s"
+                    % (number, label.decode(), observed)
+                )
+            raise SystemExit(
+                "FAIL F7: invalid Gate10 change on line %d: %s"
+                % (number, label.decode())
+            )
         if label == b"[validate-335] compiled round trip":
             fields = int(re.search(rb"round trip: ([0-9]+)", new).group(1))
             if fields != 82458:
