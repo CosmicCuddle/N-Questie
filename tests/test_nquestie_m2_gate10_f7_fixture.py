@@ -19,7 +19,7 @@ if not original.startswith(b"== stdout\n"):
 replacements = {
     b"[validate-335] questData  records": b"[validate-335] questData  records=9158 before=f84abb0a after=decaf123 unexpected=0",
     b"[validate-335] questData IDs added": b"[validate-335] questData IDs added by N-Questie: 1207,1208,1209,2001; removed: none",
-    b"[validate-335] npcData    records": b"[validate-335] npcData    records=29615 before=d6e37a01 after=decaf123 unexpected=0",
+    b"[validate-335] npcData    records": b"[validate-335] npcData    records=29619 before=1a2b3c4d after=decaf123 unexpected=0",
     b"[validate-335] objectData records": b"[validate-335] objectData records=13043 before=8082022e after=decaf123 unexpected=0",
     b"[validate-335] itemData   records": b"[validate-335] itemData   records=36767 before=441bb1af after=decaf123 unexpected=0",
     b"[validate-335] compiled round trip": b"[validate-335] compiled round trip: 82458 quest fields compared, 0 mismatches",
@@ -49,4 +49,6 @@ with tempfile.TemporaryDirectory(prefix="nq-gate10-f7-") as dir:
     check(positive.replace(b"1207,1208,1209,2001",b"1207,1208,2001"),False)
     check(positive.replace(b"PASS: 232 checks",b"PASS: 231 checks"),False)
     check(positive.replace(b"82458 quest fields",b"82431 quest fields"),False)
-print("PASS: F7 comparator accepts exact Gate10 structural changes, rejects three mutants")
+    check(positive.replace(b"npcData    records=29619",b"npcData    records=29618"),False)
+    check(positive.replace(b"npcData    records=29619",b"npcData    records=29619").replace(b"after=decaf123 unexpected=0",b"after=decaf123 unexpected=1"),False)
+print("PASS: F7 comparator accepts Gate10 source provisioning and rejects five mutants")
