@@ -78,6 +78,14 @@ A **read-only owner-private** spatial reconciliation (archived world source vs e
 
 A separate **[Gate10 native acceptance matrix](2026-11-01_PART55_GATE10_NATIVE_ACCEPTANCE_MATRIX.md)** now records conditional 3.3.5a/IP player tests for quest availability, five item objectives, 1207 20/22 wording, 1209 name/slot discrepancies, completion placeholders, map pins and old-quest regressions. All are **NOT RUN**; this documentation is **not** test-package, installation, merge or Gate08 approval.
 
+## 1 November — archived spawn availability and patrol-path caution
+
+Further **owner-private typed SQL** checks inspected the 51 proposed Gate10 marker spawn rows plus one *inherited* existing target (52 total). All 52 have archived `map=1`, `spawnMask=1`, `phaseMask=1`, and none has an archived direct game-event, creature/object pool, custom spawn-group, formation or linked-respawn membership. These are **archival source properties**, not confirmation of present-day live spawns or IP behavior.
+
+The proposed item-source creature population includes **24 mages**: **13 stationary**, **5 random-moving** and **6 with linked waypoint paths**. All six waypoint paths were found in archived `waypoint_data`; some extend materially beyond the base spawn position. Static coordinates show where a spawn *starts*, not every location along a patrol. This directly informs `NQ-MAP-ACCURACY-001`: do not equate every off-pin patroller with a bad marker or mass-import patrol points without live observations.
+
+**Significant conditional gameplay risk:** the archived three unique NPC sources required for quest **1209** have unusually long configured respawn delays. Their present-day live respawn behavior, force-respawn scripts and persisted `creature_respawn` state have not been checked. Request a source-version-aware **read-only** review by Maintenance prior to native acceptance; **no respawn/SQL changes, forced respawns, release or client install authorised**. Exact spawn GUIDs, respawn intervals, paths and source evidence stay in CosmicCuddle's Private N-Questie Quest Audits Library.
+
 ## Next Gate10 actions
 
 1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
