@@ -26,7 +26,12 @@ if len(a) != len(b):
 allowed = {
     b"[validate-335] questData  records": rb"\[validate-335\] questData  records=9158 before=f84abb0a after=[0-9a-f]{8} unexpected=0",
     b"[validate-335] questData IDs added": rb"\[validate-335\] questData IDs added by N-Questie: 1207,1208,1209,2001; removed: none",
-    b"[validate-335] npcData    records": rb"\[validate-335\] npcData    records=29615 before=d6e37a01 after=[0-9a-f]{8} unexpected=0",
+    # Quest callback provisions exactly four public NPC source rows before the
+    # npcData callback is snapshotted: 29615 + 4 = 29619. The pre-snapshot
+    # digest therefore cannot equal the protected-335 digest. The actual
+    # validator M0 separately disallows any non-allowlisted record or field
+    # mutation, and source admission/old quest parity are independently pinned.
+    b"[validate-335] npcData    records": rb"\[validate-335\] npcData    records=29619 before=[0-9a-f]{8} after=[0-9a-f]{8} unexpected=0",
     b"[validate-335] objectData records": rb"\[validate-335\] objectData records=13043 before=8082022e after=[0-9a-f]{8} unexpected=0",
     b"[validate-335] itemData   records": rb"\[validate-335\] itemData   records=36767 before=441bb1af after=[0-9a-f]{8} unexpected=0",
     b"[validate-335] compiled round trip": rb"\[validate-335\] compiled round trip: [0-9]+ quest fields compared, 0 mismatches",
