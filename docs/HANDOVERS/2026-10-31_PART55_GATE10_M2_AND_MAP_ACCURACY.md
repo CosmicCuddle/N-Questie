@@ -100,6 +100,14 @@ A new owner-private checker combines these **fixed** bounds with the **original 
 
 **Still NOT verified:** the owner's **installed** client may have custom DBC overrides; this independently published 3.3.5a file is not proven byte-identical to it. The archived SQL is not a current live-world spawn snapshot. IP phase, patrol timing, native Questie rendering/loot/quest text, Gate08 and original M2 candidate acceptance remain separate, and no install or merge is authorised.
 
+## 1 November — candidate A2 exact-field regression repaired, stricter than first draft
+
+A read-only source comparison of the candidate-specific A2 suite exposed a **contradictory inherited M0 assertion**: despite correctly expecting **9,162** Gate10 quests, the initial candidate A2 script still required **82,431** compiled quest-field comparisons (the exact **9,159**-quest protected-335 value). This would falsely fail any successful three-quest addition, even though its F7 comparator required the field total to increase.
+
+The actual `cli/validate-335.lua` source has **9** `COMPILED_KEYS` and compares each key for every compiled quest, establishing **9,162 × 9 = 82,458** as the **exact** Gate10 field total. On isolated test branch `7d2d6d4d`, both the candidate A2 M0 check and the new F7 comparator now **require exactly 82,458 and zero mismatches**; the F7 fixture's valid synthetic output uses 82,458 and its invalid 82,431 mutant remains negative. A fresh independent local run of the updated F7 Python fixture **PASSED** all 4 positive/negative cases; exact two source-file Git blobs were checked against GitHub. The original protected-335 A2 still correctly expects 82,431, untouched.
+
+**Proof boundary:** this fixes a guaranteed false-negative in the new **test-only** A2 suite; it is **NOT** a recorded PASS for the full real Lua5.1 F1–F8 suite, which still requires a concrete new-head run/job log and CS02 review. Existing Gate08, IP/live-state, owner text and release gates are separate.
+
 ## Next Gate10 actions
 
 1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
