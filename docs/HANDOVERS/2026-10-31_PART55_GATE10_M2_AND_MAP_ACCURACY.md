@@ -64,6 +64,12 @@ The archived `quest_poi` table contains **272 POI entries across 182** of the 43
 
 Exact item identities, quest titles/IDs, source row crosswalk, POI ObjectiveIndex/MapID and repeatable scripts remain in the owner's **Private N-Questie Quest Audits** Library; none are published to GitHub.
 
+## 1 November — Gate10 loot-route and narrative integrity (owner-private corroboration)
+
+A new **read-only owner-private** checker independently joined the original archived quest, item, NPC, GO and **actual loot-template ID** fields for the three Gate10 pilot quests. All **five** expected objective items have matching direct archived loot entries; all relevant NPC/GO spawn **counts** also agree with the proposed additive source projection. This **does not** prove individual map-coordinate conversion, phase/IP eligibility, client visibility or real in-game drops.
+
+Source-confirmed **review-only** discrepancies remain: 1207's player-facing objective label versus authoritative server-required item count; 1209's quest-objective label order versus actual item slots; and 1209's prose implying an additional unnamed ally. **Keep server quantities, source item IDs and objective order unchanged** until CosmicCuddle reviews a native-client test and chooses any text-only or gameplay correction. Also check GO loot interaction against quest acceptance: archival quest-required flags differ by source type, which is a test prompt and not permission to change SQL. Full exact source joins, archive fingerprints and repeatable checker are stored **only in the owner's Private N-Questie Quest Audits Library**, not in this repository.
+
 ## Next Gate10 actions
 
 1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
