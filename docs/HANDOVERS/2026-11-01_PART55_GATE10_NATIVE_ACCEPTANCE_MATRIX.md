@@ -27,7 +27,9 @@
 
 The original owner-private archived source audit confirms all **five objective items** have corresponding direct loot-template entries; proposed NPC/GO marker counts match the archived sources. A newer **owner-private** independent spatial reconciliation compares all **51 proposed spawn coordinates** to archived SQL world positions. Three NPC positions establish an affine world-to-zone transform; the other **48** are hold-out checks. **51/51 pass** within **0.015 map percentage points** (largest deviation approximately **0.00990**); a deliberately displaced marker fails the synthetic comparison.
 
-This proves *source-to-proposed-marker internal spatial consistency*, **not** independent installed 3.3.5a `WorldMapArea.dbc` bounds, live spawn activation, IP eligibility, actual drops, or native map rendering. Reused NPC 3393 was not provisioned as an additional source marker. Exact SQL rows and unreleased owner-only spatial evidence remain in CosmicCuddle's private Library, **not** in GitHub.
+**Stronger follow-up (1 November):** A publicly preserved **3.3.5a build-12340** binary `WorldMapArea.dbc` was independently decoded (Git blob `32019ed2a62153b2e21b18d49f38b2eb4af1c2cd`; Barrens row 11, map 1, area 17). With **both scale and origin held fixed from that external DBC**, **51/51** original archived spawns match the proposed N-Questie positions (largest mismatch **0.008550 percentage points**, tolerance 0.015). Synthetic displaced pin fails. This supersedes the earlier *three-anchor affine* proof for absolute historical 3.3.5a map consistency.
+
+**Still NOT proved:** this third-party DBC is byte-identical to CosmicCuddle's **installed client**, nor that live spawns/phase/IP, loot or the addon map actually behave as archived. Real client map/minimap checks above remain **NOT RUN**. Reused NPC 3393 was not provisioned as an additional source marker. Exact SQL rows and unreleased owner-only spatial evidence remain in CosmicCuddle's private Library, **not** in GitHub.
 
 ## Record failure without changing production
 
