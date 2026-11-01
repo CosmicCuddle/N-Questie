@@ -9,6 +9,84 @@ permissions:
   contents: read
 
 jobs:
+  gate10-f7-source-summary-diagnostic:
+    # Independent, short, read-only diagnostic of exactly the candidate's
+    # six public default CLI summary lines. No private data, no artifact.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate test branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install real Lua 5.1 and bit32
+        run: |
+          timeout 180s sudo apt-get update -qq
+          timeout 180s sudo apt-get install -y lua5.1 lua-bit32
+          lua5.1 -e 'assert(type(require("bit32")) == "table")'
+      - name: Capture only public default CLI source summary in memory-safe scratch directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          T="$(mktemp -d)"
+          chmod 700 "$T"
+          trap 'rm -rf -- "$T"' EXIT
+          mkdir -m 700 "$T/home" "$T/tmp"
+          env HOME="$T/home" TMPDIR="$T/tmp" NQ_VALIDATE_EXPECT_LEVEL_COUNT=28 \
+            lua5.1 cli/validate-335.lua >"$T/stdout" 2>"$T/stderr"
+          grep -q 'PASS: 232 checks' "$T/stderr"
+          grep -Fqx '[validate-335] questData IDs added by N-Questie: 1207,1208,1209,2001; removed: none' "$T/stderr"
+          grep -Fqx '[validate-335] compiled round trip: 82458 quest fields compared, 0 mismatches' "$T/stderr"
+          grep -E '^\[validate-335\] (questData  |npcData    |objectData |itemData   )records=[0-9]+ before=[0-9a-f]{8} after=[0-9a-f]{8} unexpected=[0-9]+  gate10-m2-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact test-only source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install genuine Lua 5.1 and bit32 dependency
+        run: |
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y lua5.1 lua-bit32
+          lua5.1 -e 'assert(type(require("bit32")) == "table")'
+      - name: Validate exact reviewed script and source isolation
+        run: |
+          git status --porcelain --untracked-files=all
+          test -z "$(git status --porcelain --untracked-files=all)"
+          grep -Fq 'NQ_GATE10_COMPARE_335' tests/test_nquestie_m2_gate10_delta.sh
+          git diff --exit-code
+      - name: Gate10 public M2 export and five objective identities (Lua 5.1)
+        run: timeout --signal=TERM --kill-after=5s 720s bash tests/test_nquestie_m2_gate10_delta.sh
+      - name: Compare all 9159 old v2 quest records to protected 335 (Lua 5.1)
+        run: timeout --signal=TERM --kill-after=5s 720s env NQ_GATE10_COMPARE_335=1 bash tests/test_nquestie_m2_gate10_delta.sh
+      - name: Candidate Gate10 M2 A1 read-only v2 round-trip (Lua 5.1)
+        run: timeout --signal=TERM --kill-after=5s 720s bash tests/test_nquestie_m2_gate10_roundtrip.sh
+      - name: Original protected 335 M2 A1/A2 frozen controls (not Gate10 acceptance)
+        run: timeout --signal=TERM --kill-after=5s 1350s bash tests/test_nquestie_m2_frozen335_control.sh
+      - name: Self-test candidate F7 golden whitelist (three synthetic mutants)
+        run: python3 tests/test_nquestie_m2_gate10_f7_fixture.py
+      - name: Gate10 candidate-specific M2 A2 F1-F8, keep original 335 goldens untouched
+        run: timeout --signal=TERM --kill-after=5s 1080s bash tests/test_nquestie_m2_gate10_a2_export_integration.sh
+      - name: Confirm no checkout changes
+        if: always()
+        run: git status --porcelain --untracked-files=all
+
+# This workflow deliberately has NO pull_request trigger, package, build,
+# upload-artifact, release, tag, secret, deployment, client or server step.
+# The frozen A1/A2 controls execute only in a detached temporary clone of
+# protected 335 and do not repin or modify any old test or golden. This
+# deliberately does NOT assert that the candidate passes those old baselines.
+# The new candidate-specific A2 suite is separate, reviewed/tested independently.
+# Gate08, native 3.3.5a/IP QA and install remain unapproved and untested.
+ "$T/stderr" >"$T/public-summaries"
+          test "$(wc -l <"$T/public-summaries")" -eq 4
+          echo 'BEGIN_PUBLIC_GATE10_SOURCE_SUMMARY'
+          cat "$T/public-summaries"
+          echo 'END_PUBLIC_GATE10_SOURCE_SUMMARY'
+          test -z "$(find "$T/home" "$T/tmp" -mindepth 1 -print -quit)"
+          test -z "$(git status --porcelain --untracked-files=all)"
   gate10-m2-readonly:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
