@@ -70,6 +70,14 @@ A new **read-only owner-private** checker independently joined the original arch
 
 Source-confirmed **review-only** discrepancies remain: 1207's player-facing objective label versus authoritative server-required item count; 1209's quest-objective label order versus actual item slots; and 1209's prose implying an additional unnamed ally. **Keep server quantities, source item IDs and objective order unchanged** until CosmicCuddle reviews a native-client test and chooses any text-only or gameplay correction. Also check GO loot interaction against quest acceptance: archival quest-required flags differ by source type, which is a test prompt and not permission to change SQL. Full exact source joins, archive fingerprints and repeatable checker are stored **only in the owner's Private N-Questie Quest Audits Library**, not in this repository.
 
+## 1 November — source-to-proposed-marker spatial consistency and future native test sheet
+
+A **read-only owner-private** spatial reconciliation (archived world source vs exact reviewed public pilot marker data blob `74a57ecc`) matched **51/51 proposed NPC/GO marker positions** to archived spawns. Three NPC positions fitted the local two-axis affine world-to-Barrens projection; the other **48/48** held-out points matched with largest coordinate distance **0.00990 map percentage points** (tolerance **0.015**); a deliberately displaced synthetic marker was detected. The original snapshot and source counts were independently validated, and existing NPC 3393 remains inherited rather than newly provisioned.
+
+**Scope:** This is stronger than the prior spawn-*count* proof, but fitted affine coordinates do **not independently validate installed client `WorldMapArea.dbc` bounds** or in-game Questie rendering, live active spawns, IP phase, creature loot or user-visible text. Raw coordinates and exact private SQL joins remain in CosmicCuddle's **Private N-Questie Quest Audits** Library.
+
+A separate **[Gate10 native acceptance matrix](2026-11-01_PART55_GATE10_NATIVE_ACCEPTANCE_MATRIX.md)** now records conditional 3.3.5a/IP player tests for quest availability, five item objectives, 1207 20/22 wording, 1209 name/slot discrepancies, completion placeholders, map pins and old-quest regressions. All are **NOT RUN**; this documentation is **not** test-package, installation, merge or Gate08 approval.
+
 ## Next Gate10 actions
 
 1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
