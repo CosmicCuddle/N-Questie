@@ -50,5 +50,6 @@ with tempfile.TemporaryDirectory(prefix="nq-gate10-f7-") as dir:
     check(positive.replace(b"PASS: 232 checks",b"PASS: 231 checks"),False)
     check(positive.replace(b"82458 quest fields",b"82431 quest fields"),False)
     check(positive.replace(b"npcData    records=29619",b"npcData    records=29618"),False)
-    check(positive.replace(b"npcData    records=29619",b"npcData    records=29619").replace(b"after=decaf123 unexpected=0",b"after=decaf123 unexpected=1"),False)
+    check(positive.replace(b"npcData    records=29619 before=1a2b3c4d after=decaf123 unexpected=0",
+                           b"npcData    records=29619 before=1a2b3c4d after=decaf123 unexpected=1"),False)
 print("PASS: F7 comparator accepts Gate10 source provisioning and rejects five mutants")
