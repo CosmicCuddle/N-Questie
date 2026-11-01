@@ -120,7 +120,16 @@ cmp -s "$T/before" "$T/after" && ok "checkout unchanged by the exports (listing 
 [ -z "$(find "$T/home" "$T/tmp" -mindepth 1 -print -quit)" ] && ok "HOME and TMPDIR still empty" || bad "files appeared in HOME/TMPDIR"
 strip <"$T/r1.err" >"$T/c1"
 grep -q "PASS: 232 checks" "$T/c1" && ok "all 232 M0 checks passed before the export" || bad "M0"
-grep -q "82431 quest fields compared, 0 mismatches" "$T/c1" && ok "82,431 compiled fields, 0 mismatches" || bad "M0 integrity"
+# Candidate adds three quests, so the old frozen 82,431 field total MUST
+# increase. Require one well-formed M0 round-trip line and zero mismatches.
+# The original 335 A2 test keeps its EXACT original 82,431-field assertion.
+field_lines=$(grep -Ec '^\[validate-335\] compiled round trip: [0-9]+ quest fields compared, 0 mismatches$' "$T/c1" || :)
+candidate_fields=$(sed -nE 's/^\[validate-335\] compiled round trip: ([0-9]+) quest fields compared, 0 mismatches$/\1/p' "$T/c1")
+if [ "$field_lines" -eq 1 ] && [ -n "$candidate_fields" ] && [ "$candidate_fields" -gt 82431 ]; then
+  ok "M0 integrity: more than frozen 82,431 compiled fields, zero mismatches"
+else
+  bad "M0 integrity: expected increased compiled-field count with zero mismatches"
+fi
 m0=$(grep -n "PASS: 232 checks" "$T/c1" | cut -d: -f1); wr=$(grep -n "v2 export written" "$T/c1" | cut -d: -f1)
 [ -n "$m0" ] && [ -n "$wr" ] && [ "$wr" -gt "$m0" ] && ok "export only after M0 passed" || bad "export order"
 F1="$T/d1/v2.lua"; F2="$T/d2/v2.lua"
