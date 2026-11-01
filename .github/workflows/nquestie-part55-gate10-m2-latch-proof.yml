@@ -11,7 +11,7 @@ permissions:
 jobs:
   gate10-m2-readonly:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout exact test-only source
         uses: actions/checkout@v4
@@ -36,6 +36,8 @@ jobs:
         run: timeout --signal=TERM --kill-after=5s 720s bash tests/test_nquestie_m2_gate10_roundtrip.sh
       - name: Original protected 335 M2 A1/A2 frozen controls (not Gate10 acceptance)
         run: timeout --signal=TERM --kill-after=5s 1350s bash tests/test_nquestie_m2_frozen335_control.sh
+      - name: Gate10 candidate-specific M2 A2 F1-F8, keep original 335 goldens untouched
+        run: timeout --signal=TERM --kill-after=5s 1080s bash tests/test_nquestie_m2_gate10_a2_export_integration.sh
       - name: Confirm no checkout changes
         if: always()
         run: git status --porcelain --untracked-files=all
@@ -45,5 +47,5 @@ jobs:
 # The frozen A1/A2 controls execute only in a detached temporary clone of
 # protected 335 and do not repin or modify any old test or golden. This
 # deliberately does NOT assert that the candidate passes those old baselines.
-# Not a substitute for a reviewed Gate10-specific M2 acceptance variant,
-# Gate08 or native WoW 3.3.5a/IP QA.
+# The new candidate-specific A2 suite is separate, reviewed/tested independently.
+# Gate08, native 3.3.5a/IP QA and install remain unapproved and untested.
