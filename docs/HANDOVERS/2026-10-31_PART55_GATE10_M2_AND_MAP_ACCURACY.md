@@ -92,6 +92,14 @@ An **owner-private read-only** independent-scale comparison now uses **fixed Bar
 
 **Result:** 51/51 within 0.015 map percentage points, maximum **0.00732**; a 0.6 percentage-point synthetic marker displacement is detected. This supplies independent **scale** corroboration. **Important qualification:** the map *origin* remains derived from the proposal; we have **not decoded the owner's installed 3.3.5a `WorldMapArea.dbc` bounding rectangle** and cannot claim complete independently verified map positions or native marker correctness. Do not deploy a coordinate correction from these results. Full source-pinned script and private audit reside only in the owner's Private N-Questie Quest Audits Library.
 
+## 1 November — independently decoded WDBC Barrens **absolute** map bounds
+
+**New, stronger independent source:** an actual 3.3.5a-build-12340 [`WorldMapArea.dbc` binary](https://github.com/Elwynsiaa/data/blob/main/dbc/WorldMapArea.dbc), Git blob **`32019ed2a62153b2e21b18d49f38b2eb4af1c2cd`**, was fetched in **base64** using the connected GitHub file reader and decoded as a real `WDBC` table (**108 records × 11 fields**). The **Barrens** row was located by its **ID 11, map 1, area 17 and string-table name**. Its four native float32 `LocLeft/Right/Top/Bottom` fields independently specify the map **origin and scale**, rather than fitting either to the proposed N-Questie markers. The field schema agrees with the TrinityCore 3.3.5a `WorldMapArea.dbc` reference.
+
+A new owner-private checker combines these **fixed** bounds with the **original archived owner-world NPC/GO positions** and the **unchanged proposed public Gate10 source projection** (blob `74a57ecc`). One-to-one matching yields **51/51 within the same 0.015% zone-map tolerance**, maximum discrepancy **0.008550 percentage points**, and rejects a deliberately displaced synthetic marker. **Zero fitted calibration parameters** were used. This is stronger than the previous Astrolabe **fixed-scale / fitted-origin** and 3-anchor affine comparisons; those earlier checks remain historical context, not the best available proof. Full exact audit and executable verification script are retained only in CosmicCuddle's **Private N-Questie Quest Audits** Library.
+
+**Still NOT verified:** the owner's **installed** client may have custom DBC overrides; this independently published 3.3.5a file is not proven byte-identical to it. The archived SQL is not a current live-world spawn snapshot. IP phase, patrol timing, native Questie rendering/loot/quest text, Gate08 and original M2 candidate acceptance remain separate, and no install or merge is authorised.
+
 ## Next Gate10 actions
 
 1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
