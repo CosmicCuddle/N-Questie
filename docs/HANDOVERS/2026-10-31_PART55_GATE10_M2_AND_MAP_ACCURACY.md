@@ -48,6 +48,14 @@ The PR-triggered-commit-run connector query does **not** list push-only Actions 
 
 Queued **after** the missing-quest proof: evaluate each quest target's *actual active* world spawns, not every historical/shared template spawn. Compare server map/phase/conditions to Questie zone-local coordinate transforms, then spot-check both minimap and world-map markers in an owner-approved disposable native 3.3.5a test. Do not fabricate exact spawns or remove unrelated legitimate pins simply to reduce clutter.
 
+## 1 November 2026 — owner-private 438-ID source triage (public-safe aggregate)
+
+A reproducible **owner-private**, read-only review of the frozen source inventory verified that only **23/438 candidates** have at least one ordinary NPC/GO starter or ender relationship (**20 both sides, 3 one side**). **All 23** were already allocated to dedicated Gate10, AQ/IP, owner-deferred, internal-placeholder or PvP workstreams; **none** is a newly evidenced ordinary Vanilla quest ready for blanket import.
+
+The separate **37-ID title/minimum-level first-pass sample** contains **zero ordinary NPC/GO starter/ender relationships**. Manual historical cross-checks classify **19** as the Cataclysm pre-launch Elemental Unrest storyline; **5** TBC-era/beta, **1** WotLK beta, **2** AQ test-realm concepts, **2** Darkmoon placeholders, **3** owner-custom dependent quests, and **5** individually ambiguous historical candidates. These are research **priorities**, not confirmed live enable/disable decisions. In particular do not treat low `MinLevel`, high/low IDs, `VerifiedBuild`, source item, or a NextQuest relationship as proof of playable *Vanilla* quest-giver or map coordinates. The entire 438-ID backlog remains preserved.
+
+The full private ID/title crosswalk, external references and repeatable checker are stored only in CosmicCuddle's **Server-Side-Information / Private N-Questie Quest Audits** Library. No private SQL, candidate-specific unpublished source fields or map coordinates are included here. Gate10 data proof, original frozen M2 Busted RED, Gate08 and character-specific IP/native acceptance remain separate.
+
 ## Next Gate10 actions
 
 1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
