@@ -56,6 +56,14 @@ The separate **37-ID title/minimum-level first-pass sample** contains **zero ord
 
 The full private ID/title crosswalk, external references and repeatable checker are stored only in CosmicCuddle's **Server-Side-Information / Private N-Questie Quest Audits** Library. No private SQL, candidate-specific unpublished source fields or map coordinates are included here. Gate10 data proof, original frozen M2 Busted RED, Gate08 and character-specific IP/native acceptance remain separate.
 
+## 1 November — typed archived SQL acquisition and POI cross-check
+
+Read-only source scan (original owner snapshot, source-typed fields, private archived report) now differentiates **21** candidate IDs with static NPC/GO *starter* relations, **3** with item-template quest-start links, and **414/438** with neither (the prior **23** count included two NPC/GO *ender-only* records). This is **not** an assertion that 414 are unavailable: C++ scripts, custom modules, database changes and runtime mechanisms remain untested. In **56,660** archived SmartAI rows, **zero candidate IDs** appeared in typed OFFER_QUEST, fail/credit or accept/reward event fields; the same candidates had zero matching `spell_area` quest fields, areatrigger quest-turnin relations, quest-pool entries or event-specific NPC/GO quest additions. **16** have seasonal-event relationships (association only, not proof of availability).
+
+The archived `quest_poi` table contains **272 POI entries across 182** of the 438 candidate IDs; **180** of these IDs lack ordinary NPC/GO starter *and* ender links. Client POI metadata is **not** a quest-giver link, active creature/object spawn, IP eligibility, or proof the player's addon currently displays a wrong icon. Do **not** auto-import POIs into N-Questie or claim these dormant candidate POIs explain existing marker errors. This aggregate is a *preventive test design input* for `NQ-MAP-ACCURACY-001`, not a reviewed marker patch.
+
+Exact item identities, quest titles/IDs, source row crosswalk, POI ObjectiveIndex/MapID and repeatable scripts remain in the owner's **Private N-Questie Quest Audits** Library; none are published to GitHub.
+
 ## Next Gate10 actions
 
 1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
