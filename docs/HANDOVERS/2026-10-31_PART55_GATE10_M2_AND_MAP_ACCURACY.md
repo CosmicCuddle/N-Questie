@@ -118,6 +118,12 @@ The connected GitHub repository GET endpoint for **branch-filtered Actions workf
 
 **Original 335 A2/Busted goldens remain unchanged**, and the 169/171 two old-count assertions in the main candidate are still RED. Native client, IP/phase/respawns, Gate08 and owner decisions are independent.
 
+## 1 November — strict F7 NPC source-summary correction (execution pending)
+
+The independently retrieved [A2 run `41303630380`](https://github.com/CosmicCuddle/N-Questie/actions/runs/41303630380) proved **114/115 checks PASS**, with the **only** failure at F7's **`npcData` baseline** comparison. The first F7 port required the historical `npcData records=29615 before=d6e37a01`, but the reviewed Gate10 loader **commits all four newly allowed NPC source rows before the `npcData` callback captures its before-snapshot**, and the validator prints the count/hash **of that before-snapshot**. Therefore a correctly admitted Gate10 candidate expects **29619**, not the original 29615; its 32-bit before digest necessarily reflects those four source records. The raw source/code preconditions, exact quest admissions, full inherited 9,159 IDs, and validator's field-level `ALLOWED` guard are separately checked.
+
+On isolated test head `50e220aa`, the F7 helper **requires exactly `npcData records=29619`, two syntactically valid 8-digit digests, and `unexpected=0`**. Its original historical 335 golden remains byte-pinned and unmodified. The synthetic fixture also now tests a positive 29619 record, a wrong 29618 record, and an `unexpected=1` NPC-only mutation, in addition to the earlier quest-admission/M0/field-total mutants. **Do not mark candidate A2 GREEN yet:** the updated exact-head push-only Actions workflow is queued; no successful latest run has been observed at the time of this edit. The earlier F7 failure and its source-proven rationale are recorded for CS02 review without weakening unrelated source guards.
+
 ## Next Gate10 actions
 
 1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
