@@ -22,7 +22,7 @@ replacements = {
     b"[validate-335] npcData    records": b"[validate-335] npcData    records=29615 before=d6e37a01 after=decaf123 unexpected=0",
     b"[validate-335] objectData records": b"[validate-335] objectData records=13043 before=8082022e after=decaf123 unexpected=0",
     b"[validate-335] itemData   records": b"[validate-335] itemData   records=36767 before=441bb1af after=decaf123 unexpected=0",
-    b"[validate-335] compiled round trip": b"[validate-335] compiled round trip: 82500 quest fields compared, 0 mismatches",
+    b"[validate-335] compiled round trip": b"[validate-335] compiled round trip: 82458 quest fields compared, 0 mismatches",
 }
 def substitute(prefixes):
     rows=original.splitlines(keepends=True)
@@ -48,5 +48,5 @@ with tempfile.TemporaryDirectory(prefix="nq-gate10-f7-") as dir:
     check(positive,True)
     check(positive.replace(b"1207,1208,1209,2001",b"1207,1208,2001"),False)
     check(positive.replace(b"PASS: 232 checks",b"PASS: 231 checks"),False)
-    check(positive.replace(b"82500 quest fields",b"82431 quest fields"),False)
+    check(positive.replace(b"82458 quest fields",b"82431 quest fields"),False)
 print("PASS: F7 comparator accepts exact Gate10 structural changes, rejects three mutants")
