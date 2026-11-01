@@ -19,6 +19,8 @@
 | 1209 — Northwatch Guard | **One each** of items **160 / 161 / 162** from their named NPCs. Check observed quest-log label/item matching: server order Duncan → Cassia → Fairmount differs from archived text labels Fairmount → Duncan → Cassia. | NOT RUN |
 | Dialogue and text | For all three, inspect accept, objective, completion and turn-in text. The archived completion log contains `QuestCompletionLog NOT WORKING`; do not assume players see it. Quest 1209 prose refers to three allies though only two are named. | NOT RUN |
 | Map/minimap | Compare quest giver, mage, boss and War Documents icons to **active in-game** NPC/GO positions and IP phase. Record missing/duplicate/out-of-zone markers. Do not import all archived POIs. | NOT RUN |
+| Quest 1209 target availability | Before attempting item drops, check **whether all three required named NPCs are actually present**; record any missing NPC and whether the live server's respawn policy differs from the archive. Private archival audit found unusually long configured respawn delays for these three unique NPC sources. **Do not force-spawn or edit their timers** as part of this test. | NOT RUN |
+| Quest 1207 moving targets | Observe Theramore Mages in motion: archived movement classification is **13 stationary / 5 random-wander / 6 waypoint patrols** across 24 spawns. Test base pins versus actual patrol locations; describe any confusing search areas rather than assuming a stationary marker is incorrect. | NOT RUN |
 | Regression | Verify frozen custom quest **2001**, unrelated inherited Vanilla quests, map UI, and absence of unexpected Lua errors. | NOT RUN |
 
 ## Offline evidence versus in-game evidence
