@@ -36,6 +36,8 @@ jobs:
         run: timeout --signal=TERM --kill-after=5s 720s bash tests/test_nquestie_m2_gate10_roundtrip.sh
       - name: Original protected 335 M2 A1/A2 frozen controls (not Gate10 acceptance)
         run: timeout --signal=TERM --kill-after=5s 1350s bash tests/test_nquestie_m2_frozen335_control.sh
+      - name: Self-test candidate F7 golden whitelist (three synthetic mutants)
+        run: python3 tests/test_nquestie_m2_gate10_f7_fixture.py
       - name: Gate10 candidate-specific M2 A2 F1-F8, keep original 335 goldens untouched
         run: timeout --signal=TERM --kill-after=5s 1080s bash tests/test_nquestie_m2_gate10_a2_export_integration.sh
       - name: Confirm no checkout changes
