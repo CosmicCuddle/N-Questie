@@ -86,6 +86,12 @@ The proposed item-source creature population includes **24 mages**: **13 station
 
 **Significant conditional gameplay risk:** the archived three unique NPC sources required for quest **1209** have unusually long configured respawn delays. Their present-day live respawn behavior, force-respawn scripts and persisted `creature_respawn` state have not been checked. Request a source-version-aware **read-only** review by Maintenance prior to native acceptance; **no respawn/SQL changes, forced respawns, release or client install authorised**. Exact spawn GUIDs, respawn intervals, paths and source evidence stay in CosmicCuddle's Private N-Questie Quest Audits Library.
 
+## 1 November — independent historical 3.3.5a Barrens map-scale cross-check
+
+An **owner-private read-only** independent-scale comparison now uses **fixed Barrens dimensions** published in the historical [3.3.5a Gatherer/Astrolabe map data](https://github.com/locus313/WoW-3.3.5a-Addons/blob/main/Gatherer/Astrolabe/Astrolabe.lua): map-horizontal **10133.4423** and map-vertical **6756.2019** world units. Unlike the earlier three-anchor affine test, this check **does not infer zone scale from the proposed Questie points**. It pairs all **51** reviewed marker positions one-to-one with owner-archived source spawns and fits **only the two map-origin offsets**.
+
+**Result:** 51/51 within 0.015 map percentage points, maximum **0.00732**; a 0.6 percentage-point synthetic marker displacement is detected. This supplies independent **scale** corroboration. **Important qualification:** the map *origin* remains derived from the proposal; we have **not decoded the owner's installed 3.3.5a `WorldMapArea.dbc` bounding rectangle** and cannot claim complete independently verified map positions or native marker correctness. Do not deploy a coordinate correction from these results. Full source-pinned script and private audit reside only in the owner's Private N-Questie Quest Audits Library.
+
 ## Next Gate10 actions
 
 1. **Completed:** genuine Lua5.1 source proof and full 9,159-record parity at exact test head `68c10f61`; independent successful GitHub Actions step/log verification.
