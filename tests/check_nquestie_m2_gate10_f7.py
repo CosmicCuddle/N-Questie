@@ -42,8 +42,8 @@ for number, (new, old) in enumerate(zip(a, b), 1):
             raise SystemExit("FAIL F7: invalid Gate10 change on line %d: %s" % (number, label.decode()))
         if label == b"[validate-335] compiled round trip":
             fields = int(re.search(rb"round trip: ([0-9]+)", new).group(1))
-            if fields <= 82431:
-                raise SystemExit("FAIL F7: compiled quest fields did not increase")
+            if fields != 82458:
+                raise SystemExit("FAIL F7: compiled quest-field total differs from exactly 9,162 x 9")
         seen.add(label)
 if seen != set(allowed):
     raise SystemExit("FAIL F7: expected original structured log lines absent")
