@@ -613,8 +613,13 @@ QuestieCompat.RegisterCorrection("questData", function()
         if q.parentQuest then fields[keys.parentQuest] = q.parentQuest end
         if q.nextQuestInChain then fields[keys.nextQuestInChain] = q.nextQuestInChain end
         if #entry.killNpcs + #entry.objectObjectives + #entry.itemObjectives > 0 then
-            local objectives = {objectivePairs(entry.killNpcs)}
-            if #entry.objectObjectives > 0 or #entry.itemObjectives > 0 then
+            -- Empty groups remain nil. The original Questie codec turns
+            -- empty groups into nil, so publishing {} fails debug validation.
+            local objectives = {}
+            if #entry.killNpcs > 0 then
+                objectives[1] = objectivePairs(entry.killNpcs)
+            end
+            if #entry.objectObjectives > 0 then
                 objectives[2] = objectivePairs(entry.objectObjectives)
             end
             if #entry.itemObjectives > 0 then
