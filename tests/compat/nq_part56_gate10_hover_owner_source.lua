@@ -87,4 +87,10 @@ testCase("reject multiple descriptions", function(data) data.quests[1209].object
 testCase("reject sparse description", function(data) data.quests[1208].objectivesText = {[2] = "gap"} end, false)
 testCase("reject overlong description", function(data) data.quests[1208].objectivesText = {string.rep("A", 65536)} end, false)
 testCase("reject compiler sentinel nil text", function(data) data.quests[1207].objectivesText = {"nil"} end, false)
-print("PASS all 7 original-loader owner-hover source cases")
+testCase("reject absent objectivesText schema mapping", function(data)
+    QuestieDB.questKeys.objectivesText = nil
+end, false)
+testCase("reject shifted objectivesText schema mapping", function(data)
+    QuestieDB.questKeys.objectivesText = 9
+end, false)
+print("PASS all 9 original-loader owner-hover source cases")
