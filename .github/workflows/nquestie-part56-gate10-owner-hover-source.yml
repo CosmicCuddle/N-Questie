@@ -65,7 +65,7 @@ jobs:
           # and must keep rejecting the changed loader in the main overlay CI.
           # This separate diagnostic hashes the exact candidate first,
           # then executes the UNCHANGED Lua negative/synthetic contract file.
-          test "$(git hash-object Compat/NQuestieCustomQuestLoader.lua)" = "990c21e37aad4b7092b8982e23a8de1257c13987"
+          test "$(git hash-object Compat/NQuestieCustomQuestLoader.lua)" = "828228eaba63fe138c055d39656754aaf4f98f45"
           test "$(git hash-object tests/compat/nq_custom_loader_safety.lua)" = "$(git rev-parse d815548cbfef88d9f0c1f429ea7e6bf48214cddc:tests/compat/nq_custom_loader_safety.lua)"
           test "$(git hash-object tests/compat/run_nq_custom_loader_safety.py)" = "$(git rev-parse d815548cbfef88d9f0c1f429ea7e6bf48214cddc:tests/compat/run_nq_custom_loader_safety.py)"
           for lua in 5.1 5.4; do
