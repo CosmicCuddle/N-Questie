@@ -56,3 +56,19 @@ jobs:
             "lua$lua" tests/compat/nq_part56_gate10_hover_owner_source.lua
           done
           echo 'Source-run contract PASS; native WoW 3.3.5a not tested; no owner ZIP or artifacts created' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Re-run original negative loader contracts against candidate without altering approved pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Existing run_nq_custom_loader_safety.py has a reviewed/frozen SHA
+          # and must keep rejecting the changed loader in the main overlay CI.
+          # This separate diagnostic hashes the exact candidate first,
+          # then executes the UNCHANGED Lua negative/synthetic contract file.
+          test "$(git hash-object Compat/NQuestieCustomQuestLoader.lua)" = "990c21e37aad4b7092b8982e23a8de1257c13987"
+          test "$(git hash-object tests/compat/nq_custom_loader_safety.lua)" = "$(git rev-parse d815548cbfef88d9f0c1f429ea7e6bf48214cddc:tests/compat/nq_custom_loader_safety.lua)"
+          test "$(git hash-object tests/compat/run_nq_custom_loader_safety.py)" = "$(git rev-parse d815548cbfef88d9f0c1f429ea7e6bf48214cddc:tests/compat/run_nq_custom_loader_safety.py)"
+          for lua in 5.1 5.4; do
+            NQ_LOADER_PATH="$PWD/Compat/NQuestieCustomQuestLoader.lua" timeout --signal=TERM --kill-after=5s 120s "lua$lua" tests/compat/nq_custom_loader_safety.lua
+          done
+          echo 'Unmodified historical Lua negative suite PASS in a diagnostic run only. Existing source-pin guard remains RED until explicit review.' >> "$GITHUB_STEP_SUMMARY"
