@@ -1,0 +1,104 @@
+name: N-Questie Part57 owner-approved combined QA ZIP (no release)
+
+on:
+  push:
+    branches:
+      - qa/part57-combined-owner-test-20261102
+  pull_request:
+    branches:
+      - dev/nq-custom-loader-safety-20261021
+
+permissions:
+  contents: read
+
+jobs:
+  owner-test-zip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact private-server addon draft snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Refuse any unapproved runtime-content deviation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "80dad7ee9b1a45618e5fc256e102fb148259120e" HEAD
+          test "$(git diff --name-only 80dad7ee9b1a45618e5fc256e102fb148259120e HEAD)" = ".github/workflows/nquestie-part57-combined-owner-test-zip.yml"
+          test "$(git hash-object Compat/NQuestieCustomQuestData.lua)" = "ca66b10f52df6d10dbc2e080f80ca7ee33e52882"
+          test "$(git hash-object Compat/NQuestieCustomQuestLoader.lua)" = "4dee99e401d1a88971562463fc373c99bd0fafc5"
+          grep -Fq 'revision = 11,' Compat/NQuestieCustomQuestData.lua
+          grep -Fq '## Interface: 30300' Questie-335.toc
+          grep -Fq '## SavedVariables: QuestieConfig' Questie-335.toc
+          grep -Fq '## SavedVariablesPerCharacter: QuestieConfigCharacter' Questie-335.toc
+
+      - name: Assemble existing 3.3.5a addon layout (test only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qa-package/Questie-335
+          cp Questie.lua Questie-335.toc embeds.xml qa-package/Questie-335/
+          cp -R Compat Database Icons Libs Localization Modules qa-package/Questie-335/
+          cat > qa-package/Questie-335/QA_BUILD_NOTICE.txt <<'EOF'
+          N-Questie PART57 OWNER-APPROVED COMBINED FIX TEST PACKAGE ONLY
+          NOT AN OFFICIAL RELEASE. UNMERGED DRAFT. DO NOT DISTRIBUTE AS STABLE.
+          Combined fixes source: 80dad7ee9b1a45618e5fc256e102fb148259120e
+          Objective warning normalization and available quest hover text; custom data revision 11.
+          Only approved extra GitHub repository file: test artifact workflow (not packaged).
+          For WoW 3.3.5a / AzerothCore Individual Progression Vanilla phase.
+          Install on a separate disposable game client at Interface/AddOns/Questie-335/.
+          Do not have multiple Questie versions enabled simultaneously.
+          Do not replace the user's raiding-client addon or normal SavedVariables.
+          Existing compiled database corruption recovery is NOT native-tested.
+          Never run malformed-pointer experiments against personal SavedVariables.
+          Verify no objective table warning for quests 1207/1208/1209 with debug enabled.
+          Verify available quest hover on map with Shift shows descriptions.
+          Verify item objective counts and order; quest 1207 expected 20 while some text says 22.
+          Verify normal quest 2001 and no new Lua errors.
+          NOT INCLUDED: missing PvP quest 30041, IP tier filtering, source-map collision fix.
+          The existing legacy loader source SHA gate has not yet been reapproved; test only.
+          Report quest visibility, objective counts, map locations, errors and settings.
+          EOF
+
+      - name: Check complete TOC file inventory and no unwanted files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('qa-package/Questie-335')
+          toc = root / 'Questie-335.toc'
+          missing = []
+          required = []
+          for raw in toc.read_text(encoding='utf-8-sig').splitlines():
+              p = raw.strip()
+              if not p or p.startswith('#'):
+                  continue
+              rel = p.replace('\\', '/')
+              required.append(rel)
+              if not (root / rel).is_file():
+                  missing.append(rel)
+          if missing:
+              raise SystemExit('TOC references not present in package: ' + ', '.join(missing))
+          assert len(required) > 70, len(required)
+          assert (root / 'Compat/NQuestieCustomQuestLoader.lua').is_file()
+          assert (root / 'Compat/NQuestieCustomQuestData.lua').is_file()
+          assert (root / 'Localization/Translations/Translations.xml').is_file()
+          assert not list(root.rglob('*.sql')), 'unexpected SQL in package'
+          assert not list(root.rglob('*.git')), 'unexpected Git metadata'
+          assert not list(root.rglob('*.py')), 'unexpected Python tooling'
+          print('PACKAGE PASS:', len(required), 'TOC-referenced files are present')
+          PY
+          echo "OWNER TEST ONLY — no addon install, merge, release or server change performed." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload owner-only disposable QA ZIP (not a release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: N-Questie-335-Part57-OWNER-TEST-Combined
+          path: qa-package/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
