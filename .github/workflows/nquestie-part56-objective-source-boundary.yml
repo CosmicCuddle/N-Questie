@@ -1,0 +1,33 @@
+name: N-Questie Part56 objective source boundary (test only)
+on:
+  push:
+    branches:
+      - test/part56-objective-source-contract-20261102-cs01
+  pull_request:
+    branches:
+      - dev/nq-custom-loader-safety-20261021
+    paths:
+      - "tests/compat/nq_part56_objective_source_collision.lua"
+      - ".github/workflows/nquestie-part56-objective-source-boundary.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-contract:
+    name: Synthetic objective sources on real original code
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.1 and Lua 5.4
+        run: |
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get update -qq
+          timeout --signal=TERM --kill-after=5s 180s sudo apt-get install -y lua5.1 lua5.4
+      - name: Pin the protected 335 source blob and run both Lua versions
+        run: |
+          set -eu
+          test "$(git hash-object Modules/Quest/QuestieQuestPrivates.lua)" = 4283978cae55c8ee295422a5d82940b4bac4e7c7
+          for ver in 5.1 5.4; do
+            "luac$ver" -p tests/compat/nq_part56_objective_source_collision.lua
+            timeout --signal=TERM --kill-after=5s 120s "lua$ver" tests/compat/nq_part56_objective_source_collision.lua
+          done
