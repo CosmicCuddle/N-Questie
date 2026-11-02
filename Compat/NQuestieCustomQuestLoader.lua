@@ -143,6 +143,11 @@ local function parseQuest(id, q)
     end
     if q.noDirectObjectives ~= nil and q.noDirectObjectives ~= true then return nil end
     if q.objectivesText ~= nil then
+        -- The exact protected 335 schema stores the display description at
+        -- key 8. Refuse to admit a text-bearing quest when the schema is
+        -- absent/drifted, rather than quietly publishing it without text.
+        if type(QuestieDB.questKeys) ~= "table" or
+            QuestieDB.questKeys.objectivesText ~= 8 then return nil end
         -- Compiled u8u16stringarray: accept only a single reviewed player-facing
         -- description line; reject sparse, oversized, nested or keyed arrays.
         local text = q.objectivesText
@@ -589,8 +594,8 @@ QuestieCompat.RegisterCorrection("questData", function()
             [keys.startedBy] = {entry.startedByNpcs},
             [keys.finishedBy] = {entry.finishedByNpcs},
         }
-        -- Older regression stubs omit this optional schema key; the genuine
-        -- Questie 335 questDB declares it at field 8. Do not index with nil.
+        -- An entry bearing this field was admitted only after checking that
+        -- the protected 335 questDB has the actual field-8 schema key.
         if entry.objectivesText and type(keys.objectivesText) == "number" then
             fields[keys.objectivesText] = entry.objectivesText
         end
