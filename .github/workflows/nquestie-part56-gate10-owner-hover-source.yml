@@ -1,0 +1,77 @@
+name: N-Questie Part57 combined hover and objective source tests (no artifact)
+
+on:
+  push:
+    branches:
+      - test/part57-gate10-combined-source-contract-cs01-20261102
+  pull_request:
+    branches:
+      - dev/nq-custom-loader-safety-20261021
+
+permissions:
+  contents: read
+
+jobs:
+  gate10-hover-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout isolated exact-head review source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Guard against unrelated source modification
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=d815548cbfef88d9f0c1f429ea7e6bf48214cddc
+          git merge-base --is-ancestor "$baseline" HEAD
+          git diff --name-only "$baseline" HEAD | sort > /tmp/actual
+          cat > /tmp/allowed <<'EOF'
+          .github/workflows/nquestie-part56-gate10-owner-hover-source.yml
+          Compat/NQuestieCustomQuestData.lua
+          Compat/NQuestieCustomQuestLoader.lua
+          tests/compat/nq_part56_gate10_hover_owner_source.lua
+          tests/compat/nq_part57_gate10_empty_objective_groups.lua
+          EOF
+          diff -u /tmp/allowed /tmp/actual
+          grep -Fq 'revision = 11,' Compat/NQuestieCustomQuestData.lua
+          grep -Fq 'objectivesText = true' Compat/NQuestieCustomQuestLoader.lua
+          grep -Fq 'u8u16stringarray' Database/questDB.lua
+
+      - name: Install original WoW-compatible Lua interpreters
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lua5.1 lua5.4
+
+      - name: Execute actual production data and loader source in Lua 5.1 and Lua 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in 5.1 5.4; do
+            "luac$lua" -p Compat/NQuestieCustomQuestData.lua
+            "luac$lua" -p Compat/NQuestieCustomQuestLoader.lua
+            "luac$lua" -p tests/compat/nq_part56_gate10_hover_owner_source.lua
+            "lua$lua" tests/compat/nq_part56_gate10_hover_owner_source.lua
+            "luac$lua" -p tests/compat/nq_part57_gate10_empty_objective_groups.lua
+            "lua$lua" tests/compat/nq_part57_gate10_empty_objective_groups.lua
+          done
+          echo 'Source-run contract PASS; native WoW 3.3.5a not tested; no owner ZIP or artifacts created' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Re-run original negative loader contracts against candidate without altering approved pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Existing run_nq_custom_loader_safety.py has a reviewed/frozen SHA
+          # and must keep rejecting the changed loader in the main overlay CI.
+          # This separate diagnostic hashes the exact candidate first,
+          # then executes the UNCHANGED Lua negative/synthetic contract file.
+          test "$(git hash-object Compat/NQuestieCustomQuestLoader.lua)" = "4dee99e401d1a88971562463fc373c99bd0fafc5"
+          test "$(git hash-object tests/compat/nq_custom_loader_safety.lua)" = "$(git rev-parse d815548cbfef88d9f0c1f429ea7e6bf48214cddc:tests/compat/nq_custom_loader_safety.lua)"
+          test "$(git hash-object tests/compat/run_nq_custom_loader_safety.py)" = "$(git rev-parse d815548cbfef88d9f0c1f429ea7e6bf48214cddc:tests/compat/run_nq_custom_loader_safety.py)"
+          for lua in 5.1 5.4; do
+            NQ_LOADER_PATH="$PWD/Compat/NQuestieCustomQuestLoader.lua" timeout --signal=TERM --kill-after=5s 120s "lua$lua" tests/compat/nq_custom_loader_safety.lua
+          done
+          echo 'Unmodified historical Lua negative suite PASS in a diagnostic run only. Existing source-pin guard remains RED until explicit review.' >> "$GITHUB_STEP_SUMMARY"
