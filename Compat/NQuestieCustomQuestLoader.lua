@@ -586,10 +586,14 @@ QuestieCompat.RegisterCorrection("questData", function()
             [keys.zoneOrSort] = q.zoneOrSort,
             [keys.requiredRaces] = q.requiredRaces,
             [keys.questFlags] = q.questFlags,
-            [keys.objectivesText] = entry.objectivesText,
             [keys.startedBy] = {entry.startedByNpcs},
             [keys.finishedBy] = {entry.finishedByNpcs},
         }
+        -- Older regression stubs omit this optional schema key; the genuine
+        -- Questie 335 questDB declares it at field 8. Do not index with nil.
+        if entry.objectivesText and type(keys.objectivesText) == "number" then
+            fields[keys.objectivesText] = entry.objectivesText
+        end
         if #entry.startedByGameObjects > 0 then
             fields[keys.startedBy][2] = entry.startedByGameObjects
         end
