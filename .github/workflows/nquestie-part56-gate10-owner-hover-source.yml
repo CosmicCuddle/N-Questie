@@ -19,6 +19,7 @@ jobs:
       - name: Checkout isolated exact-head review source
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Guard against unrelated source modification
