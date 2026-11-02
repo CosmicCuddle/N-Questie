@@ -1,0 +1,78 @@
+# Part57 diagnostic CI for the empty-objective-group loader normalization.
+# Test-only. No addon ZIP, no upload-artifact, no release.
+# Separate from draft PR #460 (hover text). The frozen loader pin in
+# tests/compat/run_nq_custom_loader_safety.py is intentionally left RED.
+name: N-Questie Part57 empty objective groups (no artifact)
+
+on:
+  push:
+    branches:
+      - fix/part57-gate10-empty-objective-groups-cs02
+  pull_request:
+    branches:
+      - dev/nq-custom-loader-safety-20261021
+
+permissions:
+  contents: read
+
+jobs:
+  gate10-empty-objective-groups:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout isolated exact-head review source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Guard against unrelated source modification
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=d815548cbfef88d9f0c1f429ea7e6bf48214cddc
+          git merge-base --is-ancestor "$baseline" HEAD
+          git diff --name-only "$baseline" HEAD | sort > /tmp/actual
+          cat > /tmp/allowed <<'EOF'
+          .github/workflows/nquestie-part57-gate10-empty-objective-groups.yml
+          Compat/NQuestieCustomQuestLoader.lua
+          tests/compat/nq_part57_gate10_empty_objective_groups.lua
+          EOF
+          diff -u /tmp/allowed /tmp/actual
+          # Compat/NQuestieCustomQuestData.lua stays at revision 10.
+          # cli/check-revision-bump.sh compares this branch with its merge
+          # base (revision 9) and already sees 10, so this loader change
+          # does not require another bump.
+          git diff --exit-code "$baseline" HEAD -- Compat/NQuestieCustomQuestData.lua
+          grep -Fq 'revision = 10,' Compat/NQuestieCustomQuestData.lua
+
+      - name: Install Lua 5.1 and Lua 5.4
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lua5.1 lua5.4
+
+      - name: Run empty-objective-group contract on Lua 5.1 and Lua 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in 5.1 5.4; do
+            "luac$lua" -p Compat/NQuestieCustomQuestLoader.lua
+            "luac$lua" -p tests/compat/nq_part57_gate10_empty_objective_groups.lua
+            "lua$lua" tests/compat/nq_part57_gate10_empty_objective_groups.lua
+          done
+          echo 'Part57 contract PASS; native WoW 3.3.5a not tested; no addon ZIP or artifacts created' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Re-run original loader contracts against candidate without altering approved pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          # run_nq_custom_loader_safety.py keeps the reviewed blob pin and
+          # must keep failing in the overlay CI. This step hashes the
+          # candidate, then executes the UNCHANGED Lua contract.
+          test "$(git hash-object Compat/NQuestieCustomQuestLoader.lua)" = "a53c570b356a0d29daaa16b0cfb500e3d0574730"
+          test "$(git hash-object tests/compat/nq_custom_loader_safety.lua)" = "$(git rev-parse d815548cbfef88d9f0c1f429ea7e6bf48214cddc:tests/compat/nq_custom_loader_safety.lua)"
+          test "$(git hash-object tests/compat/run_nq_custom_loader_safety.py)" = "$(git rev-parse d815548cbfef88d9f0c1f429ea7e6bf48214cddc:tests/compat/run_nq_custom_loader_safety.py)"
+          for lua in 5.1 5.4; do
+            NQ_LOADER_PATH="$PWD/Compat/NQuestieCustomQuestLoader.lua" timeout --signal=TERM --kill-after=5s 120s "lua$lua" tests/compat/nq_custom_loader_safety.lua
+          done
+          echo 'Unmodified historical Lua negative suite PASS in a diagnostic run only. Existing source-pin guard remains RED until explicit review.' >> "$GITHUB_STEP_SUMMARY"
