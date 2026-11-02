@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           baseline=d815548cbfef88d9f0c1f429ea7e6bf48214cddc
           git merge-base --is-ancestor "$baseline" HEAD
-          git diff --name-only "$baseline" HEAD | sort > /tmp/actual
+          git diff --name-only "$baseline" HEAD | LC_ALL=C sort > /tmp/actual
           cat > /tmp/allowed <<'EOF'
           .github/workflows/nquestie-part57-gate10-empty-objective-groups.yml
           Compat/NQuestieCustomQuestLoader.lua
