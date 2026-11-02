@@ -1,0 +1,91 @@
+name: N-Questie Gate10 owner-approved test ZIP (not a release)
+
+on:
+  push:
+    branches:
+      - qa/gate10-owner-test-d815548-20261102
+
+permissions:
+  contents: read
+
+jobs:
+  owner-test-zip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact private-server addon draft snapshot
+        uses: actions/checkout@v4
+
+      - name: Refuse any unapproved runtime-content deviation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "d815548cbfef88d9f0c1f429ea7e6bf48214cddc"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/nquestie-gate10-owner-test-zip-20261102.yml"
+          test "$(git hash-object Compat/NQuestieCustomQuestData.lua)" = "74a57eccbeddee78c54085a8d9030597d86be866"
+          grep -Fq 'revision = 10,' Compat/NQuestieCustomQuestData.lua
+          grep -Fq '## Interface: 30300' Questie-335.toc
+          grep -Fq '## SavedVariables: QuestieConfig' Questie-335.toc
+          grep -Fq '## SavedVariablesPerCharacter: QuestieConfigCharacter' Questie-335.toc
+
+      - name: Assemble existing 3.3.5a addon layout (test only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qa-package/Questie-335
+          cp Questie.lua Questie-335.toc embeds.xml qa-package/Questie-335/
+          cp -R Compat Database Icons Libs Localization Modules qa-package/Questie-335/
+          cat > qa-package/Questie-335/QA_BUILD_NOTICE.txt <<'EOF'
+          N-Questie GATE10 OWNER-APPROVED TEST PACKAGE ONLY
+          NOT AN OFFICIAL RELEASE. UNMERGED DRAFT. DO NOT DISTRIBUTE AS STABLE.
+          Original gameplay source: d815548cbfef88d9f0c1f429ea7e6bf48214cddc
+          Only approved extra GitHub repository file: test artifact workflow (not packaged).
+          For WoW 3.3.5a / AzerothCore Individual Progression Vanilla phase.
+          Install on a separate disposable game client at Interface/AddOns/Questie-335/.
+          Do not have multiple Questie versions enabled simultaneously.
+          Do not replace the user's raiding-client addon or normal SavedVariables.
+          Existing compiled database corruption recovery is NOT native-tested.
+          Never run malformed-pointer experiments against personal SavedVariables.
+          Test 1207, 1208, 1209 and the existing 2001 regression.
+          Report quest visibility, objective counts, map locations, errors and settings.
+          EOF
+
+      - name: Check complete TOC file inventory and no unwanted files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('qa-package/Questie-335')
+          toc = root / 'Questie-335.toc'
+          missing = []
+          required = []
+          for raw in toc.read_text(encoding='utf-8-sig').splitlines():
+              p = raw.strip()
+              if not p or p.startswith('#'):
+                  continue
+              rel = p.replace('\\', '/')
+              required.append(rel)
+              if not (root / rel).is_file():
+                  missing.append(rel)
+          if missing:
+              raise SystemExit('TOC references not present in package: ' + ', '.join(missing))
+          assert len(required) > 70, len(required)
+          assert (root / 'Compat/NQuestieCustomQuestLoader.lua').is_file()
+          assert (root / 'Compat/NQuestieCustomQuestData.lua').is_file()
+          assert (root / 'Localization/Translations/Translations.xml').is_file()
+          assert not list(root.rglob('*.sql')), 'unexpected SQL in package'
+          assert not list(root.rglob('*.git')), 'unexpected Git metadata'
+          assert not list(root.rglob('*.py')), 'unexpected Python tooling'
+          print('PACKAGE PASS:', len(required), 'TOC-referenced files are present')
+          PY
+          echo "OWNER TEST ONLY — no addon install, merge, release or server change performed." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload owner-only disposable QA ZIP (not a release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: N-Questie-335-Gate10-OWNER-TEST-d815548
+          path: qa-package/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
