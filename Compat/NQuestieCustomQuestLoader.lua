@@ -21,7 +21,7 @@ local allowedKeys = {
     startedByNpcs = true, finishedByNpcs = true,
     startedByGameObjects = true, finishedByGameObjects = true,
     killNpcs = true, objectObjectives = true, itemObjectives = true,
-    noDirectObjectives = true,
+    noDirectObjectives = true, objectivesText = true,
 }
 
 local function integerInRange(value, minimum, maximum)
@@ -142,6 +142,19 @@ local function parseQuest(id, q)
         return nil
     end
     if q.noDirectObjectives ~= nil and q.noDirectObjectives ~= true then return nil end
+    if q.objectivesText ~= nil then
+        -- Compiled u8u16stringarray: accept only a single reviewed player-facing
+        -- description line; reject sparse, oversized, nested or keyed arrays.
+        local text = q.objectivesText
+        if type(text) ~= "table" then return nil end
+        local count = 0
+        for key, value in pairs(text) do
+            if key ~= 1 or type(value) ~= "string" or #value == 0 or
+                #value > 65535 or value == "nil" then return nil end
+            count = count + 1
+        end
+        if count ~= 1 then return nil end
+    end
     if q.parentQuest ~= nil and not integerInRange(q.parentQuest, 1, MAX_ID) then return nil end
     if q.nextQuestInChain ~= nil and not integerInRange(q.nextQuestInChain, 1, MAX_ID) then return nil end
 
@@ -173,6 +186,7 @@ local function parseQuest(id, q)
         q.noDirectObjectives ~= true then return nil end
     if #entry.killNpcs + #entry.objectObjectives + #entry.itemObjectives > 0 and
         q.noDirectObjectives == true then return nil end
+    if q.objectivesText then entry.objectivesText = {q.objectivesText[1]} end
     return entry
 end
 
@@ -572,6 +586,7 @@ QuestieCompat.RegisterCorrection("questData", function()
             [keys.zoneOrSort] = q.zoneOrSort,
             [keys.requiredRaces] = q.requiredRaces,
             [keys.questFlags] = q.questFlags,
+            [keys.objectivesText] = entry.objectivesText,
             [keys.startedBy] = {entry.startedByNpcs},
             [keys.finishedBy] = {entry.finishedByNpcs},
         }
