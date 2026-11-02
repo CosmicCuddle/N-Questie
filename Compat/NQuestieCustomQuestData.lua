@@ -2,7 +2,7 @@
 -- Public curated quest metadata only; never include a raw database dump here.
 -- Increase revision whenever a record or loader behaviour changes to rebuild the compiled DB.
 NQuestieCustomQuestData = {
-    revision = 10,
+    revision = 11,
     quests = {
         [2001] = {
             name = "Ravenclaw Cleanup",
@@ -20,6 +20,7 @@ NQuestieCustomQuestData = {
         -- Kept as the server requirement; not changed here. Needs an owner decision.
         [1207] = {
             name = "The Kirin Tor Aid",
+            objectivesText = {"Collect 20 Kirin Tor Signet rings from mages inside Northwatch Hold and return to Thugg in Ratchet"}, -- archived quest_template.LogDescription
             requiredLevel = 18, questLevel = 21, zoneOrSort = 17, -- The Barrens
             requiredRaces = 690, questFlags = 0,
             startedByNpcs = {1209}, finishedByNpcs = {1209},
@@ -27,6 +28,7 @@ NQuestieCustomQuestData = {
         },
         [1208] = {
             name = "Northwatch Intel",
+            objectivesText = {"Collect 15 War Documents from Northwatch Hold and return to Thugg in Ratchet"}, -- archived quest_template.LogDescription
             requiredLevel = 18, questLevel = 21, zoneOrSort = 17,
             requiredRaces = 690, questFlags = 0,
             startedByNpcs = {1209}, finishedByNpcs = {1209},
@@ -38,6 +40,7 @@ NQuestieCustomQuestData = {
         -- decision. NOT TESTED in-game.
         [1209] = {
             name = "WANTED: The Northwatch Guard",
+            objectivesText = {"Slay and collect the heads of Captain Fairmount and her allies Duncan Stonefist and Cassia Frostveil inside Northwatch Hold and return to Thugg in Ratchet"}, -- archived quest_template.LogDescription
             requiredLevel = 18, questLevel = 21, zoneOrSort = 17,
             requiredRaces = 690, questFlags = 0,
             startedByNpcs = {1209}, finishedByNpcs = {1209},
