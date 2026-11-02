@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - qa/gate10-owner-test-d815548-20261102
+  pull_request:
+    branches:
+      - dev/nq-custom-loader-safety-20261021
 
 permissions:
   contents: read
@@ -15,13 +18,16 @@ jobs:
     steps:
       - name: Checkout exact private-server addon draft snapshot
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
 
       - name: Refuse any unapproved runtime-content deviation
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "d815548cbfef88d9f0c1f429ea7e6bf48214cddc"
-          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/nquestie-gate10-owner-test-zip-20261102.yml"
+          git merge-base --is-ancestor "d815548cbfef88d9f0c1f429ea7e6bf48214cddc" HEAD
+          test "$(git diff --name-only d815548cbfef88d9f0c1f429ea7e6bf48214cddc HEAD)" = ".github/workflows/nquestie-gate10-owner-test-zip-20261102.yml"
           test "$(git hash-object Compat/NQuestieCustomQuestData.lua)" = "74a57eccbeddee78c54085a8d9030597d86be866"
           grep -Fq 'revision = 10,' Compat/NQuestieCustomQuestData.lua
           grep -Fq '## Interface: 30300' Questie-335.toc
