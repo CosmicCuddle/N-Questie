@@ -1,0 +1,57 @@
+name: N-Questie Part56 owner-hover draft source tests (no artifact)
+
+on:
+  push:
+    branches:
+      - review/part56-gate10-hover-text-cs01-20261102
+  pull_request:
+    branches:
+      - dev/nq-custom-loader-safety-20261021
+
+permissions:
+  contents: read
+
+jobs:
+  gate10-hover-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout isolated exact-head review source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Guard against unrelated source modification
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=d815548cbfef88d9f0c1f429ea7e6bf48214cddc
+          git merge-base --is-ancestor "$baseline" HEAD
+          git diff --name-only "$baseline" HEAD | sort > /tmp/actual
+          cat > /tmp/allowed <<'EOF'
+          .github/workflows/nquestie-part56-gate10-owner-hover-source.yml
+          Compat/NQuestieCustomQuestData.lua
+          Compat/NQuestieCustomQuestLoader.lua
+          tests/compat/nq_part56_gate10_hover_owner_source.lua
+          EOF
+          diff -u /tmp/allowed /tmp/actual
+          grep -Fq 'revision = 11,' Compat/NQuestieCustomQuestData.lua
+          grep -Fq 'objectivesText = true' Compat/NQuestieCustomQuestLoader.lua
+          grep -Fq 'u8u16stringarray' Database/questDB.lua
+
+      - name: Install original WoW-compatible Lua interpreters
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lua5.1 lua5.4
+
+      - name: Execute actual production data and loader source in Lua 5.1 and Lua 5.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lua in 5.1 5.4; do
+            "luac$lua" -p Compat/NQuestieCustomQuestData.lua
+            "luac$lua" -p Compat/NQuestieCustomQuestLoader.lua
+            "luac$lua" -p tests/compat/nq_part56_gate10_hover_owner_source.lua
+            "lua$lua" tests/compat/nq_part56_gate10_hover_owner_source.lua
+          done
+          echo 'Source-run contract PASS; native WoW 3.3.5a not tested; no owner ZIP or artifacts created' >> "$GITHUB_STEP_SUMMARY"
