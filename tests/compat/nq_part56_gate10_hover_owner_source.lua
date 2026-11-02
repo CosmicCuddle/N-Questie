@@ -86,4 +86,5 @@ testCase("reject empty description", function(data) data.quests[1208].objectives
 testCase("reject multiple descriptions", function(data) data.quests[1209].objectivesText = {"text", "extra"} end, false)
 testCase("reject sparse description", function(data) data.quests[1208].objectivesText = {[2] = "gap"} end, false)
 testCase("reject overlong description", function(data) data.quests[1208].objectivesText = {string.rep("A", 65536)} end, false)
-print("PASS all 6 original-loader owner-hover source cases")
+testCase("reject compiler sentinel nil text", function(data) data.quests[1207].objectivesText = {"nil"} end, false)
+print("PASS all 7 original-loader owner-hover source cases")
